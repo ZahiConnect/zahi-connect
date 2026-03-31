@@ -1,0 +1,216 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  Zahi Connect - Docker Compose
+#  Mirrors MyCalo's docker-compose.yml architecture
+#  Adapted for Zahi's microservice + Kafka-based event-driven architecture
+# ═══════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ───────────────────────────────────────────────
+  #  DATABASE (PostgreSQL) — Same as MyCalo
+  # ───────────────────────────────────────────────
+  db:
+    image: postgres:15
+    container_name: zahi_db
+    environment:
+      - POSTGRES_DB=zahi_connect_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ───────────────────────────────────────────────
+  #  REDIS — Same as MyCalo (for caching & sessions)
+  # ───────────────────────────────────────────────
+  redis:
+    image: redis:alpine
+    container_name: zahi_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ───────────────────────────────────────────────
+  #  KAFKA + ZOOKEEPER — Event-Driven Messaging
+  #  (Replaces MyCalo's Celery for inter-service events)
+  # ───────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: zahi_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: zahi_kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # Kafka UI — for development monitoring
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: zahi_kafka_ui
+    depends_on:
+      - kafka
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: zahi-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+
+  # ───────────────────────────────────────────────
+  #  ACCOUNTS SERVICE (FastAPI) — Week 1 Core
+  # ───────────────────────────────────────────────
+  accounts:
+    build: ./services/accounts
+    container_name: zahi_accounts
+    volumes:
+      - ./services/accounts:/app
+    command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8001 --reload --reload-dir /app"
+    restart: always
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./services/accounts/.env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ───────────────────────────────────────────────
+  #  FUTURE SERVICES (scaffolded for Weeks 2-5)
+  # ───────────────────────────────────────────────
+  # Uncomment each service as you build them:
+
+  # --- HMS Service (Hotel Management) — Week 2 ---
+  hotel:
+    build: ./services/hotel
+    container_name: zahi_hotel
+    volumes:
+      - ./services/hotel:/app
+    command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8002 --reload --reload-dir /app"
+    restart: always
+    ports:
+      - "8002:8002"
+    env_file:
+      - ./services/hotel/.env
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # --- RMS Service (Restaurant Management) — Week 3 ---
+  restaurant:
+    build: ./services/restaurant
+    container_name: zahi_restaurant
+    volumes:
+      - ./services/restaurant:/app
+    command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8003 --reload --reload-dir /app"
+    restart: always
+    ports:
+      - "8003:8003"
+    env_file:
+      - ./services/restaurant/.env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # --- Mobility Service (Cabs / Fleet) — Week 4 ---
+  # mobility_service:
+  #   build: ./services/mobility_service
+  #   container_name: zahi_mobility_service
+  #   volumes:
+  #     - ./services/mobility_service:/app
+  #   command: uvicorn app.main:app --host 0.0.0.0 --port 8004 --reload
+  #   ports:
+  #     - "8004:8004"
+  #   env_file:
+  #     - ./services/mobility_service/.env
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+
+  # --- Travel Service (Flights / Tours) — Week 5 ---
+  # travel_service:
+  #   build: ./services/travel_service
+  #   container_name: zahi_travel_service
+  #   volumes:
+  #     - ./services/travel_service:/app
+  #   command: uvicorn app.main:app --host 0.0.0.0 --port 8005 --reload
+  #   ports:
+  #     - "8005:8005"
+  #   env_file:
+  #     - ./services/travel_service/.env
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+
+  # --- AI / WaaS Service (WhatsApp Bot Engine) — Week 2+ ---
+  # ai_service:
+  #   build: ./services/ai_service
+  #   container_name: zahi_ai_service
+  #   volumes:
+  #     - ./services/ai_service:/app
+  #   command: uvicorn app.main:app --host 0.0.0.0 --port 8006 --reload
+  #   ports:
+  #     - "8006:8006"
+  #   env_file:
+  #     - ./services/ai_service/.env
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_healthy
+
+  # ───────────────────────────────────────────────
+  #  API GATEWAY (NGINX) — Same pattern as MyCalo
+  # ───────────────────────────────────────────────
+  gateway:
+    image: nginx:alpine
+    container_name: zahi_gateway
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf
+      # Future: mount frontend build here
+      # - ./frontend/dist:/usr/share/nginx/html
+    ports:
+      - "8080:80"
+    depends_on:
+      - accounts
+      - hotel
+      - restaurant
+
+
+volumes:
+  postgres_data:

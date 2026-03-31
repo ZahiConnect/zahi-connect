@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #6C5CE7;
+  --color-primary-dark: #5b4cc2;
+  --color-success: #00B894;
+  --color-warning: #FDCB6E;
+  --color-danger: #E17055;
+  --color-dark-bg: #0F0F23;
+  --color-dark-surface: #1A1A2E;
+  --color-light-text: #E8E8F0;
+  
+  --font-inter: 'Inter', system-ui, sans-serif;
+}
+
+/* Custom scrollbar matching MyCalo's 'no-scrollbar' */
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+}

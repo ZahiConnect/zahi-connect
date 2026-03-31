@@ -1,0 +1,10 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+sqlalchemy==2.0.36
+asyncpg==0.30.0
+python-dotenv==1.0.1
+python-jose[cryptography]==3.3.0
+pydantic[email]==2.10.4
+python-multipart==0.0.20
+redis==5.2.1
+cloudinary==1.42.1
