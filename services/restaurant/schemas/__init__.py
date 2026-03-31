@@ -11,5 +11,5 @@ from schemas.order import (
     OrderResponse,
     OrderStatusUpdate,
 )
-from schemas.table import TableCreate, TableResponse, TableStatusUpdate
+from schemas.table import TableCreate, TableResponse, TableStatusUpdate, TableUpdate
 from schemas.inventory import InventoryItemCreate, InventoryItemResponse, InventoryItemUpdate

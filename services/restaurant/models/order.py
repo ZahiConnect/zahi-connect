@@ -1,8 +1,4 @@
-"""
-Zahi Connect - Order Models
-Order: The main order (who, where, what status)
-OrderItem: Individual items in the order with quantity and price
-"""
+"""Order models for restaurant order lifecycle management."""
 
 import uuid
 from datetime import datetime
@@ -19,21 +15,17 @@ class Order(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    table_id = Column(UUID(as_uuid=True), ForeignKey("tables.id"), nullable=True)
+    table_id = Column(
+        UUID(as_uuid=True), ForeignKey("tables.id", ondelete="SET NULL"), nullable=True
+    )
 
-    # Order source
     order_type = Column(String(20), default="dine_in")
-    # Types: dine_in, delivery, whatsapp, website
-
-    # Status lifecycle: new → preparing → ready → completed / cancelled
     status = Column(String(20), default="new", index=True)
 
-    # Customer info (for delivery/WhatsApp orders)
     customer_name = Column(String(200), nullable=True)
     customer_phone = Column(String(15), nullable=True)
     delivery_address = Column(Text, nullable=True)
 
-    # Totals
     total_amount = Column(Numeric(10, 2), default=0)
     special_instructions = Column(Text, nullable=True)
 
@@ -41,6 +33,15 @@ class Order(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    table = relationship("Table", back_populates="orders")
+
+    @property
+    def table_number(self):
+        return self.table.table_number if self.table else None
+
+    @property
+    def item_count(self):
+        return sum(item.quantity for item in self.items)
 
     def __repr__(self):
         return f"<Order {self.id} - {self.status}>"
@@ -55,7 +56,7 @@ class OrderItem(Base):
     )
     menu_item_id = Column(UUID(as_uuid=True), nullable=False)
 
-    item_name = Column(String(200), nullable=False)  # Snapshot name at order time
+    item_name = Column(String(200), nullable=False)
     quantity = Column(Integer, nullable=False, default=1)
     unit_price = Column(Numeric(10, 2), nullable=False)
     special_instructions = Column(Text, nullable=True)
@@ -63,6 +64,10 @@ class OrderItem(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     order = relationship("Order", back_populates="items")
+
+    @property
+    def line_total(self):
+        return float(self.unit_price) * self.quantity
 
     def __repr__(self):
         return f"<OrderItem {self.item_name} x{self.quantity}>"

@@ -1,159 +1,255 @@
-import React, { useState, useEffect } from 'react';
-import { HiOutlineClock, HiOutlineCheckCircle, HiOutlineFire } from 'react-icons/hi';
-import toast from 'react-hot-toast';
+import { useEffect, useState } from "react";
+import {
+  HiOutlineCheckCircle,
+  HiOutlineClock,
+  HiOutlineFire,
+  HiOutlineRefresh,
+} from "react-icons/hi";
+import toast from "react-hot-toast";
 
-// Dummy initial data for the Kanban board
-const initialKOTs = [
-    { id: '1092', table: 'T-04', type: 'Dine-In', time: '10 mins ago', status: 'pending', items: [
-        { name: 'Truffle Mushroom Risotto', notes: 'No extra cheese', qty: 1 },
-        { name: 'Crispy Calamari', notes: '', qty: 2 }
-    ]},
-    { id: '1093', table: 'Pickup', type: 'Takeaway', time: '5 mins ago', status: 'pending', items: [
-        { name: 'Wagyu Beef Burger', notes: 'Medium Rare', qty: 2 },
-        { name: 'Matcha Lava Cake', notes: '', qty: 1 }
-    ]},
-    { id: '1090', table: 'T-12', type: 'Dine-In', time: '18 mins ago', status: 'cooking', items: [
-        { name: 'Grilled Salmon Bowl', notes: 'Sauce on side', qty: 1 }
-    ]},
-    { id: '1088', table: 'Delivery', type: 'Zomato', time: '25 mins ago', status: 'ready', items: [
-        { name: 'Artisan Burrata', notes: '', qty: 3 }
-    ]}
+import restaurantService from "../../services/restaurantService";
+import {
+  formatCurrency,
+  formatOrderSourceLabel,
+  getRelativeTime,
+  orderStatusClasses,
+} from "../../lib/restaurant";
+
+const columns = [
+  {
+    id: "new",
+    title: "New Orders",
+    icon: HiOutlineClock,
+    color: "text-blue-600",
+    bg: "bg-blue-50",
+    border: "border-blue-200",
+    buttonLabel: "Start Preparing",
+    nextStatus: "preparing",
+    buttonClass: "bg-[#1A1A1A] hover:bg-[#333333] text-white",
+  },
+  {
+    id: "preparing",
+    title: "Preparing",
+    icon: HiOutlineFire,
+    color: "text-amber-600",
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+    buttonLabel: "Mark Ready",
+    nextStatus: "ready",
+    buttonClass: "bg-amber-600 hover:bg-amber-700 text-white",
+  },
+  {
+    id: "ready",
+    title: "Ready to Serve",
+    icon: HiOutlineCheckCircle,
+    color: "text-emerald-600",
+    bg: "bg-emerald-50",
+    border: "border-emerald-200",
+    buttonLabel: "Complete Order",
+    nextStatus: "completed",
+    buttonClass: "bg-emerald-600 hover:bg-emerald-700 text-white",
+  },
 ];
 
+const initialBoard = {
+  new: [],
+  preparing: [],
+  ready: [],
+};
+
 export default function Kitchen() {
-    const [orders, setOrders] = useState(initialKOTs);
-    const [isConnecting, setIsConnecting] = useState(false);
+  const [board, setBoard] = useState(initialBoard);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [updatingOrderId, setUpdatingOrderId] = useState("");
 
-    // Placeholder for WebSocket Integration
-    useEffect(() => {
-        // In a real scenario, this connects to the Kitchen microservice via WebSocket
-        // const ws = new WebSocket('ws://api.zahiconnect.com/ws/kitchen/tenant-id');
-        setIsConnecting(true);
-        const timer = setTimeout(() => {
-            setIsConnecting(false);
-            toast.success("Live Kitchen Display Connected");
-        }, 1500);
+  const fetchBoard = async ({ silent = false } = {}) => {
+    if (silent) {
+      setSyncing(true);
+    } else {
+      setLoading(true);
+    }
 
-        return () => clearTimeout(timer);
-    }, []);
+    try {
+      const data = await restaurantService.getKitchenBoard();
+      setBoard({
+        new: data?.new || [],
+        preparing: data?.preparing || [],
+        ready: data?.ready || [],
+      });
+    } catch (error) {
+      console.error("Failed to load kitchen board", error);
+      if (!silent) {
+        toast.error("Failed to load kitchen board");
+      }
+    } finally {
+      setLoading(false);
+      setSyncing(false);
+    }
+  };
 
-    const moveOrder = (orderId, newStatus) => {
-        setOrders(prev => prev.map(o => 
-            o.id === orderId ? { ...o, status: newStatus } : o
-        ));
-        toast.success(`Order #${orderId} moved to ${newStatus}`);
-    };
+  useEffect(() => {
+    fetchBoard();
 
-    const getColumnOrders = (status) => orders.filter(o => o.status === status);
+    const intervalId = window.setInterval(() => {
+      fetchBoard({ silent: true });
+    }, 20000);
 
-    const columns = [
-        { id: 'pending', title: 'New Orders', icon: HiOutlineClock, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
-        { id: 'cooking', title: 'Cooking', icon: HiOutlineFire, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
-        { id: 'ready', title: 'Ready to Serve', icon: HiOutlineCheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' }
-    ];
+    return () => window.clearInterval(intervalId);
+  }, []);
 
-    return (
-        <div className="space-y-6 animate-in fade-in duration-500 h-[calc(100vh-10rem)] flex flex-col">
-            
-            {/* Header */}
-            <div className="flex justify-between items-center shrink-0 border-b border-[#E5E5E5] pb-4">
-                <div>
-                    <h1 className="text-3xl font-serif text-[#1A1A1A] mb-1">Kitchen Display (KDS)</h1>
-                    <div className="flex items-center gap-2">
-                        <div className={`w-2.5 h-2.5 rounded-full ${isConnecting ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></div>
-                        <span className="text-sm font-medium text-[#666666]">
-                            {isConnecting ? 'Connecting to Kitchen WebSocket...' : 'Live Synced'}
-                        </span>
-                    </div>
-                </div>
+  const moveOrder = async (orderId, newStatus) => {
+    try {
+      setUpdatingOrderId(orderId);
+      await restaurantService.updateOrderStatus(orderId, newStatus);
+      toast.success("Kitchen board updated");
+      await fetchBoard({ silent: true });
+    } catch (error) {
+      console.error("Failed to move order", error);
+      toast.error(error.response?.data?.detail || "Failed to update order");
+    } finally {
+      setUpdatingOrderId("");
+    }
+  };
+
+  return (
+    <div className="flex h-[calc(100vh-10rem)] flex-col space-y-6 animate-in fade-in duration-500">
+      <div className="shrink-0 border-b border-[#E5E5E5] pb-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-serif text-[#1A1A1A]">Kitchen Display</h1>
+            <div className="mt-2 flex items-center gap-2">
+              <div
+                className={`h-2.5 w-2.5 rounded-full ${
+                  syncing || loading ? "animate-pulse bg-amber-500" : "bg-emerald-500"
+                }`}
+              />
+              <span className="text-sm font-medium text-[#666666]">
+                {syncing || loading ? "Syncing kitchen board..." : "Auto-refreshing every 20 seconds"}
+              </span>
             </div>
+          </div>
 
-            {/* Kanban Board */}
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden">
-                {columns.map(col => (
-                    <div key={col.id} className="flex flex-col bg-[#F9F9F9] border border-[#E5E5E5] rounded-xl overflow-hidden">
-                        {/* Column Header */}
-                        <div className={`p-4 border-b border-[#E5E5E5] bg-[#FFFFFF] flex justify-between items-center`}>
-                            <div className="flex items-center gap-2">
-                                <col.icon className={`text-xl ${col.color}`} />
-                                <h2 className="font-serif font-semibold text-[#1A1A1A] text-lg">{col.title}</h2>
-                            </div>
-                            <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${col.bg} ${col.color} border ${col.border}`}>
-                                {getColumnOrders(col.id).length}
-                            </span>
-                        </div>
-
-                        {/* Order Cards container */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-                            {getColumnOrders(col.id).map(order => (
-                                <div key={order.id} className="bg-[#FFFFFF] rounded-xl border border-[#E5E5E5] p-5 shadow-sm hover:shadow-md transition-shadow">
-                                    {/* Card Header */}
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h3 className="text-xl font-bold font-mono text-[#1A1A1A]">#{order.id}</h3>
-                                            <p className="text-sm font-medium text-[#666666]">{order.type} • {order.table}</p>
-                                        </div>
-                                        <span className={`text-xs font-semibold px-2 py-1 rounded-md bg-[#F2F0ED] text-[#666666]`}>
-                                            {order.time}
-                                        </span>
-                                    </div>
-
-                                    {/* Items List */}
-                                    <div className="space-y-3 mb-6 bg-[#FDFCFB] p-3 rounded-lg border border-[#F2F0ED]">
-                                        {order.items.map((item, idx) => (
-                                            <div key={idx} className="flex gap-3">
-                                                <div className="w-6 h-6 rounded bg-[#EAE7E1] text-[#1A1A1A] font-bold text-xs flex items-center justify-center shrink-0">
-                                                    {item.qty}x
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium text-[#1A1A1A] text-sm leading-tight">{item.name}</p>
-                                                    {item.notes && (
-                                                        <p className="text-xs text-red-600 font-medium italic mt-0.5">Note: {item.notes}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* Actions */}
-                                    <div className="flex gap-2">
-                                        {col.id === 'pending' && (
-                                            <button 
-                                                onClick={() => moveOrder(order.id, 'cooking')}
-                                                className="w-full bg-[#1A1A1A] hover:bg-[#333333] text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
-                                            >
-                                                Start Cooking
-                                            </button>
-                                        )}
-                                        {col.id === 'cooking' && (
-                                            <button 
-                                                onClick={() => moveOrder(order.id, 'ready')}
-                                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
-                                            >
-                                                Mark as Ready
-                                            </button>
-                                        )}
-                                        {col.id === 'ready' && (
-                                            <button 
-                                                onClick={() => moveOrder(order.id, 'served')}
-                                                className="w-full bg-[#FFFFFF] border border-[#E5E5E5] text-[#333333] hover:bg-[#F2F0ED] py-2.5 rounded-lg text-sm font-medium transition-colors"
-                                            >
-                                                Mark Served / Cleared
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                            {getColumnOrders(col.id).length === 0 && (
-                                <div className="h-full flex flex-col items-center justify-center text-[#A0A0B0] py-10">
-                                    <col.icon className="text-4xl mb-2 opacity-50" />
-                                    <p className="text-sm font-medium">No orders</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ))}
-            </div>
+          <button
+            type="button"
+            onClick={() => fetchBoard({ silent: true })}
+            className="inline-flex items-center gap-2 rounded-full border border-[#DDCDBF] bg-white px-4 py-2 text-sm font-medium text-[#3A2C21] transition-colors hover:bg-[#FBF6F0]"
+          >
+            <HiOutlineRefresh className={syncing ? "animate-spin" : ""} />
+            Refresh now
+          </button>
         </div>
-    );
+      </div>
+
+      <div className="grid flex-1 grid-cols-1 gap-6 overflow-hidden md:grid-cols-3">
+        {columns.map((column) => {
+          const orders = board[column.id] || [];
+
+          return (
+            <section
+              key={column.id}
+              className="flex flex-col overflow-hidden rounded-3xl border border-[#E6DDD4] bg-[#F9F7F3]"
+            >
+              <div className="flex items-center justify-between border-b border-[#E6DDD4] bg-white px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <div className={`rounded-2xl p-3 ${column.bg} ${column.color}`}>
+                    <column.icon className="text-xl" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-serif text-[#1F1A17]">{column.title}</h2>
+                    <p className="text-sm text-[#6A5B4C]">{orders.length} active ticket(s)</p>
+                  </div>
+                </div>
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${column.bg} ${column.color} ${column.border}`}
+                >
+                  {orders.length}
+                </span>
+              </div>
+
+              <div className="flex-1 space-y-4 overflow-y-auto p-4">
+                {loading ? (
+                  [...Array(3)].map((_, index) => (
+                    <div key={index} className="h-48 animate-pulse rounded-3xl bg-white" />
+                  ))
+                ) : orders.length === 0 ? (
+                  <div className="flex h-full flex-col items-center justify-center rounded-3xl border border-dashed border-[#DDD2C5] bg-white px-6 py-10 text-center text-[#8A7C6D]">
+                    <column.icon className="mb-3 text-4xl opacity-50" />
+                    <p className="text-sm font-medium">No orders in this stage</p>
+                  </div>
+                ) : (
+                  orders.map((order) => (
+                    <article
+                      key={order.id}
+                      className="rounded-3xl border border-[#E6DDD4] bg-white p-5 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-xl font-bold text-[#1A1A1A]">#{order.id.slice(0, 8)}</h3>
+                            <span
+                              className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                                orderStatusClasses[order.status]
+                              }`}
+                            >
+                              {order.status}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-sm font-medium text-[#666666]">
+                            {formatOrderSourceLabel(order.order_type)}
+                            {order.table_number ? ` | Table ${order.table_number}` : ""}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-[#1F1A17]">
+                            {formatCurrency(order.total_amount)}
+                          </p>
+                          <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[#8C7A6A]">
+                            {getRelativeTime(order.created_at)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 space-y-3 rounded-2xl border border-[#F0E7DE] bg-[#FFFCF8] p-4">
+                        {order.items.map((item) => (
+                          <div key={item.id} className="flex gap-3">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EFE5DB] text-xs font-bold text-[#1F1A17]">
+                              {item.quantity}x
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-[#1F1A17]">{item.item_name}</p>
+                              {item.special_instructions && (
+                                <p className="mt-1 text-xs font-medium italic text-[#B45309]">
+                                  Note: {item.special_instructions}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        {order.special_instructions && (
+                          <div className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                            Ticket note: {order.special_instructions}
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => moveOrder(order.id, column.nextStatus)}
+                        disabled={updatingOrderId === order.id}
+                        className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${column.buttonClass}`}
+                      >
+                        {updatingOrderId === order.id ? "Updating..." : column.buttonLabel}
+                      </button>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

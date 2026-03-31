@@ -1,226 +1,238 @@
-import React, { useState, useEffect } from 'react';
-import { HiPlus, HiOutlineUserGroup, HiOutlineX } from 'react-icons/hi';
-import toast from 'react-hot-toast';
-import restaurantService from '../../services/restaurantService';
+import { useEffect, useState } from "react";
+import { HiOutlineTrash, HiOutlineUserGroup, HiOutlineX, HiPlus } from "react-icons/hi";
+import toast from "react-hot-toast";
 
-const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-        case 'available': return 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:border-emerald-300';
-        case 'occupied': return 'bg-amber-50 border-amber-200 text-amber-700 hover:border-amber-300';
-        case 'reserved': return 'bg-blue-50 border-blue-200 text-blue-700 hover:border-blue-300';
-        default: return 'bg-[#F9F9F9] border-[#E5E5E5] text-[#888888]';
-    }
+import restaurantService from "../../services/restaurantService";
+import { tableStatusClasses } from "../../lib/restaurant";
+
+const emptyForm = {
+  table_number: "",
+  capacity: 4,
+  status: "available",
+  assigned_staff: "",
 };
 
 export default function Tables() {
-    const [tables, setTables] = useState([]);
-    const [loading, setLoading] = useState(true);
+  const [tables, setTables] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editingTable, setEditingTable] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
 
-    // Modal state for adding a table
-    const [isAddTableModalOpen, setIsAddTableModalOpen] = useState(false);
-    const [newTableNumber, setNewTableNumber] = useState('');
-    const [newTableCapacity, setNewTableCapacity] = useState('4');
-    const [isSubmitting, setIsSubmitting] = useState(false);
+  const loadTables = async () => {
+    try {
+      setLoading(true);
+      const data = await restaurantService.getTables();
+      setTables(data || []);
+    } catch (error) {
+      console.error("Failed to load tables", error);
+      toast.error("Failed to load tables");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    useEffect(() => {
-        fetchTables();
-    }, []);
+  useEffect(() => {
+    loadTables();
+  }, []);
 
-    const fetchTables = async () => {
-        try {
-            setLoading(true);
-            const data = await restaurantService.getTables();
-            setTables(data || []);
-        } catch (error) {
-            console.error("Error fetching tables", error);
-            // Don't inject mock data anymore to avoid confusion, show empty instead
-            toast.error("Failed to load tables from server");
-            setTables([]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleAddTable = async (e) => {
-        e.preventDefault();
-        
-        if (!newTableNumber || !newTableCapacity) {
-            toast.error("Please fill all fields");
-            return;
-        }
-
-        setIsSubmitting(true);
-        try {
-            await restaurantService.createTable({
-                table_number: parseInt(newTableNumber),
-                capacity: parseInt(newTableCapacity),
-                status: 'available'
-            });
-            toast.success("Table added successfully!");
-            setIsAddTableModalOpen(false);
-            setNewTableNumber('');
-            setNewTableCapacity('4');
-            fetchTables();
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to add table");
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleStatusToggle = async (table) => {
-        // Simple rotation: available -> occupied -> reserved -> available
-        let nextStatus = 'available';
-        if (table.status === 'available') nextStatus = 'occupied';
-        else if (table.status === 'occupied') nextStatus = 'reserved';
-        
-        try {
-            await restaurantService.updateTableStatus(table.id, nextStatus);
-            toast.success(`Table ${table.table_number} marked as ${nextStatus}`);
-            fetchTables();
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to update status");
-        }
-    };
-
-    return (
-        <div className="space-y-8 animate-in fade-in duration-500 pb-10">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-[#E5E5E5] pb-6">
-                <div>
-                    <h1 className="text-3xl font-serif text-[#1A1A1A] mb-1">POS & Floor Plan</h1>
-                    <p className="text-[#666666]">Manage table occupancies and layout.</p>
-                </div>
-                <div className="flex gap-3">
-                    <button 
-                        onClick={() => setIsAddTableModalOpen(true)}
-                        className="bg-[#FFFFFF] hover:bg-[#F9F9F9] border border-[#E5E5E5] text-[#333333] px-5 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm"
-                    >
-                        <HiPlus className="text-lg" />
-                        Add Table
-                    </button>
-                    <button className="bg-[#1A1A1A] hover:bg-[#333333] text-white px-5 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm">
-                        Refresh
-                    </button>
-                </div>
-            </div>
-
-            {/* Legend */}
-            <div className="flex gap-6 items-center py-2 bg-white px-5 rounded-lg border border-[#E5E5E5] shadow-sm max-w-max">
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                    <span className="text-sm font-medium text-[#666666]">Available</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                    <span className="text-sm font-medium text-[#666666]">Occupied</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                    <span className="text-sm font-medium text-[#666666]">Reserved</span>
-                </div>
-            </div>
-
-            {/* Floor Plan Grid */}
-            {loading ? (
-                <div className="flex justify-center py-20">
-                    <div className="w-6 h-6 border-2 border-[#1A1A1A] border-t-transparent rounded-full animate-spin"></div>
-                </div>
-            ) : tables.length === 0 ? (
-                <div className="bg-white border text-center border-[#E5E5E5] rounded-xl p-10 flex flex-col items-center justify-center">
-                    <p className="text-[#666666] mb-4">No tables found for this restaurant.</p>
-                    <button onClick={() => setIsAddTableModalOpen(true)} className="text-[#8A7DF0] font-medium hover:underline">
-                        Create your first table
-                    </button>
-                </div>
-            ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-                    {tables.map(table => (
-                        <div 
-                            key={table.id} 
-                            onClick={() => handleStatusToggle(table)}
-                            className={`relative group cursor-pointer border rounded-xl p-5 transition-all duration-300 hover:-translate-y-0.5 shadow-sm ${getStatusColor(table.status)}`}
-                        >
-                            <div className="flex justify-between items-start mb-6">
-                                <h3 className="text-2xl font-serif font-semibold text-[#1A1A1A]">T-{table.table_number}</h3>
-                                <div className="flex items-center gap-1 text-sm bg-white/60 px-2 py-1 rounded-md border border-black/5">
-                                    <HiOutlineUserGroup className="text-[#666666]" />
-                                    <span className="font-medium text-[#333333]">{table.capacity}</span>
-                                </div>
-                            </div>
-                            
-                            <div className="mt-4">
-                                <span className="uppercase text-xs font-bold tracking-wider">
-                                    {table.status}
-                                </span>
-                            </div>
-
-                            {/* Hover Actions */}
-                            <div className="absolute inset-0 bg-white/90 rounded-xl opacity-0 group-hover:opacity-100 backdrop-blur-sm transition-opacity flex flex-col items-center justify-center gap-3 border border-[#E5E5E5] shadow-md z-10">
-                                <span className="text-xs font-semibold text-[#666666] tracking-wider uppercase mb-1">Click to toggle</span>
-                                <div className="flex gap-2 text-sm font-medium">
-                                    {table.status === 'available' ? '→ Occupy' : table.status === 'occupied' ? '→ Reserve' : '→ Available'}
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Add Table Modal */}
-            {isAddTableModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
-                        <div className="px-6 py-4 border-b border-[#E5E5E5] flex justify-between items-center bg-[#FDFCFB]">
-                            <h2 className="text-xl font-serif font-bold text-[#1A1A1A]">New Table</h2>
-                            <button onClick={() => setIsAddTableModalOpen(false)} className="text-[#A0A0B0] hover:text-[#1A1A1A] bg-[#F9F9F9] hover:bg-[#F2F0ED] p-1.5 rounded-md transition-colors">
-                                <HiOutlineX className="text-lg" />
-                            </button>
-                        </div>
-                        <div className="p-6">
-                            <form id="table-form" onSubmit={handleAddTable} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Table Number *</label>
-                                    <input 
-                                        type="number" 
-                                        autoFocus
-                                        required
-                                        min="1"
-                                        value={newTableNumber}
-                                        onChange={(e) => setNewTableNumber(e.target.value)}
-                                        className="w-full bg-[#FFFFFF] border border-[#E5E5E5] text-[#333333] rounded-lg px-4 py-2 focus:ring-1 focus:ring-[#8A7DF0] outline-none transition-shadow"
-                                        placeholder="e.g. 5"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Seat Capacity *</label>
-                                    <select
-                                        value={newTableCapacity}
-                                        onChange={(e) => setNewTableCapacity(e.target.value)}
-                                        className="w-full bg-[#FFFFFF] border border-[#E5E5E5] text-[#333333] rounded-lg px-4 py-2 focus:ring-1 focus:ring-[#8A7DF0] outline-none"
-                                    >
-                                        <option value="2">2 Seats</option>
-                                        <option value="4">4 Seats</option>
-                                        <option value="6">6 Seats</option>
-                                        <option value="8">8 Seats</option>
-                                        <option value="12">12 Seats (Large)</option>
-                                    </select>
-                                </div>
-                            </form>
-                        </div>
-                        <div className="p-4 border-t border-[#E5E5E5] bg-[#FDFCFB] flex justify-end gap-3">
-                            <button type="button" onClick={() => setIsAddTableModalOpen(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-[#666666] hover:bg-[#F2F0ED] transition-colors border border-transparent hover:border-[#E5E5E5]">
-                                Cancel
-                            </button>
-                            <button form="table-form" type="submit" disabled={isSubmitting} className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#1A1A1A] hover:bg-[#333333] transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed">
-                                {isSubmitting ? 'Saving...' : 'Add Table'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+  const openModal = (table = null) => {
+    setEditingTable(table);
+    setForm(
+      table
+        ? {
+            table_number: table.table_number,
+            capacity: table.capacity,
+            status: table.status,
+            assigned_staff: table.assigned_staff || "",
+          }
+        : emptyForm
     );
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setEditingTable(null);
+    setForm(emptyForm);
+    setModalOpen(false);
+  };
+
+  const saveTable = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+
+    try {
+      const payload = {
+        table_number: Number(form.table_number),
+        capacity: Number(form.capacity),
+        status: form.status,
+        assigned_staff: form.assigned_staff || null,
+      };
+
+      if (editingTable) await restaurantService.updateTable(editingTable.id, payload);
+      else await restaurantService.createTable(payload);
+
+      toast.success(editingTable ? "Table updated" : "Table created");
+      closeModal();
+      await loadTables();
+    } catch (error) {
+      console.error("Failed to save table", error);
+      toast.error(error.response?.data?.detail || "Failed to save table");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const quickStatusUpdate = async (tableId, status) => {
+    try {
+      await restaurantService.updateTableStatus(tableId, { status });
+      toast.success("Table status updated");
+      await loadTables();
+    } catch (error) {
+      console.error("Failed to update table status", error);
+      toast.error(error.response?.data?.detail || "Failed to update table status");
+    }
+  };
+
+  const deleteTable = async (tableId) => {
+    if (!window.confirm("Delete this table?")) return;
+
+    try {
+      await restaurantService.deleteTable(tableId);
+      toast.success("Table deleted");
+      await loadTables();
+    } catch (error) {
+      console.error("Failed to delete table", error);
+      toast.error(error.response?.data?.detail || "Failed to delete table");
+    }
+  };
+
+  const counts = {
+    available: tables.filter((table) => table.status === "available").length,
+    occupied: tables.filter((table) => table.status === "occupied").length,
+    reserved: tables.filter((table) => table.status === "reserved").length,
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500 pb-10">
+      <div className="flex flex-col gap-4 border-b border-[#E5E5E5] pb-6 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-serif text-[#1A1A1A]">Tables</h1>
+          <p className="mt-1 text-[#666666]">Control floor occupancy, seating, and assigned staff.</p>
+        </div>
+        <div className="flex gap-3">
+          <button type="button" onClick={loadTables} className="rounded-full border border-[#D9CCC0] bg-white px-4 py-2.5 text-sm font-medium text-[#3A2C21] hover:bg-[#FBF6F0]">
+            Refresh
+          </button>
+          <button type="button" onClick={() => openModal()} className="inline-flex items-center gap-2 rounded-full bg-[#1A1A1A] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#333333]">
+            <HiPlus className="text-lg" />
+            Add Table
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {Object.entries(counts).map(([status, count]) => (
+          <div key={status} className="rounded-3xl border border-[#ECE5DD] bg-white p-6 shadow-sm">
+            <p className="text-sm uppercase tracking-[0.18em] text-[#A76541]">{status}</p>
+            <h2 className="mt-3 text-3xl font-serif text-[#21170F]">{count}</h2>
+            <p className="mt-2 text-sm text-[#655649]">Tables currently marked {status}.</p>
+          </div>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[...Array(6)].map((_, index) => <div key={index} className="h-52 animate-pulse rounded-3xl bg-white" />)}
+        </div>
+      ) : tables.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-[#DDD2C5] bg-white px-6 py-10 text-center text-sm text-[#8A7C6D]">
+          No tables found yet. Add your first table to start taking dine-in orders.
+        </div>
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {tables.map((table) => (
+            <article key={table.id} className="rounded-3xl border border-[#ECE5DD] bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl font-serif text-[#1F1A17]">T-{table.table_number}</h2>
+                  <p className="mt-2 text-sm text-[#655649]">Seats {table.capacity}</p>
+                </div>
+                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${tableStatusClasses[table.status] || tableStatusClasses.available}`}>
+                  {table.status}
+                </span>
+              </div>
+
+              <div className="mt-4 rounded-2xl bg-[#FBF6F0] px-4 py-3 text-sm text-[#5F5144]">
+                <div className="flex items-center gap-2">
+                  <HiOutlineUserGroup />
+                  <span>{table.assigned_staff || "No staff assigned"}</span>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-3 gap-2">
+                {["available", "occupied", "reserved"].map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => quickStatusUpdate(table.id, status)}
+                    className={`rounded-2xl px-3 py-2 text-xs font-semibold capitalize ${
+                      table.status === status
+                        ? "bg-[#1A1A1A] text-white"
+                        : "border border-[#E4D9CD] bg-white text-[#5F5144] hover:bg-[#FBF6F0]"
+                    }`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-5 flex items-center justify-between">
+                <button type="button" onClick={() => openModal(table)} className="text-sm font-medium text-[#9E6041] hover:text-[#7E4A2D]">
+                  Edit table
+                </button>
+                <button type="button" onClick={() => deleteTable(table.id)} className="inline-flex items-center gap-1 text-sm font-medium text-rose-700 hover:text-rose-900">
+                  <HiOutlineTrash />
+                  Delete
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#E5E5E5] px-6 py-5">
+              <div>
+                <h2 className="text-2xl font-serif text-[#1A1A1A]">{editingTable ? "Edit Table" : "Add Table"}</h2>
+                <p className="mt-1 text-sm text-[#666666]">Keep the floor plan clean and accurate.</p>
+              </div>
+              <button type="button" onClick={closeModal} className="rounded-full bg-[#F4EFE8] p-2 text-[#6A5B4C] hover:bg-[#ECE3D8]">
+                <HiOutlineX className="text-lg" />
+              </button>
+            </div>
+
+            <form onSubmit={saveTable} className="space-y-4 px-6 py-6">
+              <input type="number" min="1" required value={form.table_number} onChange={(event) => setForm((current) => ({ ...current, table_number: event.target.value }))} placeholder="Table number" className="w-full rounded-2xl border border-[#E4D9CD] px-4 py-3 text-sm outline-none" />
+              <select value={form.capacity} onChange={(event) => setForm((current) => ({ ...current, capacity: event.target.value }))} className="w-full rounded-2xl border border-[#E4D9CD] px-4 py-3 text-sm outline-none">
+                {[2, 4, 6, 8, 10, 12].map((capacity) => <option key={capacity} value={capacity}>{capacity} seats</option>)}
+              </select>
+              <select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))} className="w-full rounded-2xl border border-[#E4D9CD] px-4 py-3 text-sm outline-none">
+                <option value="available">Available</option>
+                <option value="occupied">Occupied</option>
+                <option value="reserved">Reserved</option>
+              </select>
+              <input type="text" value={form.assigned_staff} onChange={(event) => setForm((current) => ({ ...current, assigned_staff: event.target.value }))} placeholder="Assigned staff (optional)" className="w-full rounded-2xl border border-[#E4D9CD] px-4 py-3 text-sm outline-none" />
+              <button type="submit" disabled={saving} className="w-full rounded-2xl bg-[#1A1A1A] px-4 py-3 text-sm font-semibold text-white hover:bg-[#333333] disabled:opacity-60">
+                {saving ? "Saving..." : editingTable ? "Save Changes" : "Create Table"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

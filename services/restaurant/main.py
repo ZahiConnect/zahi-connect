@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from config import settings
 from database import Base, engine
@@ -24,6 +25,13 @@ from routers import (
 
 STARTUP_DB_RETRIES = 15
 STARTUP_DB_RETRY_DELAY_SECONDS = 2
+SCHEMA_PATCHES = [
+    "ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS category VARCHAR(100) DEFAULT 'General'",
+    "ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS supplier VARCHAR(200)",
+    "ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(10, 2) DEFAULT 0",
+    "UPDATE inventory_items SET category = 'General' WHERE category IS NULL",
+    "UPDATE inventory_items SET unit_cost = 0 WHERE unit_cost IS NULL",
+]
 
 
 async def initialize_database():
@@ -48,6 +56,13 @@ async def initialize_database():
     raise last_error
 
 
+async def apply_schema_updates():
+    """Apply lightweight schema patches when tables already exist without migrations."""
+    async with engine.begin() as conn:
+        for statement in SCHEMA_PATCHES:
+            await conn.execute(text(statement))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize things on startup."""
@@ -58,6 +73,7 @@ async def lifespan(app: FastAPI):
     )
 
     await initialize_database()
+    await apply_schema_updates()
     yield
 
 

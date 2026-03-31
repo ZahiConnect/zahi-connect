@@ -1,493 +1,342 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { HiPlus, HiOutlinePencilAlt, HiOutlineTrash, HiOutlinePhotograph, HiOutlineSearch, HiX } from 'react-icons/hi';
-import toast from 'react-hot-toast';
-import restaurantService from '../../services/restaurantService';
+import { useEffect, useRef, useState } from "react";
+import {
+  HiOutlinePencilAlt,
+  HiOutlinePhotograph,
+  HiOutlineSearch,
+  HiOutlineTrash,
+  HiPlus,
+  HiX,
+} from "react-icons/hi";
+import toast from "react-hot-toast";
+
+import restaurantService from "../../services/restaurantService";
+import { formatCurrency, getFoodTypeLabel } from "../../lib/restaurant";
+
+const initialForm = {
+  name: "",
+  description: "",
+  dine_in_price: "",
+  delivery_price: "",
+  prep_time_minutes: 15,
+  category_id: "",
+  food_type: "veg",
+  is_available: true,
+  imageFile: null,
+  imagePreview: null,
+};
 
 export default function Menu() {
-    const [menuItems, setMenuItems] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('all');
-    
-    // Modal State
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState(null);
-    const [isSaving, setIsSaving] = useState(false);
-    const [isSavingCategory, setIsSavingCategory] = useState(false);
-    const [newCategoryName, setNewCategoryName] = useState('');
-    const fileInputRef = useRef(null);
+  const [categories, setCategories] = useState([]);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [itemModalOpen, setItemModalOpen] = useState(false);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [form, setForm] = useState(initialForm);
+  const fileInputRef = useRef(null);
 
-    // Form State
-    const [formData, setFormData] = useState({
-        name: '',
-        description: '',
-        dine_in_price: '',
-        category_id: '',
-        food_type: 'veg',
-        is_available: true,
-        imageFile: null,
-        imagePreview: null
+  const loadMenu = async () => {
+    try {
+      setLoading(true);
+      const [nextCategories, nextItems] = await Promise.all([
+        restaurantService.getMenuCategories(),
+        restaurantService.getMenu(),
+      ]);
+      setCategories(nextCategories || []);
+      setItems(nextItems || []);
+    } catch (error) {
+      console.error("Failed to load menu", error);
+      toast.error("Failed to load menu");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMenu();
+  }, []);
+
+  const resetForm = () => {
+    setEditingItem(null);
+    setForm({
+      ...initialForm,
+      category_id: categories[0]?.id || "",
     });
+  };
 
-    useEffect(() => {
-        fetchInitialData();
-    }, []);
+  const openItemModal = (item = null) => {
+    if (!item && categories.length === 0) {
+      toast.error("Create a category first");
+      return;
+    }
 
-    const fetchInitialData = async () => {
-        try {
-            setLoading(true);
-            const [cats, items] = await Promise.all([
-                restaurantService.getMenuCategories(),
-                restaurantService.getMenu()
-            ]);
-            setCategories(cats || []);
-            setMenuItems(items || []);
-        } catch (error) {
-            console.error("Error fetching menu data", error);
-            toast.error("Failed to load menu. Setup initial data or check connection.");
-            
-            // Allow creating categories even if fetch failed (maybe empty db)
-            if (error.response?.status === 404 || categories.length === 0) {
-                // Ignore, we will allow creating items next
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
+    if (item) {
+      setEditingItem(item);
+      setForm({
+        name: item.name,
+        description: item.description || "",
+        dine_in_price: item.dine_in_price,
+        delivery_price: item.delivery_price || "",
+        prep_time_minutes: item.prep_time_minutes || 15,
+        category_id: item.category_id,
+        food_type: item.food_type,
+        is_available: item.is_available,
+        imageFile: null,
+        imagePreview: item.image_url || null,
+      });
+    } else {
+      resetForm();
+    }
 
-    const handleCreateCategory = async (e) => {
-        e.preventDefault();
-        if (!newCategoryName.trim()) {
-            toast.error("Category name is required");
-            return;
-        }
-        setIsSavingCategory(true);
-        try {
-            await restaurantService.createMenuCategory({ name: newCategoryName });
-            toast.success(`Category '${newCategoryName}' created!`);
-            setNewCategoryName('');
-            setIsCategoryModalOpen(false);
-            fetchInitialData();
-        } catch (err) {
-            toast.error("Failed to create category");
-        } finally {
-            setIsSavingCategory(false);
-        }
-    };
+    setItemModalOpen(true);
+  };
 
-    const openModal = (item = null) => {
-        if (categories.length === 0 && !item) {
-            toast.error("Please create a category first!");
-            return;
-        }
+  const closeItemModal = () => {
+    setItemModalOpen(false);
+    resetForm();
+  };
 
-        setEditingItem(item);
-        if (item) {
-            setFormData({
-                name: item.name,
-                description: item.description || '',
-                dine_in_price: item.dine_in_price,
-                category_id: item.category_id,
-                food_type: item.food_type,
-                is_available: item.is_available,
-                imageFile: null,
-                imagePreview: item.image_url || null
-            });
-        } else {
-            setFormData({
-                name: '',
-                description: '',
-                dine_in_price: '',
-                category_id: categories[0]?.id || '',
-                food_type: 'veg',
-                is_available: true,
-                imageFile: null,
-                imagePreview: null
-            });
-        }
-        setIsModalOpen(true);
-    };
+  const createCategory = async (event) => {
+    event.preventDefault();
+    if (!newCategoryName.trim()) return;
 
-    const handleImageChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setFormData(prev => ({
-                ...prev,
-                imageFile: file,
-                imagePreview: URL.createObjectURL(file)
-            }));
-        }
-    };
+    setSavingCategory(true);
+    try {
+      await restaurantService.createMenuCategory({ name: newCategoryName.trim() });
+      toast.success("Category created");
+      setNewCategoryName("");
+      setCategoryModalOpen(false);
+      await loadMenu();
+    } catch (error) {
+      console.error("Failed to create category", error);
+      toast.error(error.response?.data?.detail || "Failed to create category");
+    } finally {
+      setSavingCategory(false);
+    }
+  };
 
-    const triggerFileInput = () => {
-        fileInputRef.current?.click();
-    };
+  const saveItem = async (event) => {
+    event.preventDefault();
+    setSaving(true);
 
-    const handleDelete = async (id) => {
-        if(window.confirm("Are you sure you want to delete this item?")) {
-            try {
-                await restaurantService.deleteMenuItem(id);
-                toast.success("Menu item deleted");
-                setMenuItems(prev => prev.filter(i => i.id !== id));
-            } catch (err) {
-                toast.error("Failed to delete item");
-            }
-        }
-    };
+    try {
+      const payload = {
+        name: form.name,
+        description: form.description,
+        dine_in_price: Number(form.dine_in_price),
+        delivery_price: form.delivery_price ? Number(form.delivery_price) : null,
+        prep_time_minutes: Number(form.prep_time_minutes),
+        category_id: form.category_id,
+        food_type: form.food_type,
+        is_available: form.is_available,
+      };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsSaving(true);
-        try {
-            const payload = {
-                name: formData.name,
-                description: formData.description,
-                dine_in_price: parseFloat(formData.dine_in_price),
-                category_id: formData.category_id,
-                food_type: formData.food_type,
-                is_available: formData.is_available
-            };
+      let savedItem;
+      if (editingItem) savedItem = await restaurantService.updateMenuItem(editingItem.id, payload);
+      else savedItem = await restaurantService.createMenuItem(payload);
 
-            let savedItem;
-            if (editingItem) {
-                savedItem = await restaurantService.updateMenuItem(editingItem.id, payload);
-                toast.success("Item updated successfully");
-            } else {
-                savedItem = await restaurantService.createMenuItem(payload);
-                toast.success("Item created successfully");
-            }
+      if (form.imageFile) {
+        await restaurantService.uploadMenuItemImage(savedItem.id, form.imageFile);
+      }
 
-            // Image Upload
-            if (formData.imageFile) {
-                toast.loading("Uploading image...", { id: "upload" });
-                const updatedWithImage = await restaurantService.uploadMenuItemImage(savedItem.id, formData.imageFile);
-                savedItem = updatedWithImage;
-                toast.success("Image uploaded successfully", { id: "upload" });
-            }
+      toast.success(editingItem ? "Menu item updated" : "Menu item created");
+      closeItemModal();
+      await loadMenu();
+    } catch (error) {
+      console.error("Failed to save menu item", error);
+      toast.error(error.response?.data?.detail || "Failed to save menu item");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-            setIsModalOpen(false);
-            fetchInitialData(); // Refresh list
-        } catch (err) {
-            console.error(err);
-            toast.error(err.response?.data?.detail || "An error occurred");
-        } finally {
-            setIsSaving(false);
-        }
-    };
+  const deleteItem = async (itemId) => {
+    if (!window.confirm("Delete this menu item?")) return;
 
-    const filteredMenu = activeTab === 'all' 
-        ? menuItems 
-        : menuItems.filter(item => {
-            const cat = categories.find(c => c.id === item.category_id);
-            return cat && cat.id === activeTab;
-        });
+    try {
+      await restaurantService.deleteMenuItem(itemId);
+      toast.success("Menu item deleted");
+      await loadMenu();
+    } catch (error) {
+      console.error("Failed to delete menu item", error);
+      toast.error(error.response?.data?.detail || "Failed to delete menu item");
+    }
+  };
 
-    return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-[#E5E5E5] pb-6">
-                <div>
-                    <h1 className="text-3xl font-serif text-[#1A1A1A] mb-1">Menu Management</h1>
-                    <p className="text-[#666666]">Customize your offerings, pricing, and availability.</p>
-                </div>
-                <div className="flex gap-3">
-                    <button onClick={() => setIsCategoryModalOpen(true)} className="bg-[#FFFFFF] hover:bg-[#F9F9F9] border border-[#E5E5E5] text-[#333333] px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm">
-                        Add Category
-                    </button>
-                    <button onClick={() => openModal()} className="bg-[#1A1A1A] hover:bg-[#333333] text-white px-5 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm">
-                        <HiPlus className="text-lg" />
-                        Add New Item
-                    </button>
-                </div>
-            </div>
+  const visibleItems = items.filter((item) => {
+    const matchesCategory = activeCategory === "all" || item.category_id === activeCategory;
+    const matchesSearch = `${item.name} ${item.description || ""}`
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
-            {/* Filters & Search */}
-            <div className="flex flex-col lg:flex-row justify-between gap-4 py-2">
-                <div className="flex flex-wrap gap-2">
-                    <button
-                        onClick={() => setActiveTab('all')}
-                        className={`px-4 py-1.5 rounded-full text-sm font-medium capitalize transition-colors ${
-                            activeTab === 'all' 
-                            ? 'bg-[#1A1A1A] text-white' 
-                            : 'bg-[#FFFFFF] border border-[#E5E5E5] text-[#666666] hover:bg-[#F9F9F9] hover:text-[#1A1A1A]'
-                        }`}
-                    >
-                        All Items
-                    </button>
-                    {categories.map(cat => (
-                        <button
-                            key={cat.id}
-                            onClick={() => setActiveTab(cat.id)}
-                            className={`px-4 py-1.5 rounded-full text-sm font-medium capitalize transition-colors ${
-                                activeTab === cat.id 
-                                ? 'bg-[#1A1A1A] text-white' 
-                                : 'bg-[#FFFFFF] border border-[#E5E5E5] text-[#666666] hover:bg-[#F9F9F9] hover:text-[#1A1A1A]'
-                            }`}
-                        >
-                            {cat.name}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="relative w-full lg:w-72">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#A0A0B0]">
-                        <HiOutlineSearch />
-                    </div>
-                    <input 
-                        type="text" 
-                        placeholder="Search menu items..." 
-                        className="w-full bg-[#FFFFFF] border border-[#E5E5E5] text-[#333333] rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-[#8A7DF0] outline-none placeholder-[#A0A0B0]"
-                    />
-                </div>
-            </div>
-
-            {/* Menu Grid */}
-            {loading ? (
-                <div className="flex justify-center py-20">
-                    <div className="w-6 h-6 border-2 border-[#1A1A1A] border-t-transparent rounded-full animate-spin"></div>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredMenu.map(item => {
-                        const cat = categories.find(c => c.id === item.category_id);
-                        return (
-                            <div key={item.id} className="bg-[#FFFFFF] border border-[#E5E5E5] rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
-                                {/* Image Placeholder */}
-                                <div className="h-40 bg-[#F2F0ED] relative flex items-center justify-center border-b border-[#E5E5E5]">
-                                    {item.image_url ? (
-                                        <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <HiOutlinePhotograph className="text-4xl text-[#D1CEC7]" />
-                                    )}
-                                    <div className="absolute top-3 right-3 flex gap-2">
-                                        <span className={`px-2.5 py-1 text-xs font-semibold rounded-md border bg-[#FFFFFF] text-[#333333] border-[#E5E5E5] shadow-sm`}>
-                                            {item.food_type === 'veg' ? '🥦 Veg' : '🍗 Non-Veg'}
-                                        </span>
-                                        <span className={`px-2.5 py-1 text-xs font-semibold rounded-md border ${
-                                            item.is_available 
-                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                                            : 'bg-[#F9F9F9] text-[#888888] border-[#E5E5E5]'
-                                        }`}>
-                                            {item.is_available ? 'Available' : 'Out of Stock'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Content */}
-                                <div className="p-5">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h3 className="text-lg font-serif font-semibold text-[#1A1A1A] leading-tight pr-4">{item.name}</h3>
-                                        <span className="font-serif font-semibold text-[#1A1A1A]">${parseFloat(item.dine_in_price).toFixed(2)}</span>
-                                    </div>
-                                    <p className="text-[#666666] text-sm line-clamp-2 h-10 mb-4">
-                                        {item.description}
-                                    </p>
-
-                                    {/* Actions */}
-                                    <div className="flex justify-between items-center pt-4 border-t border-[#F2F0ED]">
-                                        <span className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider">{cat ? cat.name : 'Unknown Category'}</span>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => openModal(item)} className="p-1.5 text-[#666666] hover:text-[#1A1A1A] hover:bg-[#F2F0ED] rounded border border-transparent transition-colors">
-                                                <HiOutlinePencilAlt className="text-lg" />
-                                            </button>
-                                            <button onClick={() => handleDelete(item.id)} className="p-1.5 text-[#666666] hover:text-red-600 hover:bg-red-50 rounded border border-transparent transition-colors">
-                                                <HiOutlineTrash className="text-lg" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )
-                    })}
-                    
-                    {/* Add New Card Slot */}
-                    <div onClick={() => openModal()} className="border-2 border-dashed border-[#E5E5E5] rounded-xl flex flex-col items-center justify-center p-8 gap-4 hover:border-[#1A1A1A] hover:bg-[#F9F9F9] transition-colors cursor-pointer text-[#666666] hover:text-[#1A1A1A] min-h-[200px]">
-                        <div className="w-10 h-10 bg-[#F2F0ED] rounded-full flex items-center justify-center">
-                            <HiPlus className="text-xl" />
-                        </div>
-                        <span className="font-medium text-sm">Add New Item</span>
-                    </div>
-                </div>
-            )}
-
-            {/* Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-                        <div className="px-6 py-4 border-b border-[#E5E5E5] flex justify-between items-center shrink-0">
-                            <h2 className="text-xl font-serif font-bold text-[#1A1A1A]">{editingItem ? 'Edit Item' : 'Create Item'}</h2>
-                            <button onClick={() => setIsModalOpen(false)} className="text-[#A0A0B0] hover:text-[#1A1A1A] bg-[#F9F9F9] hover:bg-[#F2F0ED] p-1.5 rounded-md transition-colors">
-                                <HiX className="text-lg" />
-                            </button>
-                        </div>
-
-                        <div className="p-6 overflow-y-auto custom-scrollbar">
-                            <form id="menu-form" onSubmit={handleSubmit} className="space-y-5">
-                                
-                                {/* Image Upload Component */}
-                                <div className="flex flex-col items-center gap-3">
-                                    <div 
-                                        onClick={triggerFileInput}
-                                        className="w-full h-40 border-2 border-dashed border-[#E5E5E5] rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-[#8A7DF0] transition-colors overflow-hidden relative group bg-[#F9F9F9]"
-                                    >
-                                        {formData.imagePreview ? (
-                                            <>
-                                                <img src={formData.imagePreview} alt="Preview" className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" />
-                                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <span className="bg-white/90 text-black px-4 py-2 rounded-md font-semibold shadow-sm text-sm">Change Image</span>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <HiOutlinePhotograph className="text-4xl text-[#D1CEC7] mb-2" />
-                                                <span className="text-sm font-medium text-[#666666]">Click to upload product image</span>
-                                            </>
-                                        )}
-                                    </div>
-                                    <input 
-                                        type="file" 
-                                        accept="image/jpeg, image/png, image/webp" 
-                                        className="hidden" 
-                                        ref={fileInputRef}
-                                        onChange={handleImageChange}
-                                    />
-                                    {formData.imagePreview && (
-                                        <button type="button" onClick={() => setFormData(prev => ({...prev, imageFile: null, imagePreview: null}))} className="text-sm text-red-600 font-medium hover:underline">
-                                            Remove Image
-                                        </button>
-                                    )}
-                                </div>
-
-                                {/* Form Fields */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="col-span-2">
-                                        <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Item Name *</label>
-                                        <input 
-                                            type="text" 
-                                            required
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({...formData, name: e.target.value})}
-                                            className="w-full bg-[#FFFFFF] border border-[#E5E5E5] text-[#333333] rounded-lg px-4 py-2 focus:ring-1 focus:ring-[#8A7DF0] outline-none transition-shadow"
-                                            placeholder="e.g. Classic Margherita Pizza"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Category *</label>
-                                        <select 
-                                            required
-                                            value={formData.category_id}
-                                            onChange={(e) => setFormData({...formData, category_id: e.target.value})}
-                                            className="w-full bg-[#FFFFFF] border border-[#E5E5E5] text-[#333333] rounded-lg px-4 py-2 focus:ring-1 focus:ring-[#8A7DF0] outline-none"
-                                        >
-                                            <option value="" disabled>Select category</option>
-                                            {categories.map(cat => (
-                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Price ($) *</label>
-                                        <input 
-                                            type="number" 
-                                            step="0.01"
-                                            min="0"
-                                            required
-                                            value={formData.dine_in_price}
-                                            onChange={(e) => setFormData({...formData, dine_in_price: e.target.value})}
-                                            className="w-full bg-[#FFFFFF] border border-[#E5E5E5] text-[#333333] rounded-lg px-4 py-2 focus:ring-1 focus:ring-[#8A7DF0] outline-none transition-shadow"
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-
-                                    <div className="col-span-2">
-                                        <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Description</label>
-                                        <textarea 
-                                            value={formData.description}
-                                            onChange={(e) => setFormData({...formData, description: e.target.value})}
-                                            className="w-full bg-[#FFFFFF] border border-[#E5E5E5] text-[#333333] rounded-lg px-4 py-2 focus:ring-1 focus:ring-[#8A7DF0] outline-none transition-shadow min-h-[80px]"
-                                            placeholder="Briefly describe the dish..."
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Food Type</label>
-                                        <div className="flex gap-4 items-center h-10">
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="radio" name="food_type" value="veg" checked={formData.food_type === 'veg'} onChange={() => setFormData({...formData, food_type: 'veg'})} className="text-[#8A7DF0] focus:ring-[#8A7DF0]" />
-                                                <span className="text-sm text-[#333333]">Veg</span>
-                                            </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="radio" name="food_type" value="non_veg" checked={formData.food_type === 'non_veg'} onChange={() => setFormData({...formData, food_type: 'non_veg'})} className="text-[#8A7DF0] focus:ring-[#8A7DF0]" />
-                                                <span className="text-sm text-[#333333]">Non-Veg</span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Availability</label>
-                                        <label className="flex items-center gap-3 cursor-pointer h-10">
-                                            <div className="relative">
-                                                <input type="checkbox" className="sr-only peer" checked={formData.is_available} onChange={(e) => setFormData({...formData, is_available: e.target.checked})} />
-                                                <div className="w-11 h-6 bg-[#E5E5E5] rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
-                                            </div>
-                                            <span className="text-sm font-medium text-[#333333]">{formData.is_available ? 'Available' : 'Out of Stock'}</span>
-                                        </label>
-                                    </div>
-
-                                </div>
-                            </form>
-                        </div>
-
-                        <div className="p-6 border-t border-[#E5E5E5] bg-[#FDFCFB] flex justify-end gap-3 shrink-0">
-                            <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-lg text-sm font-medium text-[#666666] hover:bg-[#F2F0ED] transition-colors border border-transparent hover:border-[#E5E5E5]">
-                                Cancel
-                            </button>
-                            <button form="menu-form" type="submit" disabled={isSaving} className="px-5 py-2.5 rounded-lg text-sm font-medium text-white bg-[#1A1A1A] hover:bg-[#333333] transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed">
-                                {isSaving ? 'Saving...' : (editingItem ? 'Update Item' : 'Create Item')}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Category Modal */}
-            {isCategoryModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
-                        <div className="px-6 py-4 border-b border-[#E5E5E5] flex justify-between items-center bg-[#FDFCFB]">
-                            <h2 className="text-xl font-serif font-bold text-[#1A1A1A]">New Category</h2>
-                            <button onClick={() => setIsCategoryModalOpen(false)} className="text-[#A0A0B0] hover:text-[#1A1A1A] bg-[#F9F9F9] hover:bg-[#F2F0ED] p-1.5 rounded-md transition-colors">
-                                <HiX className="text-lg" />
-                            </button>
-                        </div>
-                        <div className="p-6">
-                            <form id="category-form" onSubmit={handleCreateCategory}>
-                                <label className="block text-sm font-medium text-[#1A1A1A] mb-1.5">Category Name *</label>
-                                <input 
-                                    type="text" 
-                                    autoFocus
-                                    required
-                                    value={newCategoryName}
-                                    onChange={(e) => setNewCategoryName(e.target.value)}
-                                    className="w-full bg-[#FFFFFF] border border-[#E5E5E5] text-[#333333] rounded-lg px-4 py-2 focus:ring-1 focus:ring-[#8A7DF0] outline-none transition-shadow"
-                                    placeholder="e.g. Starters, Beverages"
-                                />
-                            </form>
-                        </div>
-                        <div className="p-4 border-t border-[#E5E5E5] bg-[#FDFCFB] flex justify-end gap-3">
-                            <button type="button" onClick={() => setIsCategoryModalOpen(false)} className="px-4 py-2 rounded-lg text-sm font-medium text-[#666666] hover:bg-[#F2F0ED] transition-colors border border-transparent hover:border-[#E5E5E5]">
-                                Cancel
-                            </button>
-                            <button form="category-form" type="submit" disabled={isSavingCategory} className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#1A1A1A] hover:bg-[#333333] transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed">
-                                {isSavingCategory ? 'Saving...' : 'Create'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500 pb-10">
+      <div className="flex flex-col gap-4 border-b border-[#E5E5E5] pb-6 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-serif text-[#1A1A1A]">Menu Management</h1>
+          <p className="mt-1 text-[#666666]">Keep categories, pricing, and live availability in sync.</p>
         </div>
-    );
+        <div className="flex gap-3">
+          <button type="button" onClick={() => setCategoryModalOpen(true)} className="rounded-full border border-[#D9CCC0] bg-white px-4 py-2.5 text-sm font-medium text-[#3A2C21] hover:bg-[#FBF6F0]">
+            Add Category
+          </button>
+          <button type="button" onClick={() => openItemModal()} className="inline-flex items-center gap-2 rounded-full bg-[#1A1A1A] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#333333]">
+            <HiPlus className="text-lg" />
+            Add Item
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setActiveCategory("all")} className={`rounded-full px-4 py-2 text-sm font-medium ${activeCategory === "all" ? "bg-[#1A1A1A] text-white" : "border border-[#E5E5E5] bg-white text-[#666666]"}`}>
+            All Items
+          </button>
+          {categories.map((category) => (
+            <button key={category.id} type="button" onClick={() => setActiveCategory(category.id)} className={`rounded-full px-4 py-2 text-sm font-medium ${activeCategory === category.id ? "bg-[#1A1A1A] text-white" : "border border-[#E5E5E5] bg-white text-[#666666]"}`}>
+              {category.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative w-full max-w-sm">
+          <HiOutlineSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#9A8A7B]" />
+          <input type="text" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search menu items..." className="w-full rounded-full border border-[#DDCDBF] bg-[#FBF6F0] py-3 pl-11 pr-4 text-sm text-[#3A2C21] outline-none" />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{[...Array(6)].map((_, index) => <div key={index} className="h-72 animate-pulse rounded-3xl bg-white" />)}</div>
+      ) : (
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {visibleItems.map((item) => {
+            const category = categories.find((entry) => entry.id === item.category_id);
+            return (
+              <article key={item.id} className="overflow-hidden rounded-3xl border border-[#ECE5DD] bg-white shadow-sm">
+                <div className="relative h-44 border-b border-[#ECE5DD] bg-[#F3ECE4]">
+                  {item.image_url ? <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><HiOutlinePhotograph className="text-5xl text-[#C9BDB0]" /></div>}
+                  <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#3A2C21]">{getFoodTypeLabel(item.food_type)}</div>
+                  <div className={`absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-semibold ${item.is_available ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-700"}`}>
+                    {item.is_available ? "Available" : "Out of Stock"}
+                  </div>
+                </div>
+
+                <div className="space-y-4 p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-xl font-serif text-[#1F1A17]">{item.name}</h2>
+                      <p className="mt-2 text-sm leading-6 text-[#655649]">{item.description || "No description added yet."}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-serif text-[#1F1A17]">{formatCurrency(item.dine_in_price)}</div>
+                      <div className="mt-1 text-xs text-[#8A7C6D]">{item.prep_time_minutes} min</div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#F1E8DE] pt-4 text-xs uppercase tracking-[0.16em] text-[#9A8A7B]">
+                    <span>{category?.name || "Uncategorized"}</span>
+                    <span>{item.delivery_price ? `Delivery ${formatCurrency(item.delivery_price)}` : "Same delivery price"}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <button type="button" onClick={() => openItemModal(item)} className="inline-flex items-center gap-2 text-sm font-medium text-[#9E6041] hover:text-[#7E4A2D]">
+                      <HiOutlinePencilAlt />
+                      Edit
+                    </button>
+                    <button type="button" onClick={() => deleteItem(item.id)} className="inline-flex items-center gap-2 text-sm font-medium text-rose-700 hover:text-rose-900">
+                      <HiOutlineTrash />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+
+          {!loading && visibleItems.length === 0 && (
+            <div className="rounded-3xl border border-dashed border-[#DDD2C5] bg-white px-6 py-10 text-center text-sm text-[#8A7C6D]">
+              No menu items match the current filters.
+            </div>
+          )}
+        </div>
+      )}
+
+      {itemModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#E5E5E5] px-6 py-5">
+              <h2 className="text-2xl font-serif text-[#1A1A1A]">{editingItem ? "Edit Menu Item" : "Add Menu Item"}</h2>
+              <button type="button" onClick={closeItemModal} className="rounded-full bg-[#F4EFE8] p-2 text-[#6A5B4C] hover:bg-[#ECE3D8]"><HiX className="text-lg" /></button>
+            </div>
+
+            <form onSubmit={saveItem} className="space-y-4 px-6 py-6">
+              <div onClick={() => fileInputRef.current?.click()} className="flex h-40 cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-[#E4D9CD] bg-[#FBF6F0]">
+                {form.imagePreview ? <img src={form.imagePreview} alt="Preview" className="h-full w-full rounded-3xl object-cover" /> : <><HiOutlinePhotograph className="text-4xl text-[#C9BDB0]" /><span className="mt-3 text-sm text-[#6A5B4C]">Click to upload item image</span></>}
+              </div>
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                setForm((current) => ({ ...current, imageFile: file, imagePreview: URL.createObjectURL(file) }));
+              }} />
+
+              <input type="text" required value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Item name" className="w-full rounded-2xl border border-[#E4D9CD] px-4 py-3 text-sm outline-none" />
+              <textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} rows="3" placeholder="Description" className="w-full rounded-2xl border border-[#E4D9CD] px-4 py-3 text-sm outline-none" />
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <select required value={form.category_id} onChange={(event) => setForm((current) => ({ ...current, category_id: event.target.value }))} className="rounded-2xl border border-[#E4D9CD] px-4 py-3 text-sm outline-none">
+                  <option value="">Select category</option>
+                  {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+                <input type="number" step="0.01" min="0" required value={form.dine_in_price} onChange={(event) => setForm((current) => ({ ...current, dine_in_price: event.target.value }))} placeholder="Dine-in price" className="rounded-2xl border border-[#E4D9CD] px-4 py-3 text-sm outline-none" />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <input type="number" step="0.01" min="0" value={form.delivery_price} onChange={(event) => setForm((current) => ({ ...current, delivery_price: event.target.value }))} placeholder="Delivery price (optional)" className="rounded-2xl border border-[#E4D9CD] px-4 py-3 text-sm outline-none" />
+                <input type="number" min="1" value={form.prep_time_minutes} onChange={(event) => setForm((current) => ({ ...current, prep_time_minutes: event.target.value }))} placeholder="Prep time in minutes" className="rounded-2xl border border-[#E4D9CD] px-4 py-3 text-sm outline-none" />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <select value={form.food_type} onChange={(event) => setForm((current) => ({ ...current, food_type: event.target.value }))} className="rounded-2xl border border-[#E4D9CD] px-4 py-3 text-sm outline-none">
+                  <option value="veg">Veg</option>
+                  <option value="non_veg">Non-Veg</option>
+                </select>
+                <label className="flex items-center justify-between rounded-2xl border border-[#E4D9CD] px-4 py-3 text-sm text-[#3A2C21]">
+                  <span>{form.is_available ? "Available" : "Out of Stock"}</span>
+                  <input type="checkbox" checked={form.is_available} onChange={(event) => setForm((current) => ({ ...current, is_available: event.target.checked }))} />
+                </label>
+              </div>
+
+              <button type="submit" disabled={saving} className="w-full rounded-2xl bg-[#1A1A1A] px-4 py-3 text-sm font-semibold text-white hover:bg-[#333333] disabled:opacity-60">
+                {saving ? "Saving..." : editingItem ? "Save Changes" : "Create Item"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {categoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#E5E5E5] px-6 py-5">
+              <h2 className="text-2xl font-serif text-[#1A1A1A]">New Category</h2>
+              <button type="button" onClick={() => setCategoryModalOpen(false)} className="rounded-full bg-[#F4EFE8] p-2 text-[#6A5B4C] hover:bg-[#ECE3D8]"><HiX className="text-lg" /></button>
+            </div>
+            <form onSubmit={createCategory} className="space-y-4 px-6 py-6">
+              <input type="text" required value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="Category name" className="w-full rounded-2xl border border-[#E4D9CD] px-4 py-3 text-sm outline-none" />
+              <button type="submit" disabled={savingCategory} className="w-full rounded-2xl bg-[#1A1A1A] px-4 py-3 text-sm font-semibold text-white hover:bg-[#333333] disabled:opacity-60">
+                {savingCategory ? "Saving..." : "Create Category"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

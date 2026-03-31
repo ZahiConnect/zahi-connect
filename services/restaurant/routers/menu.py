@@ -1,16 +1,12 @@
-"""
-Zahi Connect - Menu Router
-CRUD for menu categories and menu items.
-"""
+"""Menu routes for categories, items, and media uploads."""
 
 import uuid
 
-from fastapi import APIRouter, Depends, status, UploadFile, File
-from fastapi.exceptions import HTTPException
 import cloudinary.uploader
+from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi.exceptions import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from database import get_db
 from dependencies import get_current_admin, get_current_user, get_tenant_id
@@ -26,9 +22,30 @@ from schemas.menu import (
 router = APIRouter(tags=["Menu"])
 
 
-# ═══════════════════════════════════════════════════════════════
-#  CATEGORIES
-# ═══════════════════════════════════════════════════════════════
+async def load_category_or_404(
+    db: AsyncSession, tenant_id: str, category_id: uuid.UUID
+) -> MenuCategory:
+    result = await db.execute(
+        select(MenuCategory).where(
+            MenuCategory.id == category_id,
+            MenuCategory.tenant_id == tenant_id,
+        )
+    )
+    category = result.scalar_one_or_none()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return category
+
+
+async def load_item_or_404(db: AsyncSession, tenant_id: str, item_id: uuid.UUID) -> MenuItem:
+    result = await db.execute(
+        select(MenuItem).where(MenuItem.id == item_id, MenuItem.tenant_id == tenant_id)
+    )
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+    return item
+
 
 @router.post("/categories", response_model=MenuCategoryResponse, status_code=status.HTTP_201_CREATED)
 async def create_category(
@@ -37,6 +54,15 @@ async def create_category(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
+    existing_result = await db.execute(
+        select(MenuCategory.id).where(
+            MenuCategory.tenant_id == tenant_id,
+            MenuCategory.name.ilike(data.name.strip()),
+        )
+    )
+    if existing_result.scalar():
+        raise HTTPException(status_code=400, detail="Category already exists")
+
     category = MenuCategory(tenant_id=tenant_id, **data.model_dump())
     db.add(category)
     await db.commit()
@@ -53,7 +79,7 @@ async def list_categories(
     result = await db.execute(
         select(MenuCategory)
         .where(MenuCategory.tenant_id == tenant_id)
-        .order_by(MenuCategory.sort_order)
+        .order_by(MenuCategory.sort_order, MenuCategory.name)
     )
     return result.scalars().all()
 
@@ -65,21 +91,10 @@ async def delete_category(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
-    result = await db.execute(
-        select(MenuCategory).where(
-            MenuCategory.id == category_id, MenuCategory.tenant_id == tenant_id
-        )
-    )
-    category = result.scalar_one_or_none()
-    if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
+    category = await load_category_or_404(db, tenant_id, category_id)
     await db.delete(category)
     await db.commit()
 
-
-# ═══════════════════════════════════════════════════════════════
-#  MENU ITEMS
-# ═══════════════════════════════════════════════════════════════
 
 @router.post("/items", response_model=MenuItemResponse, status_code=status.HTTP_201_CREATED)
 async def create_item(
@@ -88,6 +103,7 @@ async def create_item(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
+    await load_category_or_404(db, tenant_id, data.category_id)
     item = MenuItem(tenant_id=tenant_id, **data.model_dump())
     db.add(item)
     await db.commit()
@@ -105,6 +121,7 @@ async def list_items(
     query = select(MenuItem).where(MenuItem.tenant_id == tenant_id)
     if category_id:
         query = query.where(MenuItem.category_id == category_id)
+
     result = await db.execute(query.order_by(MenuItem.name))
     return result.scalars().all()
 
@@ -116,13 +133,7 @@ async def get_item(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(MenuItem).where(MenuItem.id == item_id, MenuItem.tenant_id == tenant_id)
-    )
-    item = result.scalar_one_or_none()
-    if not item:
-        raise HTTPException(status_code=404, detail="Menu item not found")
-    return item
+    return await load_item_or_404(db, tenant_id, item_id)
 
 
 @router.patch("/items/{item_id}", response_model=MenuItemResponse)
@@ -133,14 +144,12 @@ async def update_item(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
-    result = await db.execute(
-        select(MenuItem).where(MenuItem.id == item_id, MenuItem.tenant_id == tenant_id)
-    )
-    item = result.scalar_one_or_none()
-    if not item:
-        raise HTTPException(status_code=404, detail="Menu item not found")
-
+    item = await load_item_or_404(db, tenant_id, item_id)
     update_data = data.model_dump(exclude_unset=True)
+
+    if "category_id" in update_data and update_data["category_id"] is not None:
+        await load_category_or_404(db, tenant_id, update_data["category_id"])
+
     for field, value in update_data.items():
         setattr(item, field, value)
 
@@ -156,12 +165,7 @@ async def delete_item(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
-    result = await db.execute(
-        select(MenuItem).where(MenuItem.id == item_id, MenuItem.tenant_id == tenant_id)
-    )
-    item = result.scalar_one_or_none()
-    if not item:
-        raise HTTPException(status_code=404, detail="Menu item not found")
+    item = await load_item_or_404(db, tenant_id, item_id)
     await db.delete(item)
     await db.commit()
 
@@ -174,23 +178,18 @@ async def upload_item_image(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
-    result = await db.execute(
-        select(MenuItem).where(MenuItem.id == item_id, MenuItem.tenant_id == tenant_id)
-    )
-    item = result.scalar_one_or_none()
-    if not item:
-        raise HTTPException(status_code=404, detail="Menu item not found")
+    item = await load_item_or_404(db, tenant_id, item_id)
 
     try:
         contents = await file.read()
         upload_result = cloudinary.uploader.upload(
-            contents, 
-            folder=f"zahi_connect/menu/{tenant_id}"
+            contents,
+            folder=f"zahi_connect/menu/{tenant_id}",
         )
-        
+
         item.image_url = upload_result.get("secure_url")
         await db.commit()
         await db.refresh(item)
         return item
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Image upload failed: {str(e)}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Image upload failed: {exc}") from exc

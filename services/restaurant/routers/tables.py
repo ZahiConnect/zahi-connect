@@ -1,21 +1,53 @@
-"""
-Zahi Connect - Tables Router
-Table management: create, list, update status (available/occupied/reserved).
-"""
+"""Table management routes."""
 
 import uuid
 
 from fastapi import APIRouter, Depends, status
 from fastapi.exceptions import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from dependencies import get_current_admin, get_current_user, get_tenant_id
+from models.order import Order
 from models.table import Table
-from schemas.table import TableCreate, TableResponse, TableStatusUpdate
+from schemas.table import TableCreate, TableResponse, TableStatusUpdate, TableUpdate
 
 router = APIRouter(tags=["Tables"])
+
+ACTIVE_ORDER_STATUSES = {"new", "preparing", "ready"}
+
+
+async def load_table_or_404(db: AsyncSession, tenant_id: str, table_id: uuid.UUID) -> Table:
+    result = await db.execute(
+        select(Table).where(Table.id == table_id, Table.tenant_id == tenant_id)
+    )
+    table = result.scalar_one_or_none()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found")
+    return table
+
+
+async def ensure_unique_table_number(
+    db: AsyncSession,
+    tenant_id: str,
+    table_number: int,
+    excluding_table_id: uuid.UUID | None = None,
+) -> None:
+    query = select(Table.id).where(
+        Table.tenant_id == tenant_id,
+        Table.table_number == table_number,
+    )
+    if excluding_table_id:
+        query = query.where(Table.id != excluding_table_id)
+
+    result = await db.execute(query)
+    existing_table_id = result.scalar()
+    if existing_table_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Table {table_number} already exists for this restaurant",
+        )
 
 
 @router.post("/", response_model=TableResponse, status_code=status.HTTP_201_CREATED)
@@ -25,6 +57,7 @@ async def create_table(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
+    await ensure_unique_table_number(db, tenant_id, data.table_number)
     table = Table(tenant_id=tenant_id, **data.model_dump())
     db.add(table)
     await db.commit()
@@ -39,11 +72,36 @@ async def list_tables(
     _=Depends(get_current_user),
 ):
     result = await db.execute(
-        select(Table)
-        .where(Table.tenant_id == tenant_id)
-        .order_by(Table.table_number)
+        select(Table).where(Table.tenant_id == tenant_id).order_by(Table.table_number)
     )
     return result.scalars().all()
+
+
+@router.patch("/{table_id}", response_model=TableResponse)
+async def update_table(
+    table_id: uuid.UUID,
+    data: TableUpdate,
+    tenant_id: str = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    table = await load_table_or_404(db, tenant_id, table_id)
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "table_number" in update_data:
+        await ensure_unique_table_number(
+            db,
+            tenant_id,
+            update_data["table_number"],
+            excluding_table_id=table_id,
+        )
+
+    for field, value in update_data.items():
+        setattr(table, field, value)
+
+    await db.commit()
+    await db.refresh(table)
+    return table
 
 
 @router.patch("/{table_id}/status", response_model=TableResponse)
@@ -54,14 +112,7 @@ async def update_table_status(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    """Change table status: available ↔ occupied ↔ reserved."""
-    result = await db.execute(
-        select(Table).where(Table.id == table_id, Table.tenant_id == tenant_id)
-    )
-    table = result.scalar_one_or_none()
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
-
+    table = await load_table_or_404(db, tenant_id, table_id)
     table.status = data.status
     if data.assigned_staff is not None:
         table.assigned_staff = data.assigned_staff
@@ -78,11 +129,20 @@ async def delete_table(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
-    result = await db.execute(
-        select(Table).where(Table.id == table_id, Table.tenant_id == tenant_id)
+    table = await load_table_or_404(db, tenant_id, table_id)
+
+    active_order_result = await db.execute(
+        select(func.count(Order.id)).where(
+            Order.tenant_id == tenant_id,
+            Order.table_id == table_id,
+            Order.status.in_(ACTIVE_ORDER_STATUSES),
+        )
     )
-    table = result.scalar_one_or_none()
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+    if active_order_result.scalar_one() > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete a table with active orders",
+        )
+
     await db.delete(table)
     await db.commit()

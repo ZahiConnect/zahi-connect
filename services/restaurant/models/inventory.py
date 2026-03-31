@@ -1,7 +1,4 @@
-"""
-Zahi Connect - Inventory Model
-Track ingredient stock levels with low-stock alerts.
-"""
+"""Inventory models for ingredient and supplier tracking."""
 
 import uuid
 from datetime import datetime
@@ -18,10 +15,14 @@ class InventoryItem(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
 
-    name = Column(String(200), nullable=False)  # "Chicken", "Rice", "Tomatoes"
+    name = Column(String(200), nullable=False)
+    category = Column(String(100), nullable=False, default="General")
+    supplier = Column(String(200), nullable=True)
+
     quantity = Column(Numeric(10, 2), default=0)
-    unit = Column(String(20), default="kg")  # kg, litres, pieces
+    unit = Column(String(20), default="kg")
     low_stock_threshold = Column(Numeric(10, 2), default=2)
+    unit_cost = Column(Numeric(10, 2), default=0)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

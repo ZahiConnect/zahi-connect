@@ -1,9 +1,4 @@
-"""
-Zahi Connect - Kitchen Display Router
-Provides the KOT (Kitchen Order Ticket) endpoint.
-Active orders for the kitchen display screen.
-Future: WebSocket support for real-time push.
-"""
+"""Kitchen routes for live preparation workflows."""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -18,25 +13,23 @@ from schemas.order import OrderResponse
 router = APIRouter(tags=["Kitchen"])
 
 
+def kitchen_query(tenant_id: str):
+    return (
+        select(Order)
+        .options(selectinload(Order.items), selectinload(Order.table))
+        .where(Order.tenant_id == tenant_id)
+        .order_by(Order.created_at.asc())
+    )
+
+
 @router.get("/active", response_model=list[OrderResponse])
 async def get_active_orders(
     tenant_id: str = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    """
-    Get all active KOT orders (new + preparing).
-    This feeds the Kitchen Display screen.
-    Orders are sorted by creation time (oldest first — FIFO).
-    """
     result = await db.execute(
-        select(Order)
-        .options(selectinload(Order.items))
-        .where(
-            Order.tenant_id == tenant_id,
-            Order.status.in_(["new", "preparing"]),
-        )
-        .order_by(Order.created_at.asc())
+        kitchen_query(tenant_id).where(Order.status.in_(["new", "preparing"]))
     )
     return result.scalars().all()
 
@@ -47,14 +40,24 @@ async def get_ready_orders(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    """Get orders that are ready to be served."""
-    result = await db.execute(
-        select(Order)
-        .options(selectinload(Order.items))
-        .where(
-            Order.tenant_id == tenant_id,
-            Order.status == "ready",
-        )
-        .order_by(Order.created_at.asc())
-    )
+    result = await db.execute(kitchen_query(tenant_id).where(Order.status == "ready"))
     return result.scalars().all()
+
+
+@router.get("/board")
+async def get_kitchen_board(
+    tenant_id: str = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    result = await db.execute(
+        kitchen_query(tenant_id).where(Order.status.in_(["new", "preparing", "ready"]))
+    )
+    orders = result.scalars().all()
+    serialize = lambda order: OrderResponse.model_validate(order).model_dump(mode="json")
+
+    return {
+        "new": [serialize(order) for order in orders if order.status == "new"],
+        "preparing": [serialize(order) for order in orders if order.status == "preparing"],
+        "ready": [serialize(order) for order in orders if order.status == "ready"],
+    }

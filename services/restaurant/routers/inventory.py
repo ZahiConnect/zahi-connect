@@ -1,8 +1,3 @@
-"""
-Zahi Connect - Inventory Router
-Stock management with low-stock alerts.
-"""
-
 import uuid
 
 from fastapi import APIRouter, Depends, status
@@ -44,7 +39,7 @@ async def list_items(
     result = await db.execute(
         select(InventoryItem)
         .where(InventoryItem.tenant_id == tenant_id)
-        .order_by(InventoryItem.name)
+        .order_by(InventoryItem.category, InventoryItem.name)
     )
     items = result.scalars().all()
     return [InventoryItemResponse.from_model(item) for item in items]

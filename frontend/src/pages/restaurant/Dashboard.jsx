@@ -1,213 +1,324 @@
-import React, { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { HiOutlineTrendingUp, HiOutlineUsers, HiOutlineCurrencyDollar, HiOutlineShoppingBag } from 'react-icons/hi';
-import restaurantService from '../../services/restaurantService';
+import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import {
+  HiOutlineChartPie,
+  HiOutlineClipboardList,
+  HiOutlineCurrencyDollar,
+  HiOutlineExclamationCircle,
+  HiOutlineTrendingUp,
+  HiOutlineViewGrid,
+} from "react-icons/hi";
 
-const StatCard = ({ title, value, trend, icon: Icon, colorClass }) => (
-  <div className="bg-[#FFFFFF] border border-[#E5E5E5] rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-    <div className="flex justify-between items-start mb-4">
-      <div className={`p-2.5 rounded-lg ${colorClass} bg-opacity-10`}>
-        <Icon className={`text-xl ${colorClass.split(' ')[0].replace('bg-', 'text-')}`} />
+import restaurantService from "../../services/restaurantService";
+import {
+  formatCurrency,
+  formatOrderSourceLabel,
+  formatOrderStatus,
+  getRelativeTime,
+  orderStatusClasses,
+} from "../../lib/restaurant";
+
+const StatCard = ({ title, value, detail, icon: Icon, accent }) => (
+  <div className="rounded-2xl border border-[#E6DDD4] bg-white p-5 shadow-sm">
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div className={`rounded-2xl p-3 ${accent}`}>
+        <Icon className="text-xl" />
       </div>
-      <div className="flex items-center gap-1 text-sm font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
-        <HiOutlineTrendingUp />
-        <span>{trend}</span>
-      </div>
+      <span className="rounded-full bg-[#F7F1EA] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#8B5D44]">
+        Live
+      </span>
     </div>
-    <h3 className="text-[#666666] text-sm font-medium mb-1">{title}</h3>
-    <p className="text-3xl font-serif text-[#1A1A1A] tracking-tight">{value}</p>
+    <p className="text-sm font-medium text-[#7A6B5E]">{title}</p>
+    <p className="mt-2 text-3xl font-serif text-[#1F1A17]">{value}</p>
+    <p className="mt-3 text-sm leading-6 text-[#6A5B4C]">{detail}</p>
   </div>
 );
 
+const rangeOptions = [
+  { label: "Last 7 Days", value: 7 },
+  { label: "Last 14 Days", value: 14 },
+  { label: "Last 30 Days", value: 30 },
+];
+
 const Dashboard = () => {
-  const { user } = useSelector(state => state.auth);
-  const [greeting, setGreeting] = useState('');
-  const [stats, setStats] = useState({
-      totalRevenue: '$0',
-      activeOrders: '0',
-      customers: '0',
-      avgOrderValue: '$0',
-      recentOrders: [],
-      popularItems: []
-  });
+  const { user } = useSelector((state) => state.auth);
+  const [selectedRange, setSelectedRange] = useState(7);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting('Good morning');
-    else if (hour < 18) setGreeting('Good afternoon');
-    else setGreeting('Good evening');
-
     const fetchStats = async () => {
-        try {
-            const data = await restaurantService.getDashboardStats();
-            if (data) {
-                 setStats({
-                     totalRevenue: data.totalRevenue || '$12,426',
-                     activeOrders: data.activeOrders || '45',
-                     customers: data.customers || '1,240',
-                     avgOrderValue: data.avgOrderValue || '$42.50',
-                     recentOrders: data.recentOrders || [
-                         { id: '#ORD-1092', guest: 'John Doe', status: 'Ready', amount: '$45.00', color: 'text-emerald-700 bg-emerald-50 border-emerald-100' },
-                         { id: '#ORD-1093', guest: 'Sarah Smith', status: 'Preparing', amount: '$112.50', color: 'text-amber-700 bg-amber-50 border-amber-100' }
-                     ],
-                     popularItems: data.popularItems || [
-                         { name: 'Truffle Mushroom Risotto', orders: 124, percent: 85 },
-                         { name: 'Grilled Salmon Bowl', orders: 98, percent: 65 }
-                     ]
-                 });
-            }
-        } catch (error) {
-            console.error("Failed to fetch dashboard stats, using fallbacks.", error);
-            setStats({
-                totalRevenue: '$12,426',
-                activeOrders: '45',
-                customers: '1,240',
-                avgOrderValue: '$42.50',
-                recentOrders: [
-                  { id: '#ORD-1092', guest: 'John Doe', status: 'Ready', amount: '$45.00', color: 'text-emerald-700 bg-emerald-50 border-emerald-100' },
-                  { id: '#ORD-1093', guest: 'Sarah Smith', status: 'Preparing', amount: '$112.50', color: 'text-amber-700 bg-amber-50 border-amber-100' },
-                  { id: '#ORD-1094', guest: 'Mike Johnson', status: 'New', amount: '$28.00', color: 'text-blue-700 bg-blue-50 border-blue-100' },
-                  { id: '#ORD-1095', guest: 'Emma Wilson', status: 'Completed', amount: '$85.20', color: 'text-gray-600 bg-gray-100 border-gray-200' },
-                ],
-                popularItems: [
-                  { name: 'Truffle Mushroom Risotto', orders: 124, percent: 85 },
-                  { name: 'Grilled Salmon Bowl', orders: 98, percent: 65 },
-                  { name: 'Wagyu Beef Burger', orders: 75, percent: 50 },
-                  { name: 'Matcha Lava Cake', orders: 56, percent: 35 },
-                ]
-            });
-        } finally {
-            setLoading(false);
-        }
+      try {
+        setLoading(true);
+        setError("");
+        const data = await restaurantService.getDashboardStats(selectedRange);
+        setStats(data);
+      } catch (fetchError) {
+        console.error("Failed to fetch restaurant dashboard", fetchError);
+        setError("Unable to load dashboard insights right now.");
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchStats();
-  }, []);
+  }, [selectedRange]);
+
+  const greetingHour = new Date().getHours();
+  const greeting =
+    greetingHour < 12 ? "Good morning" : greetingHour < 18 ? "Good afternoon" : "Good evening";
+
+  const occupiedTables = stats?.tables_by_status?.occupied || 0;
+  const availableTables = stats?.tables_by_status?.available || 0;
+  const reservedTables = stats?.tables_by_status?.reserved || 0;
+  const recentOrders = stats?.recent_orders || [];
+  const popularItems = stats?.popular_items || [];
+  const ordersBySource = Object.entries(stats?.orders_by_source || {});
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      
-      {/* Welcome Section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-[#E5E5E5] pb-6">
-        <div>
-          <h1 className="text-3xl font-serif text-[#1A1A1A] mb-1">
-            {greeting}, {user?.username || 'Admin'}
-          </h1>
-          <p className="text-[#666666]">Here's what's happening at your restaurant today.</p>
-        </div>
-        
-        <div className="flex gap-3">
-          <select className="bg-[#FFFFFF] border border-[#E5E5E5] text-[#333333] text-sm rounded-lg px-4 py-2 focus:ring-1 focus:ring-[#8A7DF0] outline-none cursor-pointer hover:bg-[#F9F9F9]">
-            <option>Today</option>
-            <option>Yesterday</option>
-            <option>Last 7 Days</option>
-          </select>
-          <button className="bg-[#1A1A1A] hover:bg-[#333333] text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
-            Export Report
-          </button>
-        </div>
-      </div>
+      <section className="overflow-hidden rounded-[28px] border border-[#E6DDD4] bg-[linear-gradient(135deg,#FAF5EF_0%,#F3E7D7_55%,#EBD7C1_100%)] p-8 shadow-[0_18px_40px_rgba(120,84,50,0.08)]">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl space-y-4">
+            <span className="inline-flex rounded-full border border-[#D4B89D] bg-white/70 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[#9A5E3D]">
+              Restaurant command center
+            </span>
+            <div>
+              <h1 className="text-4xl font-serif text-[#21170F] sm:text-5xl">
+                {greeting}, {user?.tenant_name || user?.username || "Owner"}
+              </h1>
+              <p className="mt-3 max-w-2xl text-base leading-7 text-[#5C4A3C] sm:text-lg">
+                Orders, tables, and stock are all flowing through one live workspace now.
+              </p>
+            </div>
+          </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          title="Total Revenue" 
-          value={stats.totalRevenue}
-          trend="+12.5%" 
+          <label className="flex flex-col gap-2 rounded-2xl border border-white/60 bg-white/75 p-4 text-sm font-medium text-[#4B3D31] shadow-sm">
+            Performance window
+            <select
+              value={selectedRange}
+              onChange={(event) => setSelectedRange(Number(event.target.value))}
+              className="rounded-xl border border-[#DECFC0] bg-white px-4 py-2 text-sm text-[#1F1A17] outline-none transition focus:border-[#B97B57]"
+            >
+              {rangeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Revenue"
+          value={loading ? "..." : formatCurrency(stats?.revenue_total)}
+          detail={`Completed sales across the last ${selectedRange} days.`}
           icon={HiOutlineCurrencyDollar}
-          colorClass="bg-emerald-100 text-emerald-600"
+          accent="bg-emerald-50 text-emerald-700"
         />
-        <StatCard 
-          title="Active Orders" 
-          value={stats.activeOrders}
-          trend="+5.2%" 
-          icon={HiOutlineShoppingBag}
-          colorClass="bg-blue-100 text-blue-600"
+        <StatCard
+          title="Active Orders"
+          value={loading ? "..." : stats?.active_orders ?? 0}
+          detail="Orders still moving through kitchen, ready, or service."
+          icon={HiOutlineClipboardList}
+          accent="bg-blue-50 text-blue-700"
         />
-        <StatCard 
-          title="Customers" 
-          value={stats.customers}
-          trend="+18.1%" 
-          icon={HiOutlineUsers}
-          colorClass="bg-amber-100 text-amber-600"
-        />
-        <StatCard 
-          title="Avg. Order Value" 
-          value={stats.avgOrderValue}
-          trend="+2.1%" 
+        <StatCard
+          title="Average Ticket"
+          value={loading ? "..." : formatCurrency(stats?.average_order_value)}
+          detail={`Based on ${stats?.completed_orders ?? 0} completed orders in this window.`}
           icon={HiOutlineTrendingUp}
-          colorClass="bg-[#D97757]/20 text-[#D97757]"
+          accent="bg-amber-50 text-amber-700"
         />
-      </div>
+        <StatCard
+          title="Low Stock Alerts"
+          value={loading ? "..." : stats?.low_stock_count ?? 0}
+          detail="Ingredients at or below the threshold that need attention."
+          icon={HiOutlineExclamationCircle}
+          accent="bg-rose-50 text-rose-700"
+        />
+      </section>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Recent Orders Table */}
-        <div className="lg:col-span-2 bg-[#FFFFFF] border border-[#E5E5E5] rounded-xl p-6 shadow-sm">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-serif text-[#1A1A1A] font-semibold">Live Orders</h3>
-            <button className="text-sm text-[#D97757] hover:text-[#C56648] font-medium transition-colors">View All</button>
+      <section className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
+        <div className="rounded-3xl border border-[#ECE5DD] bg-white p-6 shadow-sm">
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-serif text-[#1F1A17]">Recent Orders</h2>
+              <p className="mt-1 text-sm text-[#6A5B4C]">
+                The latest tickets flowing through your restaurant.
+              </p>
+            </div>
+            <div className="rounded-full bg-[#F8EFE4] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#9E6041]">
+              {recentOrders.length} shown
+            </div>
           </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-[#888888] border-b border-[#E5E5E5]">
-                <tr>
-                  <th className="pb-3 font-medium">Order ID</th>
-                  <th className="pb-3 font-medium">Guest</th>
-                  <th className="pb-3 font-medium">Status</th>
-                  <th className="pb-3 font-medium text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F2F0ED]">
-                {loading ? (
-                    <tr><td colSpan="4" className="py-6 text-[#888888] text-center italic">Loading orders...</td></tr>
-                ) : stats.recentOrders.map((order, i) => (
-                  <tr key={i} className="hover:bg-[#FDFCFB] transition-colors group cursor-default">
-                    <td className="py-4 font-medium text-[#1A1A1A]">{order.id}</td>
-                    <td className="py-4 text-[#666666]">{order.guest}</td>
-                    <td className="py-4">
-                      <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${order.color}`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="py-4 text-right font-medium text-[#1A1A1A]">{order.amount}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
+          {error ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-5 text-sm text-rose-700">
+              {error}
+            </div>
+          ) : loading ? (
+            <div className="space-y-3">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="h-20 animate-pulse rounded-2xl bg-[#F6F1EB]" />
+              ))}
+            </div>
+          ) : recentOrders.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#E6DDD4] px-6 py-10 text-center text-sm text-[#7A6B5E]">
+              No orders yet. Create your first one from the Orders page.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {recentOrders.map((order) => (
+                <article
+                  key={order.id}
+                  className="rounded-2xl border border-[#ECE5DD] bg-[#FFFEFC] p-4 transition-colors hover:bg-[#FCF8F2]"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold uppercase tracking-[0.16em] text-[#9E6041]">
+                          #{order.id.slice(0, 8)}
+                        </span>
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                            orderStatusClasses[order.status] || orderStatusClasses.cancelled
+                          }`}
+                        >
+                          {formatOrderStatus(order.status)}
+                        </span>
+                      </div>
+                      <h3 className="mt-3 text-lg font-serif text-[#1F1A17]">
+                        {order.customer_name ||
+                          (order.table_number ? `Table ${order.table_number}` : "Walk-in order")}
+                      </h3>
+                      <p className="mt-1 text-sm text-[#6A5B4C]">
+                        {formatOrderSourceLabel(order.order_type)}
+                        {order.table_number ? ` | Table ${order.table_number}` : ""}
+                        {order.item_count ? ` | ${order.item_count} items` : ""}
+                      </p>
+                    </div>
+
+                    <div className="text-left sm:text-right">
+                      <p className="text-lg font-serif text-[#1F1A17]">
+                        {formatCurrency(order.total_amount)}
+                      </p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[#8C7A6A]">
+                        {getRelativeTime(order.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Trending Items */}
-        <div className="bg-[#FFFFFF] border border-[#E5E5E5] rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-serif text-[#1A1A1A] font-semibold mb-6">Trending Menu Items</h3>
-          <div className="space-y-5">
-            {loading ? (
-                 <p className="text-[#888888] text-sm italic">Loading items...</p>
-            ) : stats.popularItems.map((item, i) => (
-              <div key={i} className="group cursor-default">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="font-medium text-[#333333] group-hover:text-[#1A1A1A] transition-colors">{item.name}</span>
-                  <span className="text-[#888888] font-medium">{item.orders} ord</span>
-                </div>
-                <div className="w-full bg-[#E5E5E5] rounded-full h-1.5 overflow-hidden">
-                  <div 
-                    className="bg-[#D97757] h-1.5 rounded-full" 
-                    style={{ width: `${item.percent}%` }}
-                  ></div>
-                </div>
+        <div className="space-y-6">
+          <section className="rounded-3xl border border-[#ECE5DD] bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="rounded-2xl bg-[#F8EFE4] p-3 text-[#A76541]">
+                <HiOutlineChartPie className="text-xl" />
               </div>
-            ))}
-          </div>
-          <button className="w-full mt-6 py-2 border border-[#E5E5E5] text-[#666666] text-sm font-medium rounded-lg hover:bg-[#F2F0ED] hover:text-[#1A1A1A] transition-all">
-            Menu Performance Report
-          </button>
-        </div>
+              <div>
+                <h2 className="text-xl font-serif text-[#1F1A17]">Order Sources</h2>
+                <p className="text-sm text-[#6A5B4C]">How guests are placing orders.</p>
+              </div>
+            </div>
 
-      </div>
+            <div className="space-y-3">
+              {ordersBySource.length === 0 && !loading ? (
+                <p className="text-sm text-[#7A6B5E]">No source data yet.</p>
+              ) : (
+                ordersBySource.map(([source, count]) => (
+                  <div
+                    key={source}
+                    className="flex items-center justify-between rounded-2xl bg-[#FBF6F0] px-4 py-3"
+                  >
+                    <span className="text-sm font-medium text-[#3A2C21]">
+                      {formatOrderSourceLabel(source)}
+                    </span>
+                    <span className="text-sm font-semibold text-[#9E6041]">{count}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-[#ECE5DD] bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="rounded-2xl bg-[#EEF7F1] p-3 text-emerald-700">
+                <HiOutlineViewGrid className="text-xl" />
+              </div>
+              <div>
+                <h2 className="text-xl font-serif text-[#1F1A17]">Table Snapshot</h2>
+                <p className="text-sm text-[#6A5B4C]">Current floor availability.</p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl bg-emerald-50 px-4 py-4 text-center">
+                <p className="text-xs uppercase tracking-[0.18em] text-emerald-700">Available</p>
+                <p className="mt-2 text-2xl font-serif text-emerald-900">{availableTables}</p>
+              </div>
+              <div className="rounded-2xl bg-amber-50 px-4 py-4 text-center">
+                <p className="text-xs uppercase tracking-[0.18em] text-amber-700">Occupied</p>
+                <p className="mt-2 text-2xl font-serif text-amber-900">{occupiedTables}</p>
+              </div>
+              <div className="rounded-2xl bg-blue-50 px-4 py-4 text-center">
+                <p className="text-xs uppercase tracking-[0.18em] text-blue-700">Reserved</p>
+                <p className="mt-2 text-2xl font-serif text-blue-900">{reservedTables}</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-[#ECE5DD] bg-white p-6 shadow-sm">
+            <div className="mb-5">
+              <h2 className="text-xl font-serif text-[#1F1A17]">Top Menu Items</h2>
+              <p className="mt-1 text-sm text-[#6A5B4C]">
+                Best performers in the last {selectedRange} days.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {popularItems.length === 0 && !loading ? (
+                <p className="text-sm text-[#7A6B5E]">No completed sales yet.</p>
+              ) : (
+                popularItems.map((item) => (
+                  <div key={item.item_name} className="space-y-2">
+                    <div className="flex items-center justify-between gap-4 text-sm">
+                      <span className="font-medium text-[#3A2C21]">{item.item_name}</span>
+                      <span className="text-[#8C7A6A]">{item.total_sold} sold</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 text-xs uppercase tracking-[0.16em] text-[#9E6041]">
+                      <span>{formatCurrency(item.total_revenue)}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-[#F2E8DD]">
+                      <div
+                        className="h-full rounded-full bg-[#D97757]"
+                        style={{
+                          width: `${Math.max(
+                            12,
+                            Math.min(
+                              100,
+                              item.total_sold /
+                                Math.max(...popularItems.map((entry) => entry.total_sold || 1)) *
+                                100
+                            )
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
+      </section>
     </div>
   );
 };

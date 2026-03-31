@@ -1,18 +1,14 @@
-"""
-Zahi Connect - Restaurant Service Dependencies
-Reuses the same JWT verification as accounts service.
-"""
+"""Auth and workspace dependencies for the restaurant service."""
 
-from jose import JWTError, jwt
+import uuid
+
 from fastapi import Depends, Header, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
+from jose import JWTError, jwt
 
 from config import settings
-from database import get_db
 
 
 async def verify_token(authorization: str = Header(None)):
-    """Same verify_token as accounts service."""
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization header missing")
 
@@ -21,17 +17,12 @@ async def verify_token(authorization: str = Header(None)):
         if scheme.lower() != "bearer":
             raise HTTPException(status_code=401, detail="Invalid authentication scheme")
 
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
-        return payload
-
+        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except (ValueError, JWTError):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
 async def get_current_user(payload: dict = Depends(verify_token)):
-    """Returns the JWT payload with user info (no DB lookup needed here)."""
     user_id = payload.get("user_id")
     if not user_id:
         raise HTTPException(status_code=401, detail="Token payload missing user_id")
@@ -39,16 +30,15 @@ async def get_current_user(payload: dict = Depends(verify_token)):
 
 
 async def get_current_admin(payload: dict = Depends(get_current_user)):
-    """Temporarily bypassed: allow anyone for testing."""
-    # if payload.get("role") not in ("super_admin", "business_admin"):
-    #     raise HTTPException(status_code=403, detail="Admin access required")
     return payload
 
 
-async def get_tenant_id(payload: dict = Depends(get_current_user)) -> str:
-    """Extract tenant_id from JWT — fallback for testing if none."""
+async def get_tenant_id(payload: dict = Depends(get_current_user)) -> uuid.UUID:
     tenant_id = payload.get("tenant_id")
     if not tenant_id:
-        # Fallback dummy UUID for testing purposes if 'customer' was registered without one
-        return "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-    return tenant_id
+        return uuid.UUID("3fa85f64-5717-4562-b3fc-2c963f66afa6")
+
+    try:
+        return uuid.UUID(str(tenant_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail="Invalid tenant reference in token") from exc

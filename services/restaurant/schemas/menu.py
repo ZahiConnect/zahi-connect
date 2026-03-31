@@ -43,13 +43,13 @@ class MenuItemCreate(BaseModel):
 
 
 class MenuItemUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     description: Optional[str] = None
     image_url: Optional[str] = None
-    dine_in_price: Optional[float] = None
-    delivery_price: Optional[float] = None
-    prep_time_minutes: Optional[int] = None
-    food_type: Optional[str] = None
+    dine_in_price: Optional[float] = Field(default=None, gt=0)
+    delivery_price: Optional[float] = Field(default=None, gt=0)
+    prep_time_minutes: Optional[int] = Field(default=None, ge=1)
+    food_type: Optional[str] = Field(default=None, pattern=r"^(veg|non_veg)$")
     is_available: Optional[bool] = None
     category_id: Optional[uuid.UUID] = None
 
@@ -67,5 +67,6 @@ class MenuItemResponse(BaseModel):
     food_type: str
     is_available: bool
     created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
