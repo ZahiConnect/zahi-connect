@@ -15,7 +15,14 @@ from sqlalchemy import select, text
 
 from database import AsyncSessionLocal
 from models.user import User, WorkspaceMembership
-from routers import auth_router, subscriptions_router, users_router, tenants_router, workspaces_router
+from routers import (
+    auth_router,
+    marketplace_router,
+    subscriptions_router,
+    tenants_router,
+    users_router,
+    workspaces_router,
+)
 
 STARTUP_DB_RETRIES = 15
 STARTUP_DB_RETRY_DELAY_SECONDS = 2
@@ -95,6 +102,7 @@ app.add_middleware(
 
 # Include Routers (same pattern as MyCalo)
 app.include_router(auth_router, prefix="/auth")
+app.include_router(marketplace_router, prefix="/auth")
 app.include_router(subscriptions_router, prefix="/auth/subscriptions")
 app.include_router(workspaces_router, prefix="/auth/workspaces")
 app.include_router(users_router, prefix="/auth/users")
