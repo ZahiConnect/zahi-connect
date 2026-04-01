@@ -20,7 +20,7 @@ class Order(Base):
     )
 
     order_type = Column(String(20), default="dine_in")
-    status = Column(String(20), default="new", index=True)
+    status = Column(String(30), default="new", index=True)
 
     customer_name = Column(String(200), nullable=True)
     customer_phone = Column(String(15), nullable=True)
@@ -28,6 +28,15 @@ class Order(Base):
 
     total_amount = Column(Numeric(10, 2), default=0)
     special_instructions = Column(Text, nullable=True)
+
+    service_assignee = Column(String(200), nullable=True)
+    service_started_at = Column(DateTime, nullable=True)
+    served_at = Column(DateTime, nullable=True)
+
+    bill_number = Column(String(50), nullable=True, index=True)
+    payment_method = Column(String(50), nullable=True)
+    payment_reference = Column(String(100), nullable=True)
+    settled_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

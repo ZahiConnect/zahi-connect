@@ -21,6 +21,18 @@ export const restaurantService = {
     return response.data;
   },
 
+  getSalesTrend: async (days = 14) => {
+    const response = await api.get(`${RMS_BASE}/reports/sales-trend${buildQuery({ days })}`);
+    return response.data;
+  },
+
+  getPopularItems: async ({ days = 7, limit = 10 } = {}) => {
+    const response = await api.get(
+      `${RMS_BASE}/reports/popular-items${buildQuery({ days, limit })}`
+    );
+    return response.data;
+  },
+
   getTables: async () => {
     const response = await api.get(`${RMS_BASE}/tables/`);
     return response.data;
@@ -48,6 +60,31 @@ export const restaurantService = {
 
   getKitchenBoard: async () => {
     const response = await api.get(`${RMS_BASE}/kitchen/board`);
+    return response.data;
+  },
+
+  getServiceBoard: async () => {
+    const response = await api.get(`${RMS_BASE}/service/board`);
+    return response.data;
+  },
+
+  claimServiceOrder: async (orderId, data = {}) => {
+    const response = await api.post(`${RMS_BASE}/service/${orderId}/claim`, data);
+    return response.data;
+  },
+
+  markOrderServed: async (orderId, data = {}) => {
+    const response = await api.post(`${RMS_BASE}/service/${orderId}/served`, data);
+    return response.data;
+  },
+
+  getBillingBoard: async () => {
+    const response = await api.get(`${RMS_BASE}/billing/board`);
+    return response.data;
+  },
+
+  settlePayment: async (orderId, data) => {
+    const response = await api.post(`${RMS_BASE}/billing/${orderId}/settle`, data);
     return response.data;
   },
 

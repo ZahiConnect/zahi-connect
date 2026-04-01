@@ -13,6 +13,7 @@ from dependencies import get_current_user, get_tenant_id
 from models.order import Order
 from schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate
 from services.order_service import OrderService
+from services.realtime import build_restaurant_event, restaurant_realtime
 
 router = APIRouter(tags=["Orders"])
 
@@ -52,7 +53,16 @@ async def create_order(
         order_data=data.model_dump(exclude={"items"}),
         items_data=[item.model_dump() for item in data.items],
     )
-    return await load_order_or_404(db, tenant_id, order.id)
+    hydrated_order = await load_order_or_404(db, tenant_id, order.id)
+    await restaurant_realtime.broadcast(
+        str(tenant_id),
+        build_restaurant_event(
+            "order.created",
+            ["orders", "kitchen", "tables", "dashboard", "reports"],
+            order_id=str(order.id),
+        ),
+    )
+    return hydrated_order
 
 
 @router.get("/", response_model=list[OrderResponse])
@@ -102,7 +112,17 @@ async def update_order_status(
         )
 
     await order_service.apply_status_update(db, order, data.status)
-    return await load_order_or_404(db, tenant_id, order_id)
+    hydrated_order = await load_order_or_404(db, tenant_id, order_id)
+    await restaurant_realtime.broadcast(
+        str(tenant_id),
+        build_restaurant_event(
+            "order.status_changed",
+            ["orders", "kitchen", "service", "billing", "tables", "dashboard", "reports"],
+            order_id=str(order_id),
+            status=data.status,
+        ),
+    )
+    return hydrated_order
 
 
 @router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -118,3 +138,11 @@ async def cancel_order(
         raise HTTPException(status_code=400, detail="Can only cancel orders with status 'new'")
 
     await order_service.apply_status_update(db, order, "cancelled")
+    await restaurant_realtime.broadcast(
+        str(tenant_id),
+        build_restaurant_event(
+            "order.cancelled",
+            ["orders", "kitchen", "service", "billing", "tables", "dashboard", "reports"],
+            order_id=str(order_id),
+        ),
+    )

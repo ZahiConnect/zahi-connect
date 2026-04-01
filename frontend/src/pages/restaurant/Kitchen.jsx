@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   HiOutlineCheckCircle,
   HiOutlineClock,
@@ -7,6 +7,7 @@ import {
 } from "react-icons/hi";
 import toast from "react-hot-toast";
 
+import useRestaurantLiveUpdates from "../../hooks/useRestaurantLiveUpdates";
 import restaurantService from "../../services/restaurantService";
 import {
   formatCurrency,
@@ -26,6 +27,7 @@ const columns = [
     buttonLabel: "Start Preparing",
     nextStatus: "preparing",
     buttonClass: "bg-[#1A1A1A] hover:bg-[#333333] text-white",
+    emptyCopy: "Fresh tickets appear here as soon as someone creates an order.",
   },
   {
     id: "preparing",
@@ -37,17 +39,19 @@ const columns = [
     buttonLabel: "Mark Ready",
     nextStatus: "ready",
     buttonClass: "bg-amber-600 hover:bg-amber-700 text-white",
+    emptyCopy: "Nothing is being cooked right now.",
   },
   {
     id: "ready",
-    title: "Ready to Serve",
+    title: "Ready for Attender",
     icon: HiOutlineCheckCircle,
     color: "text-emerald-600",
     bg: "bg-emerald-50",
     border: "border-emerald-200",
-    buttonLabel: "Complete Order",
-    nextStatus: "completed",
-    buttonClass: "bg-emerald-600 hover:bg-emerald-700 text-white",
+    buttonLabel: null,
+    nextStatus: null,
+    buttonClass: "",
+    emptyCopy: "Completed dishes will wait here until the attender screen claims them.",
   },
 ];
 
@@ -63,12 +67,9 @@ export default function Kitchen() {
   const [syncing, setSyncing] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState("");
 
-  const fetchBoard = async ({ silent = false } = {}) => {
-    if (silent) {
-      setSyncing(true);
-    } else {
-      setLoading(true);
-    }
+  const fetchBoard = useCallback(async ({ silent = false } = {}) => {
+    if (silent) setSyncing(true);
+    else setLoading(true);
 
     try {
       const data = await restaurantService.getKitchenBoard();
@@ -79,30 +80,28 @@ export default function Kitchen() {
       });
     } catch (error) {
       console.error("Failed to load kitchen board", error);
-      if (!silent) {
-        toast.error("Failed to load kitchen board");
-      }
+      if (!silent) toast.error("Failed to load kitchen board");
     } finally {
       setLoading(false);
       setSyncing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchBoard();
+  }, [fetchBoard]);
 
-    const intervalId = window.setInterval(() => {
+  const { connectionState } = useRestaurantLiveUpdates((event) => {
+    if (event?.scopes?.some((scope) => ["kitchen", "orders", "service"].includes(scope))) {
       fetchBoard({ silent: true });
-    }, 20000);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
+    }
+  });
 
   const moveOrder = async (orderId, newStatus) => {
     try {
       setUpdatingOrderId(orderId);
       await restaurantService.updateOrderStatus(orderId, newStatus);
-      toast.success("Kitchen board updated");
+      toast.success(newStatus === "preparing" ? "Moved into prep" : "Marked ready for attender");
       await fetchBoard({ silent: true });
     } catch (error) {
       console.error("Failed to move order", error);
@@ -112,8 +111,23 @@ export default function Kitchen() {
     }
   };
 
+  const totals = useMemo(
+    () => ({
+      all: (board.new?.length || 0) + (board.preparing?.length || 0) + (board.ready?.length || 0),
+      ready: board.ready?.length || 0,
+    }),
+    [board]
+  );
+
+  const liveStateCopy =
+    connectionState === "live"
+      ? "Live websocket connected"
+      : connectionState === "reconnecting"
+        ? "Reconnecting kitchen feed..."
+        : "Connecting kitchen feed...";
+
   return (
-    <div className="flex h-[calc(100vh-10rem)] flex-col space-y-6 animate-in fade-in duration-500">
+    <div className="flex min-h-[calc(100vh-10rem)] flex-col space-y-6 animate-in fade-in duration-500">
       <div className="shrink-0 border-b border-[#E5E5E5] pb-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -121,34 +135,44 @@ export default function Kitchen() {
             <div className="mt-2 flex items-center gap-2">
               <div
                 className={`h-2.5 w-2.5 rounded-full ${
-                  syncing || loading ? "animate-pulse bg-amber-500" : "bg-emerald-500"
+                  connectionState === "live"
+                    ? "bg-emerald-500"
+                    : syncing || loading
+                      ? "animate-pulse bg-amber-500"
+                      : "bg-rose-500"
                 }`}
               />
-              <span className="text-sm font-medium text-[#666666]">
-                {syncing || loading ? "Syncing kitchen board..." : "Auto-refreshing every 20 seconds"}
-              </span>
+              <span className="text-sm font-medium text-[#666666]">{liveStateCopy}</span>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => fetchBoard({ silent: true })}
-            className="inline-flex items-center gap-2 rounded-full border border-[#DDCDBF] bg-white px-4 py-2 text-sm font-medium text-[#3A2C21] transition-colors hover:bg-[#FBF6F0]"
-          >
-            <HiOutlineRefresh className={syncing ? "animate-spin" : ""} />
-            Refresh now
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-full bg-[#FBF1E7] px-4 py-2 text-sm font-semibold text-[#A76541]">
+              {totals.all} live ticket(s)
+            </div>
+            <div className="rounded-full bg-[#EEF7F1] px-4 py-2 text-sm font-semibold text-emerald-700">
+              {totals.ready} waiting for attender
+            </div>
+            <button
+              type="button"
+              onClick={() => fetchBoard({ silent: true })}
+              className="inline-flex items-center gap-2 rounded-full border border-[#DDCDBF] bg-white px-4 py-2 text-sm font-medium text-[#3A2C21] transition-colors hover:bg-[#FBF6F0]"
+            >
+              <HiOutlineRefresh className={syncing ? "animate-spin" : ""} />
+              Refresh now
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="grid flex-1 grid-cols-1 gap-6 overflow-hidden md:grid-cols-3">
+      <div className="grid flex-1 grid-cols-1 gap-6 md:grid-cols-3">
         {columns.map((column) => {
           const orders = board[column.id] || [];
 
           return (
             <section
               key={column.id}
-              className="flex flex-col overflow-hidden rounded-3xl border border-[#E6DDD4] bg-[#F9F7F3]"
+              className="flex min-h-[22rem] flex-col overflow-hidden rounded-3xl border border-[#E6DDD4] bg-[#F9F7F3]"
             >
               <div className="flex items-center justify-between border-b border-[#E6DDD4] bg-white px-5 py-4">
                 <div className="flex items-center gap-3">
@@ -175,7 +199,7 @@ export default function Kitchen() {
                 ) : orders.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center rounded-3xl border border-dashed border-[#DDD2C5] bg-white px-6 py-10 text-center text-[#8A7C6D]">
                     <column.icon className="mb-3 text-4xl opacity-50" />
-                    <p className="text-sm font-medium">No orders in this stage</p>
+                    <p className="text-sm font-medium">{column.emptyCopy}</p>
                   </div>
                 ) : (
                   orders.map((order) => (
@@ -186,10 +210,12 @@ export default function Kitchen() {
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-xl font-bold text-[#1A1A1A]">#{order.id.slice(0, 8)}</h3>
+                            <h3 className="text-xl font-bold text-[#1A1A1A]">
+                              #{order.id.slice(0, 8)}
+                            </h3>
                             <span
                               className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${
-                                orderStatusClasses[order.status]
+                                orderStatusClasses[order.status] || orderStatusClasses.ready
                               }`}
                             >
                               {order.status}
@@ -234,14 +260,20 @@ export default function Kitchen() {
                         )}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => moveOrder(order.id, column.nextStatus)}
-                        disabled={updatingOrderId === order.id}
-                        className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${column.buttonClass}`}
-                      >
-                        {updatingOrderId === order.id ? "Updating..." : column.buttonLabel}
-                      </button>
+                      {column.buttonLabel ? (
+                        <button
+                          type="button"
+                          onClick={() => moveOrder(order.id, column.nextStatus)}
+                          disabled={updatingOrderId === order.id}
+                          className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${column.buttonClass}`}
+                        >
+                          {updatingOrderId === order.id ? "Updating..." : column.buttonLabel}
+                        </button>
+                      ) : (
+                        <div className="mt-5 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+                          Waiting for the attender screen to take this order.
+                        </div>
+                      )}
                     </article>
                   ))
                 )}

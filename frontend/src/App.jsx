@@ -28,6 +28,9 @@ import Menu from "./pages/restaurant/Menu";
 import Orders from "./pages/restaurant/Orders";
 import Tables from "./pages/restaurant/Tables";
 import Inventory from "./pages/restaurant/Inventory";
+import Attender from "./pages/restaurant/Attender";
+import Accountant from "./pages/restaurant/Accountant";
+import RestaurantReports from "./pages/restaurant/Reports";
 import HotelBookings from "./hotel/pages/Bookings";
 import HotelConfig from "./hotel/pages/Config";
 import HotelCalender from "./hotel/pages/Calender";
@@ -44,7 +47,9 @@ const DelayedLoader = ({ isLoading }) => {
         setShow(true);
       }, 200);
     } else {
-      setShow(false);
+      timeout = setTimeout(() => {
+        setShow(false);
+      }, 0);
     }
     return () => clearTimeout(timeout);
   }, [isLoading]);
@@ -102,6 +107,10 @@ const Unauthorized = () => {
 
 const ReportsPage = () => {
   const { user } = useSelector((state) => state.auth);
+
+  if (user?.business_type === "restaurant" || user?.role === "super_admin") {
+    return <RestaurantReports />;
+  }
 
   return (
     <WorkspaceModulePage
@@ -173,7 +182,7 @@ function App() {
             accessToken: response.data.access,
           })
         );
-      } catch (err) {
+      } catch {
         dispatch(logout());
       } finally {
         dispatch(finishInitialLoad());
@@ -206,6 +215,8 @@ function App() {
             <Route path="/dashboard/menu" element={<Menu />} />
             <Route path="/dashboard/orders" element={<Orders />} />
             <Route path="/dashboard/kitchen" element={<Kitchen />} />
+            <Route path="/dashboard/attender" element={<Attender />} />
+            <Route path="/dashboard/accountant" element={<Accountant />} />
             <Route path="/dashboard/tables" element={<Tables />} />
             <Route path="/dashboard/inventory" element={<Inventory />} />
             <Route element={<HotelWorkspaceRoute />}>

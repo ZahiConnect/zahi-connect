@@ -14,6 +14,7 @@ export default defineConfig({
       '/rms': {
         target: 'http://localhost:8080',
         changeOrigin: true,
+        ws: true,
       },
       '/hotel': {
         target: 'http://localhost:8080',

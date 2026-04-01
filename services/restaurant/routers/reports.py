@@ -3,7 +3,7 @@
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -15,6 +15,15 @@ from models.table import Table
 from schemas.order import OrderResponse
 
 router = APIRouter(tags=["Reports"])
+
+ACTIVE_SERVICE_STATUSES = [
+    "new",
+    "preparing",
+    "ready",
+    "out_for_service",
+    "out_for_delivery",
+    "served",
+]
 
 
 async def fetch_popular_items(
@@ -49,6 +58,61 @@ async def fetch_popular_items(
             "total_revenue": float(row[2] or 0),
         }
         for row in result.all()
+    ]
+
+
+async def fetch_sales_trend(
+    db: AsyncSession,
+    tenant_id,
+    days: int,
+):
+    start_date = date.today() - timedelta(days=days - 1)
+    start_datetime = datetime.combine(start_date, datetime.min.time())
+
+    result = await db.execute(
+        select(
+            func.date(Order.created_at).label("order_day"),
+            func.count(Order.id).label("order_count"),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Order.status == "completed", Order.total_amount),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("revenue_total"),
+            func.sum(case((Order.status == "completed", 1), else_=0)).label("completed_count"),
+        )
+        .where(
+            Order.tenant_id == tenant_id,
+            Order.created_at >= start_datetime,
+        )
+        .group_by(func.date(Order.created_at))
+        .order_by(func.date(Order.created_at))
+    )
+
+    indexed_rows = {
+        row.order_day.isoformat(): {
+            "date": row.order_day.isoformat(),
+            "order_count": int(row.order_count or 0),
+            "completed_count": int(row.completed_count or 0),
+            "revenue_total": float(row.revenue_total or 0),
+        }
+        for row in result.all()
+    }
+
+    return [
+        indexed_rows.get(
+            current_day.isoformat(),
+            {
+                "date": current_day.isoformat(),
+                "order_count": 0,
+                "completed_count": 0,
+                "revenue_total": 0,
+            },
+        )
+        for current_day in (start_date + timedelta(days=offset) for offset in range(days))
     ]
 
 
@@ -140,7 +204,7 @@ async def get_dashboard_metrics(
     active_orders_result = await db.execute(
         select(func.count(Order.id)).where(
             Order.tenant_id == tenant_id,
-            Order.status.in_(["new", "preparing", "ready"]),
+            Order.status.in_(ACTIVE_SERVICE_STATUSES),
         )
     )
     active_orders = int(active_orders_result.scalar() or 0)
@@ -219,3 +283,13 @@ async def get_dashboard_metrics(
         "recent_orders": recent_orders_payload,
         "popular_items": popular_items,
     }
+
+
+@router.get("/sales-trend")
+async def get_sales_trend(
+    days: int = Query(default=14, ge=1, le=90),
+    tenant_id: str = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_user),
+):
+    return await fetch_sales_trend(db=db, tenant_id=tenant_id, days=days)

@@ -1,10 +1,17 @@
-"""Order schemas for order intake and kitchen workflows."""
+"""Order schemas for order intake, service handoff, and settlement workflows."""
 
 import uuid
 from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
+
+
+ORDER_TYPE_PATTERN = r"^(dine_in|delivery|whatsapp|website)$"
+ORDER_STATUS_PATTERN = (
+    r"^(new|preparing|ready|out_for_service|out_for_delivery|served|completed|cancelled)$"
+)
+PAYMENT_METHOD_PATTERN = r"^(cash|card|upi|bank_transfer|other)$"
 
 
 class OrderItemCreate(BaseModel):
@@ -29,7 +36,7 @@ class OrderItemResponse(BaseModel):
 
 class OrderCreate(BaseModel):
     table_id: Optional[uuid.UUID] = None
-    order_type: str = Field(default="dine_in", pattern=r"^(dine_in|delivery|whatsapp|website)$")
+    order_type: str = Field(default="dine_in", pattern=ORDER_TYPE_PATTERN)
     customer_name: Optional[str] = None
     customer_phone: Optional[str] = None
     delivery_address: Optional[str] = None
@@ -40,13 +47,28 @@ class OrderCreate(BaseModel):
     def validate_order_requirements(self):
         if self.order_type == "dine_in" and not self.table_id:
             raise ValueError("Dine-in orders require a table")
+        if self.order_type != "dine_in" and self.table_id:
+            raise ValueError("Only dine-in orders can be linked to a table")
         if self.order_type == "delivery" and not self.delivery_address:
             raise ValueError("Delivery orders require a delivery address")
         return self
 
 
 class OrderStatusUpdate(BaseModel):
-    status: str = Field(..., pattern=r"^(new|preparing|ready|completed|cancelled)$")
+    status: str = Field(..., pattern=ORDER_STATUS_PATTERN)
+
+
+class ServiceClaimRequest(BaseModel):
+    service_assignee: Optional[str] = Field(default=None, max_length=200)
+
+
+class ServiceServeRequest(BaseModel):
+    service_assignee: Optional[str] = Field(default=None, max_length=200)
+
+
+class PaymentSettlementRequest(BaseModel):
+    payment_method: str = Field(..., pattern=PAYMENT_METHOD_PATTERN)
+    payment_reference: Optional[str] = Field(default=None, max_length=100)
 
 
 class OrderResponse(BaseModel):
@@ -61,6 +83,13 @@ class OrderResponse(BaseModel):
     delivery_address: Optional[str] = None
     total_amount: float
     special_instructions: Optional[str] = None
+    service_assignee: Optional[str] = None
+    service_started_at: Optional[datetime] = None
+    served_at: Optional[datetime] = None
+    bill_number: Optional[str] = None
+    payment_method: Optional[str] = None
+    payment_reference: Optional[str] = None
+    settled_at: Optional[datetime] = None
     item_count: int = 0
     items: list[OrderItemResponse] = Field(default_factory=list)
     created_at: datetime

@@ -1,6 +1,7 @@
 import axios from "axios";
 import { store } from "../redux/store";
-import { startFetching, stopFetching } from "../redux/authslice";
+import { setCredentials, startFetching, stopFetching } from "../redux/authslice";
+import { buildSessionUser } from "./authSession";
 
 // Store access token in memory
 let access_token_in_memory = null;
@@ -64,6 +65,14 @@ api.interceptors.response.use(
         const rs = await api.post("/auth/token/refresh", {}, { skipLoading: true }); 
         const new_access = rs.data.access;
         setAccessToken(new_access);
+        if (rs.data.user) {
+          store.dispatch(
+            setCredentials({
+              user: buildSessionUser(rs.data.user),
+              accessToken: new_access,
+            })
+          );
+        }
         originalRequest.headers.Authorization = `Bearer ${new_access}`;
         
         if (!originalRequest.skipLoading) store.dispatch(stopFetching());

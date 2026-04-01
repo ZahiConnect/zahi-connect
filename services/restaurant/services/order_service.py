@@ -1,5 +1,6 @@
-"""Business logic for restaurant orders and table coordination."""
+"""Business logic for restaurant orders, service handoff, and table coordination."""
 
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -11,7 +12,14 @@ from models.order import Order, OrderItem
 from models.table import Table
 
 
-ACTIVE_ORDER_STATUSES = {"new", "preparing", "ready"}
+ACTIVE_ORDER_STATUSES = {
+    "new",
+    "preparing",
+    "ready",
+    "out_for_service",
+    "out_for_delivery",
+    "served",
+}
 DELIVERY_LIKE_ORDER_TYPES = {"delivery", "whatsapp", "website"}
 
 
@@ -21,7 +29,10 @@ class OrderService:
         valid_transitions = {
             "new": {"preparing", "cancelled"},
             "preparing": {"ready", "cancelled"},
-            "ready": {"completed", "cancelled"},
+            "ready": {"out_for_service", "out_for_delivery", "served", "cancelled"},
+            "out_for_service": {"served", "cancelled"},
+            "out_for_delivery": {"served", "cancelled"},
+            "served": {"completed"},
             "completed": set(),
             "cancelled": set(),
         }
@@ -99,8 +110,34 @@ class OrderService:
         return order
 
     @staticmethod
-    async def apply_status_update(db: AsyncSession, order: Order, new_status: str) -> Order:
+    async def apply_status_update(
+        db: AsyncSession,
+        order: Order,
+        new_status: str,
+        *,
+        service_assignee: str | None = None,
+        payment_method: str | None = None,
+        payment_reference: str | None = None,
+    ) -> Order:
         order.status = new_status
+        now = datetime.utcnow()
+
+        if new_status in {"out_for_service", "out_for_delivery"}:
+            order.service_assignee = service_assignee or order.service_assignee
+            order.service_started_at = now
+
+        if new_status == "served":
+            order.service_assignee = service_assignee or order.service_assignee
+            order.served_at = now
+            if not order.bill_number:
+                order.bill_number = OrderService.generate_bill_number(order)
+
+        if new_status == "completed":
+            order.settled_at = now
+            order.payment_method = payment_method
+            order.payment_reference = payment_reference
+            if not order.bill_number:
+                order.bill_number = OrderService.generate_bill_number(order)
 
         if order.table_id and new_status in {"completed", "cancelled"}:
             await OrderService._release_table_if_last_active_order(
@@ -113,6 +150,29 @@ class OrderService:
         await db.commit()
         await db.refresh(order)
         return order
+
+    @staticmethod
+    async def count_active_orders_for_table(
+        db: AsyncSession,
+        tenant_id,
+        table_id,
+        excluding_order_id=None,
+    ) -> int:
+        query = select(func.count(Order.id)).where(
+            Order.tenant_id == tenant_id,
+            Order.table_id == table_id,
+            Order.status.in_(ACTIVE_ORDER_STATUSES),
+        )
+        if excluding_order_id is not None:
+            query = query.where(Order.id != excluding_order_id)
+
+        result = await db.execute(query)
+        return int(result.scalar_one() or 0)
+
+    @staticmethod
+    def generate_bill_number(order: Order) -> str:
+        order_key = str(order.id).split("-")[0].upper()
+        return f"ZB-{datetime.utcnow():%Y%m%d}-{order_key}"
 
     @staticmethod
     async def _load_menu_items(
@@ -154,14 +214,18 @@ class OrderService:
             raise HTTPException(status_code=404, detail="Table not found")
 
         if order_type == "dine_in":
-            active_order_result = await db.execute(
-                select(func.count(Order.id)).where(
-                    Order.tenant_id == tenant_id,
-                    Order.table_id == table_id,
-                    Order.status.in_(ACTIVE_ORDER_STATUSES),
+            if table.status in {"occupied", "reserved"}:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Table {table.table_number} is currently {table.status}",
                 )
+
+            active_orders = await OrderService.count_active_orders_for_table(
+                db=db,
+                tenant_id=tenant_id,
+                table_id=table_id,
             )
-            if active_order_result.scalar_one() > 0:
+            if active_orders > 0:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Table {table.table_number} already has an active order",
@@ -176,15 +240,12 @@ class OrderService:
         table_id,
         excluding_order_id,
     ) -> None:
-        result = await db.execute(
-            select(func.count(Order.id)).where(
-                Order.tenant_id == tenant_id,
-                Order.table_id == table_id,
-                Order.id != excluding_order_id,
-                Order.status.in_(ACTIVE_ORDER_STATUSES),
-            )
+        remaining_active_orders = await OrderService.count_active_orders_for_table(
+            db=db,
+            tenant_id=tenant_id,
+            table_id=table_id,
+            excluding_order_id=excluding_order_id,
         )
-        remaining_active_orders = result.scalar_one()
         if remaining_active_orders > 0:
             return
 

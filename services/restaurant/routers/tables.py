@@ -4,18 +4,17 @@ import uuid
 
 from fastapi import APIRouter, Depends, status
 from fastapi.exceptions import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from dependencies import get_current_admin, get_current_user, get_tenant_id
-from models.order import Order
 from models.table import Table
 from schemas.table import TableCreate, TableResponse, TableStatusUpdate, TableUpdate
+from services.order_service import OrderService
+from services.realtime import build_restaurant_event, restaurant_realtime
 
 router = APIRouter(tags=["Tables"])
-
-ACTIVE_ORDER_STATUSES = {"new", "preparing", "ready"}
 
 
 async def load_table_or_404(db: AsyncSession, tenant_id: str, table_id: uuid.UUID) -> Table:
@@ -62,6 +61,14 @@ async def create_table(
     db.add(table)
     await db.commit()
     await db.refresh(table)
+    await restaurant_realtime.broadcast(
+        str(tenant_id),
+        build_restaurant_event(
+            "table.created",
+            ["tables", "orders", "dashboard", "reports"],
+            table_id=str(table.id),
+        ),
+    )
     return table
 
 
@@ -96,11 +103,31 @@ async def update_table(
             excluding_table_id=table_id,
         )
 
+    if "status" in update_data and table.id:
+        active_order_count = await OrderService.count_active_orders_for_table(
+            db=db,
+            tenant_id=tenant_id,
+            table_id=table.id,
+        )
+        if active_order_count > 0 and update_data["status"] != "occupied":
+            raise HTTPException(
+                status_code=400,
+                detail="Tables with active dine-in orders must stay occupied until payment is settled",
+            )
+
     for field, value in update_data.items():
         setattr(table, field, value)
 
     await db.commit()
     await db.refresh(table)
+    await restaurant_realtime.broadcast(
+        str(tenant_id),
+        build_restaurant_event(
+            "table.updated",
+            ["tables", "orders", "dashboard", "reports"],
+            table_id=str(table.id),
+        ),
+    )
     return table
 
 
@@ -113,12 +140,32 @@ async def update_table_status(
     _=Depends(get_current_user),
 ):
     table = await load_table_or_404(db, tenant_id, table_id)
+    active_order_count = await OrderService.count_active_orders_for_table(
+        db=db,
+        tenant_id=tenant_id,
+        table_id=table.id,
+    )
+    if active_order_count > 0 and data.status != "occupied":
+        raise HTTPException(
+            status_code=400,
+            detail="Tables with active dine-in orders must stay occupied until payment is settled",
+        )
+
     table.status = data.status
     if data.assigned_staff is not None:
         table.assigned_staff = data.assigned_staff
 
     await db.commit()
     await db.refresh(table)
+    await restaurant_realtime.broadcast(
+        str(tenant_id),
+        build_restaurant_event(
+            "table.status_changed",
+            ["tables", "orders", "dashboard", "reports"],
+            table_id=str(table.id),
+            status=data.status,
+        ),
+    )
     return table
 
 
@@ -130,15 +177,12 @@ async def delete_table(
     _=Depends(get_current_admin),
 ):
     table = await load_table_or_404(db, tenant_id, table_id)
-
-    active_order_result = await db.execute(
-        select(func.count(Order.id)).where(
-            Order.tenant_id == tenant_id,
-            Order.table_id == table_id,
-            Order.status.in_(ACTIVE_ORDER_STATUSES),
-        )
+    active_order_count = await OrderService.count_active_orders_for_table(
+        db=db,
+        tenant_id=tenant_id,
+        table_id=table_id,
     )
-    if active_order_result.scalar_one() > 0:
+    if active_order_count > 0:
         raise HTTPException(
             status_code=400,
             detail="Cannot delete a table with active orders",
@@ -146,3 +190,11 @@ async def delete_table(
 
     await db.delete(table)
     await db.commit()
+    await restaurant_realtime.broadcast(
+        str(tenant_id),
+        build_restaurant_event(
+            "table.deleted",
+            ["tables", "orders", "dashboard", "reports"],
+            table_id=str(table_id),
+        ),
+    )

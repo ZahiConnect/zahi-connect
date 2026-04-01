@@ -18,21 +18,25 @@ import {
   orderStatusClasses,
 } from "../../lib/restaurant";
 
-const StatCard = ({ title, value, detail, icon: Icon, accent }) => (
-  <div className="rounded-2xl border border-[#E6DDD4] bg-white p-5 shadow-sm">
-    <div className="mb-4 flex items-start justify-between gap-3">
-      <div className={`rounded-2xl p-3 ${accent}`}>
-        <Icon className="text-xl" />
+const StatCard = ({ title, value, detail, icon, accent }) => {
+  const IconComponent = icon;
+
+  return (
+    <div className="rounded-2xl border border-[#E6DDD4] bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className={`rounded-2xl p-3 ${accent}`}>
+          <IconComponent className="text-xl" />
+        </div>
+        <span className="rounded-full bg-[#F7F1EA] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#8B5D44]">
+          Live
+        </span>
       </div>
-      <span className="rounded-full bg-[#F7F1EA] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#8B5D44]">
-        Live
-      </span>
+      <p className="text-sm font-medium text-[#7A6B5E]">{title}</p>
+      <p className="mt-2 text-3xl font-serif text-[#1F1A17]">{value}</p>
+      <p className="mt-3 text-sm leading-6 text-[#6A5B4C]">{detail}</p>
     </div>
-    <p className="text-sm font-medium text-[#7A6B5E]">{title}</p>
-    <p className="mt-2 text-3xl font-serif text-[#1F1A17]">{value}</p>
-    <p className="mt-3 text-sm leading-6 text-[#6A5B4C]">{detail}</p>
-  </div>
-);
+  );
+};
 
 const rangeOptions = [
   { label: "Last 7 Days", value: 7 },

@@ -9,6 +9,7 @@ import { getWorkspaceLabel } from "../lib/workspace";
 import {
   HiOutlineArrowUp,
   HiOutlineBell,
+  HiOutlineCash,
   HiOutlineChartPie,
   HiOutlineChevronDown,
   HiOutlineClipboardList,
@@ -30,6 +31,8 @@ const menuItemsByType = {
     { name: "Menu", path: "/dashboard/menu", icon: HiOutlineViewGrid },
     { name: "Orders", path: "/dashboard/orders", icon: HiOutlineClipboardList },
     { name: "Kitchen", path: "/dashboard/kitchen", icon: HiOutlineClipboardList },
+    { name: "Attender", path: "/dashboard/attender", icon: HiOutlineUsers },
+    { name: "Accountant", path: "/dashboard/accountant", icon: HiOutlineCash },
     { name: "Tables", path: "/dashboard/tables", icon: MdOutlineTableBar },
     { name: "Inventory", path: "/dashboard/inventory", icon: HiOutlineArchive },
     { name: "Reports", path: "/dashboard/reports", icon: HiOutlineChartPie },
