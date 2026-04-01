@@ -40,6 +40,23 @@ services:
       timeout: 5s
       retries: 5
 
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: zahi_dynamodb_local
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /home/dynamodblocal/data"
+    ports:
+      - "8000:8000"
+    volumes:
+      - dynamodb_data:/home/dynamodblocal/data
+
+  chromadb:
+    image: chromadb/chroma:0.5.0
+    container_name: zahi_chromadb
+    ports:
+      - "8007:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+
   # ───────────────────────────────────────────────
   #  KAFKA + ZOOKEEPER — Event-Driven Messaging
   #  (Replaces MyCalo's Celery for inter-service events)
@@ -178,21 +195,24 @@ services:
   #       condition: service_healthy
 
   # --- AI / WaaS Service (WhatsApp Bot Engine) — Week 2+ ---
-  # ai_service:
-  #   build: ./services/ai_service
-  #   container_name: zahi_ai_service
-  #   volumes:
-  #     - ./services/ai_service:/app
-  #   command: uvicorn app.main:app --host 0.0.0.0 --port 8006 --reload
-  #   ports:
-  #     - "8006:8006"
-  #   env_file:
-  #     - ./services/ai_service/.env
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #     kafka:
-  #       condition: service_healthy
+  ai_service:
+    build: ./services/ai_service
+    container_name: zahi_ai_service
+    volumes:
+      - ./services/ai_service:/app
+    command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8006 --reload --reload-dir /app"
+    restart: always
+    ports:
+      - "8006:8006"
+    env_file:
+      - ./services/ai_service/.env
+    depends_on:
+      restaurant:
+        condition: service_started
+      dynamodb-local:
+        condition: service_started
+      chromadb:
+        condition: service_started
 
   # ───────────────────────────────────────────────
   #  API GATEWAY (NGINX) — Same pattern as MyCalo
@@ -210,7 +230,10 @@ services:
       - accounts
       - hotel
       - restaurant
+      - ai_service
 
 
 volumes:
   postgres_data:
+  chroma_data:
+  dynamodb_data:

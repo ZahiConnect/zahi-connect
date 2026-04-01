@@ -1,6 +1,7 @@
 """Menu routes for categories, items, and media uploads."""
 
 import uuid
+from typing import Iterable
 
 import cloudinary.uploader
 from fastapi import APIRouter, Depends, File, UploadFile, status
@@ -20,6 +21,18 @@ from schemas.menu import (
 )
 
 router = APIRouter(tags=["Menu"])
+
+
+def build_image_urls(existing_urls: Iterable[str] | None, fallback_url: str | None = None) -> list[str]:
+    urls = [url for url in (existing_urls or []) if url]
+    if not urls and fallback_url:
+        urls = [fallback_url]
+    return urls
+
+
+def sync_item_images(item: MenuItem):
+    item.image_urls = build_image_urls(item.image_urls, item.image_url)
+    item.sync_primary_image()
 
 
 async def load_category_or_404(
@@ -104,7 +117,11 @@ async def create_item(
     _=Depends(get_current_admin),
 ):
     await load_category_or_404(db, tenant_id, data.category_id)
-    item = MenuItem(tenant_id=tenant_id, **data.model_dump())
+    payload = data.model_dump()
+    image_urls = build_image_urls(payload.pop("image_urls", []), payload.get("image_url"))
+    item = MenuItem(tenant_id=tenant_id, **payload)
+    item.image_urls = image_urls
+    item.sync_primary_image()
     db.add(item)
     await db.commit()
     await db.refresh(item)
@@ -123,7 +140,10 @@ async def list_items(
         query = query.where(MenuItem.category_id == category_id)
 
     result = await db.execute(query.order_by(MenuItem.name))
-    return result.scalars().all()
+    items = result.scalars().all()
+    for item in items:
+        sync_item_images(item)
+    return items
 
 
 @router.get("/items/{item_id}", response_model=MenuItemResponse)
@@ -133,7 +153,9 @@ async def get_item(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    return await load_item_or_404(db, tenant_id, item_id)
+    item = await load_item_or_404(db, tenant_id, item_id)
+    sync_item_images(item)
+    return item
 
 
 @router.patch("/items/{item_id}", response_model=MenuItemResponse)
@@ -153,6 +175,13 @@ async def update_item(
     for field, value in update_data.items():
         setattr(item, field, value)
 
+    if "image_urls" in update_data:
+        item.image_urls = [url for url in (update_data.get("image_urls") or []) if url]
+        item.sync_primary_image()
+    elif "image_url" in update_data:
+        item.image_urls = build_image_urls(None, update_data.get("image_url"))
+        item.sync_primary_image()
+
     await db.commit()
     await db.refresh(item)
     return item
@@ -170,6 +199,40 @@ async def delete_item(
     await db.commit()
 
 
+@router.post("/items/{item_id}/images", response_model=MenuItemResponse)
+async def upload_item_images(
+    item_id: uuid.UUID,
+    files: list[UploadFile] = File(...),
+    tenant_id: str = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(get_current_admin),
+):
+    item = await load_item_or_404(db, tenant_id, item_id)
+
+    try:
+        if not files:
+            raise HTTPException(status_code=400, detail="At least one image is required")
+
+        uploaded_urls = []
+        for file in files:
+            contents = await file.read()
+            upload_result = cloudinary.uploader.upload(
+                contents,
+                folder=f"zahi_connect/menu/{tenant_id}",
+            )
+            secure_url = upload_result.get("secure_url")
+            if secure_url:
+                uploaded_urls.append(secure_url)
+
+        item.image_urls = build_image_urls(item.image_urls, item.image_url) + uploaded_urls
+        item.sync_primary_image()
+        await db.commit()
+        await db.refresh(item)
+        return item
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Image upload failed: {exc}") from exc
+
+
 @router.post("/items/{item_id}/image", response_model=MenuItemResponse)
 async def upload_item_image(
     item_id: uuid.UUID,
@@ -178,18 +241,10 @@ async def upload_item_image(
     db: AsyncSession = Depends(get_db),
     _=Depends(get_current_admin),
 ):
-    item = await load_item_or_404(db, tenant_id, item_id)
-
-    try:
-        contents = await file.read()
-        upload_result = cloudinary.uploader.upload(
-            contents,
-            folder=f"zahi_connect/menu/{tenant_id}",
-        )
-
-        item.image_url = upload_result.get("secure_url")
-        await db.commit()
-        await db.refresh(item)
-        return item
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Image upload failed: {exc}") from exc
+    return await upload_item_images(
+        item_id=item_id,
+        files=[file],
+        tenant_id=tenant_id,
+        db=db,
+        _=_,
+    )

@@ -9,7 +9,9 @@ from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import relationship
+from sqlalchemy.types import JSON
 
 from database import Base
 
@@ -19,7 +21,7 @@ class MenuCategory(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    name = Column(String(100), nullable=False)  # "Starters", "Main Course"
+    name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
@@ -44,14 +46,13 @@ class MenuItem(Base):
     name = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     image_url = Column(String(500), nullable=True)
+    image_urls = Column(MutableList.as_mutable(JSON), nullable=False, default=list)
 
-    # Pricing (dine-in vs delivery — like Zomato)
     dine_in_price = Column(Numeric(10, 2), nullable=False)
-    delivery_price = Column(Numeric(10, 2), nullable=True)  # null = same as dine-in
+    delivery_price = Column(Numeric(10, 2), nullable=True)
 
-    # Details
     prep_time_minutes = Column(Integer, default=15)
-    food_type = Column(String(10), default="veg")  # "veg" or "non_veg"
+    food_type = Column(String(10), default="veg")
     is_available = Column(Boolean, default=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -59,5 +60,10 @@ class MenuItem(Base):
 
     category = relationship("MenuCategory", back_populates="items")
 
+    def sync_primary_image(self):
+        cleaned_urls = [url for url in (self.image_urls or []) if url]
+        self.image_urls = cleaned_urls
+        self.image_url = cleaned_urls[0] if cleaned_urls else None
+
     def __repr__(self):
-        return f"<MenuItem {self.name} ₹{self.dine_in_price}>"
+        return f"<MenuItem {self.name} Rs {self.dine_in_price}>"

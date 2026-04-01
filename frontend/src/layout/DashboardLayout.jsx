@@ -5,6 +5,7 @@ import { logout } from "../redux/authslice";
 import api from "../lib/axios";
 import { clearPurchaseIntent } from "../lib/purchaseIntent";
 import { getWorkspaceLabel } from "../lib/workspace";
+import RestaurantAssistantDrawer from "../components/assistant/RestaurantAssistantDrawer";
 
 import {
   HiOutlineArrowUp,
@@ -241,6 +242,8 @@ const DashboardLayout = () => {
           </div>
         </main>
       </div>
+
+      {businessType === "restaurant" ? <RestaurantAssistantDrawer user={user} /> : null}
     </div>
   );
 };

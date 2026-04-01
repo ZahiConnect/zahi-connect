@@ -35,6 +35,7 @@ class MenuItemCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = None
     image_url: Optional[str] = None
+    image_urls: list[str] = Field(default_factory=list)
     dine_in_price: float = Field(..., gt=0)
     delivery_price: Optional[float] = None
     prep_time_minutes: int = Field(default=15, ge=1)
@@ -46,6 +47,7 @@ class MenuItemUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     description: Optional[str] = None
     image_url: Optional[str] = None
+    image_urls: Optional[list[str]] = None
     dine_in_price: Optional[float] = Field(default=None, gt=0)
     delivery_price: Optional[float] = Field(default=None, gt=0)
     prep_time_minutes: Optional[int] = Field(default=None, ge=1)
@@ -61,6 +63,7 @@ class MenuItemResponse(BaseModel):
     name: str
     description: Optional[str] = None
     image_url: Optional[str] = None
+    image_urls: list[str] = Field(default_factory=list)
     dine_in_price: float
     delivery_price: Optional[float] = None
     prep_time_minutes: int

@@ -173,15 +173,19 @@ export const restaurantService = {
     await api.delete(`${RMS_BASE}/menu/items/${id}`);
   },
 
-  uploadMenuItemImage: async (id, file) => {
+  uploadMenuItemImages: async (id, files) => {
     const formData = new FormData();
-    formData.append("file", file);
-    const response = await api.post(`${RMS_BASE}/menu/items/${id}/image`, formData, {
+    files.forEach((file) => formData.append("files", file));
+    const response = await api.post(`${RMS_BASE}/menu/items/${id}/images`, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
     });
     return response.data;
+  },
+
+  uploadMenuItemImage: async (id, file) => {
+    return restaurantService.uploadMenuItemImages(id, [file]);
   },
 };
 
