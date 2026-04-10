@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ChefHat, Search, Store, Users } from "lucide-react";
+import { ArrowRight, ChefHat, Clock3, MapPin, Search, Store, Users } from "lucide-react";
 
 import marketplaceService from "../services/marketplaceService";
 import { formatAddress, formatCurrency, shortText } from "../lib/format";
 
 const RestaurantsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [restaurants, setRestaurants] = useState([]);
+  const [foodItems, setFoodItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTag, setActiveTag] = useState("all");
 
@@ -19,12 +19,12 @@ const RestaurantsPage = () => {
 
     const load = async () => {
       try {
-        const data = await marketplaceService.getRestaurants();
+        const data = await marketplaceService.getFoodItems();
         if (active) {
-          setRestaurants(Array.isArray(data) ? data : []);
+          setFoodItems(Array.isArray(data) ? data : []);
         }
       } catch (error) {
-        console.error("Failed to load restaurants", error);
+        console.error("Failed to load food catalog", error);
       } finally {
         if (active) {
           setLoading(false);
@@ -40,26 +40,39 @@ const RestaurantsPage = () => {
 
   const allTags = useMemo(() => {
     const tags = new Set();
-    restaurants.forEach((restaurant) => {
-      (restaurant.category_labels || []).forEach((label) => tags.add(label));
+    foodItems.forEach((item) => {
+      if (item.category_name) tags.add(item.category_name);
     });
     return ["all", ...Array.from(tags)];
-  }, [restaurants]);
+  }, [foodItems]);
 
-  const filteredRestaurants = useMemo(() => {
-    return restaurants.filter((restaurant) => {
-      const haystack = `${restaurant.name} ${restaurant.address || ""} ${(restaurant.category_labels || []).join(" ")}`.toLowerCase();
+  const filteredItems = useMemo(() => {
+    return foodItems.filter((item) => {
+      const haystack = [
+        item.name,
+        item.description,
+        item.category_name,
+        item.restaurant_name,
+        item.restaurant_address,
+      ]
+        .join(" ")
+        .toLowerCase();
+
       const matchesSearch = haystack.includes(query.toLowerCase());
-      const matchesTag =
-        activeTag === "all" || (restaurant.category_labels || []).some((label) => label === activeTag);
+      const matchesTag = activeTag === "all" || item.category_name === activeTag;
       return matchesSearch && matchesTag;
     });
-  }, [activeTag, query, restaurants]);
+  }, [activeTag, foodItems, query]);
 
-  const updateQuery = (value) => {
+  const representedRestaurants = useMemo(
+    () => new Set(filteredItems.map((item) => item.restaurant?.id || item.restaurant_slug)).size,
+    [filteredItems]
+  );
+
+  const updateParam = (key, value) => {
     const next = new URLSearchParams(searchParams);
-    if (value) next.set("query", value);
-    else next.delete("query");
+    if (value || value === 0) next.set(key, String(value));
+    else next.delete(key);
     setSearchParams(next);
   };
 
@@ -68,44 +81,51 @@ const RestaurantsPage = () => {
       <section className="glass-panel rounded-[36px] px-6 py-8 sm:px-8">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Restaurant lane</p>
-            <h1 className="font-display mt-3 text-6xl leading-none text-[#1f1812]">Browse every live menu</h1>
+            <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Food lane</p>
+            <h1 className="font-display mt-3 text-6xl leading-none text-[#1f1812]">
+              Browse live dishes across every restaurant
+            </h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[#68584b]">
-              This surface behaves like a customer ordering board while still reading directly from
-              the owner-managed restaurant data already sitting in your database.
+              This page works as one shared menu feed. Search by dish, cuisine, or restaurant, and
+              keep the restaurant name as supporting context instead of the main result.
             </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="soft-card rounded-[24px] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Results</p>
-              <p className="mt-2 text-sm font-semibold text-[#1f1812]">{filteredRestaurants.length} restaurants</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Dishes</p>
+              <p className="mt-2 text-sm font-semibold text-[#1f1812]">{filteredItems.length} results</p>
             </div>
             <div className="soft-card rounded-[24px] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Party size</p>
-              <p className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[#1f1812]">
-                <Users className="h-4 w-4" />
-                {diners} diners
-              </p>
+              <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Restaurants</p>
+              <p className="mt-2 text-sm font-semibold text-[#1f1812]">{representedRestaurants} outlets</p>
             </div>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-[1.4fr_auto]">
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1.35fr_220px]">
           <label className="soft-card flex items-center gap-3 rounded-full px-4 py-3">
             <Search className="h-4 w-4 text-[#8c7a6c]" />
             <input
               type="text"
               value={query}
-              onChange={(event) => updateQuery(event.target.value)}
-              placeholder="Search restaurants or cuisine lanes"
+              onChange={(event) => updateParam("query", event.target.value)}
+              placeholder="Search dishes, cuisines, or restaurants"
               className="w-full bg-transparent text-sm outline-none placeholder:text-[#a89788]"
             />
           </label>
-          <div className="soft-card inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm text-[#5d4d40]">
+          <label className="soft-card inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm text-[#5d4d40]">
             <Users className="h-4 w-4" />
-            {diners} diners
-          </div>
+            <input
+              type="number"
+              min="1"
+              max="20"
+              value={diners}
+              onChange={(event) => updateParam("diners", Number(event.target.value) || 1)}
+              className="w-16 bg-transparent outline-none"
+            />
+            diners
+          </label>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2">
@@ -114,97 +134,115 @@ const RestaurantsPage = () => {
               key={tag}
               type="button"
               onClick={() => setActiveTag(tag)}
-              className={`rounded-full px-4 py-2 text-sm font-medium ${
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                 activeTag === tag
                   ? "bg-[#1f1812] text-white"
                   : "bg-white text-[#5d4d40] shadow-sm"
               }`}
             >
-              {tag === "all" ? "All menus" : tag}
+              {tag === "all" ? "All dishes" : tag}
             </button>
           ))}
         </div>
       </section>
 
       {loading ? (
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {[...Array(6)].map((_, index) => (
-            <div key={index} className="soft-card h-96 animate-pulse rounded-[32px]" />
+        <div className="space-y-4">
+          {[...Array(5)].map((_, index) => (
+            <div key={index} className="soft-card h-56 animate-pulse rounded-[32px]" />
           ))}
         </div>
-      ) : filteredRestaurants.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <div className="soft-card rounded-[34px] px-6 py-14 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f3e6d5] text-[#8e3f11]">
             <ChefHat className="h-6 w-6" />
           </div>
-          <h2 className="font-display mt-5 text-5xl text-[#1f1812]">No restaurants match that filter.</h2>
+          <h2 className="font-display mt-5 text-5xl text-[#1f1812]">No dishes match that search.</h2>
           <p className="mt-3 text-sm leading-7 text-[#68584b]">
-            Try another keyword or clear the cuisine chip to reveal the full list again.
+            Try a dish name, cuisine, or restaurant keyword to bring live menu results back.
           </p>
         </div>
       ) : (
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {filteredRestaurants.map((restaurant) => (
-            <Link
-              key={restaurant.id}
-              to={`/restaurants/${restaurant.slug}?diners=${diners}`}
-              className="soft-card group overflow-hidden rounded-[32px] transition hover:-translate-y-1"
-            >
-              <div className="relative h-56 overflow-hidden bg-[#f1e3d4]">
-                {restaurant.cover_image ? (
-                  <img
-                    src={restaurant.cover_image}
-                    alt={restaurant.name}
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-[#b88c6e]">
-                    <Store className="h-10 w-10" />
-                  </div>
-                )}
-                <div className="absolute left-4 top-4 rounded-full bg-white/92 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
-                  {restaurant.available_item_count || 0} items live
+        <div className="space-y-4">
+          {filteredItems.map((item) => (
+            <article key={`${item.restaurant_slug}-${item.id}`} className="soft-card rounded-[32px] p-4 sm:p-5">
+              <div className="grid gap-5 lg:grid-cols-[170px_minmax(0,1fr)_250px]">
+                <div className="overflow-hidden rounded-[26px] bg-[#f1e3d4]">
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.name} className="h-full min-h-40 w-full object-cover" />
+                  ) : (
+                    <div className="flex min-h-40 items-center justify-center text-[#b88c6e]">
+                      <ChefHat className="h-9 w-9" />
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <div className="space-y-4 p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="font-display text-4xl leading-none text-[#1f1812]">{restaurant.name}</h2>
-                    <p className="mt-3 text-sm text-[#68584b]">{formatAddress(restaurant.address)}</p>
+                <div className="min-w-0 space-y-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {item.category_name ? (
+                      <span className="rounded-full bg-[#f4e6d8] px-3 py-1 text-xs font-medium text-[#5d4d40]">
+                        {item.category_name}
+                      </span>
+                    ) : null}
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        item.food_type === "veg"
+                          ? "bg-[#eaf5f1] text-[#2e7d67]"
+                          : "bg-[#fbefe4] text-[#a54d16]"
+                      }`}
+                    >
+                      {item.food_type === "veg" ? "Veg" : "Non-veg"}
+                    </span>
                   </div>
-                  <div className="rounded-2xl bg-[#fbefe4] px-3 py-2 text-right">
-                    <p className="text-xs uppercase tracking-[0.18em] text-[#a54d16]">Starts</p>
-                    <p className="mt-1 font-semibold text-[#1f1812]">
-                      {restaurant.starting_price ? formatCurrency(restaurant.starting_price) : "NA"}
+
+                  <div>
+                    <h2 className="font-display text-5xl leading-none text-[#1f1812]">{item.name}</h2>
+                    <p className="mt-3 max-w-3xl text-sm leading-7 text-[#68584b]">
+                      {shortText(item.description, 180) || "Freshly prepared and currently available to order."}
                     </p>
                   </div>
-                </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {(restaurant.category_labels || []).slice(0, 3).map((label) => (
-                    <span key={label} className="rounded-full bg-[#f4e6d8] px-3 py-1 text-xs font-medium text-[#5d4d40]">
-                      {label}
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-[#6a5f56]">
+                    <span className="inline-flex items-center gap-1">
+                      <Clock3 className="h-4 w-4" />
+                      {item.prep_time_minutes} mins
                     </span>
-                  ))}
-                </div>
-
-                <div className="rounded-[24px] bg-[#fcf5ec] p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Menu preview</p>
-                  <div className="mt-3 space-y-3">
-                    {(restaurant.featured_items || []).slice(0, 2).map((item) => (
-                      <div key={item.id} className="flex items-start justify-between gap-3 text-sm">
-                        <div>
-                          <p className="font-medium text-[#1f1812]">{item.name}</p>
-                          <p className="mt-1 text-xs leading-6 text-[#7a6a5d]">{shortText(item.description, 56)}</p>
-                        </div>
-                        <span className="shrink-0 font-medium text-[#8e3f11]">{formatCurrency(item.display_price)}</span>
-                      </div>
-                    ))}
+                    <span className="inline-flex items-center gap-1">
+                      <Store className="h-4 w-4" />
+                      {item.restaurant_name}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="h-4 w-4" />
+                      {formatAddress(item.restaurant_address)}
+                    </span>
                   </div>
                 </div>
+
+                <div className="flex flex-col justify-between gap-4 rounded-[28px] bg-[#fff9f2] p-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Price</p>
+                    <p className="mt-2 font-display text-5xl leading-none text-[#1f1812]">
+                      {formatCurrency(item.display_price)}
+                    </p>
+                    <p className="mt-4 text-xs uppercase tracking-[0.18em] text-[#a2856b]">
+                      Served by
+                    </p>
+                    <p className="mt-2 text-base font-semibold text-[#1f1812]">{item.restaurant_name}</p>
+                    <p className="mt-2 text-sm leading-6 text-[#68584b]">
+                      {formatAddress(item.restaurant_address)}
+                    </p>
+                  </div>
+
+                  <Link
+                    to={`/restaurants/${item.restaurant_slug}?diners=${diners}&focus=${item.id}`}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1f1812] px-4 py-3 text-sm font-semibold text-white"
+                  >
+                    Open restaurant
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
               </div>
-            </Link>
+            </article>
           ))}
         </div>
       )}

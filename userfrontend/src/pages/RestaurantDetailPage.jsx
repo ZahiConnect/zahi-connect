@@ -20,6 +20,18 @@ const RestaurantDetailPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [notes, setNotes] = useState("");
   const diners = Number(searchParams.get("diners") || "2");
+  const focusedItemId = searchParams.get("focus");
+
+  const visibleSections = useMemo(
+    () =>
+      (restaurant?.menu_sections || [])
+        .map((section) => ({
+          ...section,
+          items: (section.items || []).filter((item) => item.is_available),
+        }))
+        .filter((section) => section.items.length > 0),
+    [restaurant]
+  );
 
   useEffect(() => {
     let active = true;
@@ -48,9 +60,18 @@ const RestaurantDetailPage = () => {
     };
   }, [slug]);
 
+  useEffect(() => {
+    if (!focusedItemId || loading) return;
+
+    const target = document.getElementById(`dish-${focusedItemId}`);
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusedItemId, loading, visibleSections]);
+
   const allItems = useMemo(
-    () => restaurant?.menu_sections?.flatMap((section) => section.items || []) || [],
-    [restaurant]
+    () => visibleSections.flatMap((section) => section.items || []),
+    [visibleSections]
   );
 
   const cartLines = useMemo(() => {
@@ -232,96 +253,114 @@ const RestaurantDetailPage = () => {
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] xl:grid-cols-[1.3fr_0.7fr]">
         <div className="space-y-6">
-          {(restaurant.menu_sections || []).map((section) => (
-            <section key={section.id} className="soft-card rounded-[34px] p-5 sm:p-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Section</p>
-                  <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">
-                    {section.name}
-                  </h2>
-                  {section.description ? (
-                    <p className="mt-3 text-sm leading-7 text-[#68584b]">{section.description}</p>
-                  ) : null}
+          {visibleSections.length === 0 ? (
+            <section className="soft-card rounded-[34px] px-6 py-12 text-center">
+              <h2 className="font-display text-5xl text-[#1f1812]">No live dishes right now</h2>
+              <p className="mt-4 text-sm leading-7 text-[#68584b]">
+                This restaurant is visible in the portal, but it does not currently have any
+                available menu items for customers.
+              </p>
+            </section>
+          ) : (
+            visibleSections.map((section) => (
+              <section key={section.id} className="soft-card rounded-[34px] p-5 sm:p-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Section</p>
+                    <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">
+                      {section.name}
+                    </h2>
+                    {section.description ? (
+                      <p className="mt-3 text-sm leading-7 text-[#68584b]">{section.description}</p>
+                    ) : null}
+                  </div>
+                  <span className="rounded-full bg-[#fbefe4] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
+                    {section.items.length} items
+                  </span>
                 </div>
-                <span className="rounded-full bg-[#fbefe4] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
-                  {section.item_count} items
-                </span>
-              </div>
 
-              <div className="mt-6 grid gap-4 xl:grid-cols-2">
-                {(section.items || []).map((item) => {
-                  const quantity = cart[item.id] || 0;
-                  return (
-                    <article key={item.id} className="rounded-[28px] border border-[rgba(96,73,53,0.12)] bg-[#fffdf9] p-4">
-                      <div className="flex gap-4">
-                        <div className="h-28 w-28 shrink-0 overflow-hidden rounded-[22px] bg-[#f2dfcd]">
-                          {item.image_url ? (
-                            <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full items-center justify-center text-[#b88c6e]">
-                              <Store className="h-6 w-6" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-1 flex-col">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <h3 className="text-lg font-semibold text-[#1f1812]">{item.name}</h3>
-                              <p className="mt-2 text-sm leading-6 text-[#68584b]">
-                                {shortText(item.description, 96) || "Freshly prepared and ready to serve."}
-                              </p>
-                            </div>
-                            <span className="rounded-full bg-[#eef7f3] px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2e7d67]">
-                              {item.food_type === "veg" ? "Veg" : "Non-veg"}
-                            </span>
-                          </div>
-
-                          <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-4">
-                            <div>
-                              <p className="text-lg font-semibold text-[#1f1812]">{formatCurrency(item.display_price)}</p>
-                              <p className="mt-1 inline-flex items-center gap-1 text-xs uppercase tracking-[0.18em] text-[#8a7869]">
-                                <Clock3 className="h-3.5 w-3.5" />
-                                {item.prep_time_minutes} mins
-                              </p>
-                            </div>
-
-                            {quantity > 0 ? (
-                              <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(96,73,53,0.14)] bg-white px-2 py-2">
-                                <button
-                                  type="button"
-                                  onClick={() => updateQuantity(item.id, quantity - 1)}
-                                  className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f5ebdf]"
-                                >
-                                  <Minus className="h-4 w-4" />
-                                </button>
-                                <span className="min-w-6 text-center text-sm font-semibold text-[#1f1812]">{quantity}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => updateQuantity(item.id, quantity + 1)}
-                                  className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1f1812] text-white"
-                                >
-                                  <Plus className="h-4 w-4" />
-                                </button>
-                              </div>
+                <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                  {(section.items || []).map((item) => {
+                    const quantity = cart[item.id] || 0;
+                    return (
+                      <article
+                        id={`dish-${item.id}`}
+                        key={item.id}
+                        className={`rounded-[28px] border p-4 transition ${
+                          focusedItemId === item.id
+                            ? "border-[rgba(214,106,47,0.34)] bg-[#fff7ef] shadow-[0_18px_44px_rgba(140,63,17,0.08)]"
+                            : "border-[rgba(96,73,53,0.12)] bg-[#fffdf9]"
+                        }`}
+                      >
+                        <div className="flex gap-4">
+                          <div className="h-28 w-28 shrink-0 overflow-hidden rounded-[22px] bg-[#f2dfcd]">
+                            {item.image_url ? (
+                              <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => updateQuantity(item.id, 1)}
-                                className="rounded-full bg-[#1f1812] px-4 py-2 text-sm font-semibold text-white"
-                              >
-                                Add to cart
-                              </button>
+                              <div className="flex h-full items-center justify-center text-[#b88c6e]">
+                                <Store className="h-6 w-6" />
+                              </div>
                             )}
                           </div>
+                          <div className="flex flex-1 flex-col">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h3 className="text-lg font-semibold text-[#1f1812]">{item.name}</h3>
+                                <p className="mt-2 text-sm leading-6 text-[#68584b]">
+                                  {shortText(item.description, 96) || "Freshly prepared and ready to serve."}
+                                </p>
+                              </div>
+                              <span className="rounded-full bg-[#eef7f3] px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2e7d67]">
+                                {item.food_type === "veg" ? "Veg" : "Non-veg"}
+                              </span>
+                            </div>
+
+                            <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-4">
+                              <div>
+                                <p className="text-lg font-semibold text-[#1f1812]">{formatCurrency(item.display_price)}</p>
+                                <p className="mt-1 inline-flex items-center gap-1 text-xs uppercase tracking-[0.18em] text-[#8a7869]">
+                                  <Clock3 className="h-3.5 w-3.5" />
+                                  {item.prep_time_minutes} mins
+                                </p>
+                              </div>
+
+                              {quantity > 0 ? (
+                                <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(96,73,53,0.14)] bg-white px-2 py-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQuantity(item.id, quantity - 1)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f5ebdf]"
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </button>
+                                  <span className="min-w-6 text-center text-sm font-semibold text-[#1f1812]">{quantity}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQuantity(item.id, quantity + 1)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1f1812] text-white"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => updateQuantity(item.id, 1)}
+                                  className="rounded-full bg-[#1f1812] px-4 py-2 text-sm font-semibold text-white"
+                                >
+                                  Add to cart
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            ))
+          )}
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">

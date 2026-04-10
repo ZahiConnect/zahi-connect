@@ -6,6 +6,7 @@ const getPayload = async (url) => {
 };
 
 export const marketplaceService = {
+  getFoodItems: () => getPayload("/auth/marketplace/food-items"),
   getRestaurants: () => getPayload("/auth/marketplace/restaurants"),
   getRestaurant: (slug) => getPayload(`/auth/marketplace/restaurants/${slug}`),
   getHotels: () => getPayload("/auth/marketplace/hotels"),

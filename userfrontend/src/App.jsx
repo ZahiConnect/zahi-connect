@@ -29,7 +29,7 @@ import RestaurantsPage from "./pages/RestaurantsPage";
 
 const navItems = [
   { to: "/hotels", label: "Hotels", icon: Hotel },
-  { to: "/restaurants", label: "Restaurants", icon: Store },
+  { to: "/restaurants", label: "Food", icon: Store },
   { to: "/cabs", label: "Cabs", icon: CarFront },
   { to: "/flights", label: "Flights", icon: Plane },
 ];
@@ -88,17 +88,17 @@ const Header = () => {
       <div className="border-b border-[rgba(87,62,39,0.06)] bg-[#231a12] text-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <p className="py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-white/72 md:hidden">
-            Customer booking portal for the Zahi hospitality network
+            Customer dining and request portal for the Zahi network
           </p>
           <div className="hidden grid-cols-[minmax(0,1.7fr)_auto_auto_auto] items-center gap-6 py-2.5 md:grid">
             <p className="whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.16em] text-white/72 lg:text-xs">
-              Customer booking portal for the Zahi hospitality network
+              Customer dining and request portal for the Zahi network
             </p>
             <span className="whitespace-nowrap text-[11px] font-medium text-white/92 lg:text-xs">
-              Live hotel inventory
+              Live menu availability
             </span>
             <span className="whitespace-nowrap text-[11px] font-medium text-white/92 lg:text-xs">
-              Partner restaurant menus
+              Dish-first browsing
             </span>
             <span className="whitespace-nowrap text-[11px] font-medium text-white/92 lg:text-xs">
               Cab and flight requests

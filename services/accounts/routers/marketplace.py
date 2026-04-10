@@ -363,6 +363,24 @@ def build_restaurant_detail(
     }
 
 
+def build_food_catalog_entry(
+    tenant: Tenant,
+    category_lookup: dict[str, dict[str, Any]],
+    item: dict[str, Any],
+) -> dict[str, Any]:
+    category = category_lookup.get(item["category_id"], {})
+    restaurant = build_public_tenant_payload(tenant)
+    return {
+        **item,
+        "category_name": category.get("name"),
+        "category_description": category.get("description"),
+        "restaurant": restaurant,
+        "restaurant_name": restaurant["name"],
+        "restaurant_slug": restaurant["slug"],
+        "restaurant_address": restaurant.get("address"),
+    }
+
+
 def build_hotel_summary(tenant: Tenant, docs: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
     settings = normalize_hotel_settings(
         next((doc for doc in docs.get("settings", []) if doc.get("id") == "hotel"), None),
@@ -446,6 +464,46 @@ async def list_restaurants(db: AsyncSession = Depends(get_db)):
         )
         for tenant in tenants
     ]
+
+
+@router.get("/food-items")
+async def list_food_items(db: AsyncSession = Depends(get_db)):
+    tenants = (
+        await db.execute(
+            select(Tenant)
+            .where(Tenant.is_active.is_(True), Tenant.business_type == "restaurant")
+            .order_by(Tenant.created_at.desc())
+        )
+    ).scalars().all()
+
+    categories_by_tenant, items_by_tenant = await fetch_menu_payload(
+        db,
+        [tenant.id for tenant in tenants],
+    )
+
+    food_items: list[dict[str, Any]] = []
+    for tenant in tenants:
+        category_lookup = {
+            category["id"]: category
+            for category in categories_by_tenant.get(tenant.id, [])
+        }
+        available_items = [
+            item
+            for item in items_by_tenant.get(tenant.id, [])
+            if item.get("is_available")
+        ]
+        for item in available_items:
+            food_items.append(build_food_catalog_entry(tenant, category_lookup, item))
+
+    return sorted(
+        food_items,
+        key=lambda item: (
+            not bool(item.get("image_url")),
+            item.get("restaurant_name") or "",
+            item.get("category_name") or "",
+            item.get("name") or "",
+        ),
+    )
 
 
 @router.get("/restaurants/{slug}")

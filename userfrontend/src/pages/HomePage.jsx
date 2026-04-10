@@ -3,8 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   CarFront,
-  CalendarDays,
-  Hotel,
+  Clock3,
   MapPin,
   Plane,
   Store,
@@ -12,26 +11,14 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
+import { formatAddress, formatCurrency, shortText } from "../lib/format";
 import marketplaceService from "../services/marketplaceService";
-import {
-  formatAddress,
-  formatCurrency,
-  shortText,
-  todayDate,
-} from "../lib/format";
 
 const serviceTabs = [
-  { key: "hotels", label: "Hotels", icon: Hotel },
-  { key: "restaurants", label: "Restaurants", icon: Store },
+  { key: "restaurants", label: "Food", icon: Store },
   { key: "cabs", label: "Cabs", icon: CarFront },
   { key: "flights", label: "Flights", icon: Plane },
 ];
-
-const tomorrowDate = () => {
-  const next = new Date();
-  next.setDate(next.getDate() + 1);
-  return next.toISOString().slice(0, 10);
-};
 
 const SectionHeader = ({ eyebrow, title, body, to, cta }) => (
   <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -55,17 +42,10 @@ const SectionHeader = ({ eyebrow, title, body, to, cta }) => (
 const HomePage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState("hotels");
-  const [restaurants, setRestaurants] = useState([]);
-  const [hotels, setHotels] = useState([]);
+  const [activeTab, setActiveTab] = useState("restaurants");
+  const [foodItems, setFoodItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [hotelSearch, setHotelSearch] = useState({
-    query: "",
-    checkIn: todayDate(),
-    checkOut: tomorrowDate(),
-    guests: 2,
-  });
-  const [restaurantSearch, setRestaurantSearch] = useState({
+  const [foodSearch, setFoodSearch] = useState({
     query: "",
     diners: 2,
   });
@@ -75,16 +55,11 @@ const HomePage = () => {
 
     const load = async () => {
       try {
-        const [restaurantData, hotelData] = await Promise.all([
-          marketplaceService.getRestaurants(),
-          marketplaceService.getHotels(),
-        ]);
-
+        const data = await marketplaceService.getFoodItems();
         if (!active) return;
-        setRestaurants(Array.isArray(restaurantData) ? restaurantData : []);
-        setHotels(Array.isArray(hotelData) ? hotelData : []);
+        setFoodItems(Array.isArray(data) ? data : []);
       } catch (error) {
-        console.error("Failed to load marketplace overview", error);
+        console.error("Failed to load food marketplace overview", error);
       } finally {
         if (active) {
           setLoading(false);
@@ -98,48 +73,41 @@ const HomePage = () => {
     };
   }, []);
 
+  const representedRestaurants = useMemo(
+    () => new Set(foodItems.map((item) => item.restaurant?.id || item.restaurant_slug)).size,
+    [foodItems]
+  );
+
   const heroStats = useMemo(
     () => [
       {
-        label: "Live hotels",
-        value: hotels.length,
-        caption: "Room types and rates pulled from tenant dashboards",
+        label: "Live dishes",
+        value: foodItems.length,
+        caption: "Available menu items across all partner restaurants",
       },
       {
-        label: "Live restaurants",
-        value: restaurants.length,
-        caption: "Menus and hero dishes surfaced directly from the DB",
+        label: "Partner outlets",
+        value: representedRestaurants,
+        caption: "Restaurant names stay visible as supporting context",
       },
       {
         label: "Customer requests",
         value: isAuthenticated ? "Ready" : "Login",
-        caption: "Book, enquire, and save travel requests from one account",
+        caption: "Food requests can be saved into one customer account",
       },
     ],
-    [hotels.length, isAuthenticated, restaurants.length]
+    [foodItems.length, isAuthenticated, representedRestaurants]
   );
 
-  const hotelSpotlight = hotels.slice(0, 3);
-  const restaurantSpotlight = restaurants.slice(0, 3);
+  const spotlightItems = foodItems.slice(0, 4);
 
   const handleHeroSubmit = (event) => {
     event.preventDefault();
 
-    if (activeTab === "hotels") {
-      const params = new URLSearchParams({
-        query: hotelSearch.query,
-        checkIn: hotelSearch.checkIn,
-        checkOut: hotelSearch.checkOut,
-        guests: String(hotelSearch.guests),
-      });
-      navigate(`/hotels?${params.toString()}`);
-      return;
-    }
-
     if (activeTab === "restaurants") {
       const params = new URLSearchParams({
-        query: restaurantSearch.query,
-        diners: String(restaurantSearch.diners),
+        query: foodSearch.query,
+        diners: String(foodSearch.diners),
       });
       navigate(`/restaurants?${params.toString()}`);
       return;
@@ -153,14 +121,14 @@ const HomePage = () => {
       <section className="glass-panel overflow-hidden rounded-[40px] p-6 sm:p-8 lg:p-10">
         <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr]">
           <div>
-            <p className="text-xs uppercase tracking-[0.32em] text-[#c15d1f]">Zahi customer travel board</p>
+            <p className="text-xs uppercase tracking-[0.32em] text-[#c15d1f]">Zahi customer food board</p>
             <h1 className="font-display mt-4 max-w-4xl text-6xl leading-none text-[#1f1812] sm:text-7xl">
-              Customer booking, dining, and travel access for the Zahi network.
+              Search live dishes from every partner restaurant in one feed.
             </h1>
             <p className="mt-6 max-w-3xl text-base leading-8 text-[#68584b]">
-              Hotels and restaurants are already connected to live operating data. Cab and flight
-              sections are now presented as structured customer lanes, so the portal feels complete
-              while those services continue moving toward full rollout.
+              This customer experience is now dish-first. Search across all currently available menu
+              items, keep the restaurant as supporting detail, and move into the outlet only when
+              you are ready to order.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
@@ -184,94 +152,27 @@ const HomePage = () => {
               })}
             </div>
 
-            <form onSubmit={handleHeroSubmit} className="mt-8 rounded-[32px] bg-white p-4 shadow-[0_22px_60px_rgba(63,44,27,0.08)]">
-              {activeTab === "hotels" ? (
-                <div className="grid gap-4 lg:grid-cols-[1.4fr_0.85fr_0.85fr_0.7fr_auto]">
-                  <label className="block">
-                    <span className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a2856b]">
-                      <MapPin className="h-4 w-4" />
-                      Destination
-                    </span>
-                    <input
-                      type="text"
-                      value={hotelSearch.query}
-                      onChange={(event) =>
-                        setHotelSearch((current) => ({ ...current, query: event.target.value }))
-                      }
-                      placeholder="Search hotel, area, or room type"
-                      className="w-full rounded-[22px] border border-[rgba(87,62,39,0.12)] bg-[#fffdf9] px-4 py-3 outline-none focus:border-[#d66a2f]"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a2856b]">
-                      <CalendarDays className="h-4 w-4" />
-                      Check-in
-                    </span>
-                    <input
-                      type="date"
-                      value={hotelSearch.checkIn}
-                      onChange={(event) =>
-                        setHotelSearch((current) => ({ ...current, checkIn: event.target.value }))
-                      }
-                      className="w-full rounded-[22px] border border-[rgba(87,62,39,0.12)] bg-[#fffdf9] px-4 py-3 outline-none focus:border-[#d66a2f]"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a2856b]">
-                      <CalendarDays className="h-4 w-4" />
-                      Check-out
-                    </span>
-                    <input
-                      type="date"
-                      value={hotelSearch.checkOut}
-                      onChange={(event) =>
-                        setHotelSearch((current) => ({ ...current, checkOut: event.target.value }))
-                      }
-                      className="w-full rounded-[22px] border border-[rgba(87,62,39,0.12)] bg-[#fffdf9] px-4 py-3 outline-none focus:border-[#d66a2f]"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a2856b]">
-                      <Users className="h-4 w-4" />
-                      Guests
-                    </span>
-                    <input
-                      type="number"
-                      min="1"
-                      max="8"
-                      value={hotelSearch.guests}
-                      onChange={(event) =>
-                        setHotelSearch((current) => ({
-                          ...current,
-                          guests: Number(event.target.value) || 1,
-                        }))
-                      }
-                      className="w-full rounded-[22px] border border-[rgba(87,62,39,0.12)] bg-[#fffdf9] px-4 py-3 outline-none focus:border-[#d66a2f]"
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    className="mt-auto inline-flex items-center justify-center rounded-[22px] bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white"
-                  >
-                    Search hotels
-                  </button>
-                </div>
-              ) : null}
-
+            <form
+              onSubmit={handleHeroSubmit}
+              className="mt-8 rounded-[32px] bg-white p-4 shadow-[0_22px_60px_rgba(63,44,27,0.08)]"
+            >
               {activeTab === "restaurants" ? (
                 <div className="grid gap-4 lg:grid-cols-[1.5fr_0.8fr_auto]">
                   <label className="block">
                     <span className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a2856b]">
                       <MapPin className="h-4 w-4" />
-                      Area or cuisine
+                      Dish, cuisine, or restaurant
                     </span>
                     <input
                       type="text"
-                      value={restaurantSearch.query}
+                      value={foodSearch.query}
                       onChange={(event) =>
-                        setRestaurantSearch((current) => ({ ...current, query: event.target.value }))
+                        setFoodSearch((current) => ({
+                          ...current,
+                          query: event.target.value,
+                        }))
                       }
-                      placeholder="Search restaurant, area, or menu category"
+                      placeholder="Search biryani, pasta, juice, or restaurant"
                       className="w-full rounded-[22px] border border-[rgba(87,62,39,0.12)] bg-[#fffdf9] px-4 py-3 outline-none focus:border-[#d66a2f]"
                     />
                   </label>
@@ -284,9 +185,9 @@ const HomePage = () => {
                       type="number"
                       min="1"
                       max="20"
-                      value={restaurantSearch.diners}
+                      value={foodSearch.diners}
                       onChange={(event) =>
-                        setRestaurantSearch((current) => ({
+                        setFoodSearch((current) => ({
                           ...current,
                           diners: Number(event.target.value) || 1,
                         }))
@@ -298,7 +199,7 @@ const HomePage = () => {
                     type="submit"
                     className="mt-auto inline-flex items-center justify-center rounded-[22px] bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white"
                   >
-                    Explore restaurants
+                    Search food
                   </button>
                 </div>
               ) : null}
@@ -306,10 +207,10 @@ const HomePage = () => {
               {activeTab === "cabs" ? (
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-[#1f1812]">Cab booking lane is staged next.</p>
+                    <p className="text-sm font-semibold text-[#1f1812]">Cab request lane is staged next.</p>
                     <p className="mt-2 max-w-2xl text-sm leading-7 text-[#68584b]">
-                      Open the cab lane to capture pickup requests, airport transfers, and demand
-                      signals while the full dispatch system is still being built.
+                      Capture airport transfer and local ride demand while the dispatch layer is
+                      still being built.
                     </p>
                   </div>
                   <button
@@ -324,10 +225,10 @@ const HomePage = () => {
               {activeTab === "flights" ? (
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-[#1f1812]">Flight discovery is staged next.</p>
+                    <p className="text-sm font-semibold text-[#1f1812]">Flight request lane is staged next.</p>
                     <p className="mt-2 max-w-2xl text-sm leading-7 text-[#68584b]">
-                      Keep the flight lane visible now, then turn it into a real search and booking
-                      flow once your travel backend is ready.
+                      Keep the travel lane visible now, then turn it into a full booking flow once
+                      the backend is ready.
                     </p>
                   </div>
                   <button
@@ -369,9 +270,9 @@ const HomePage = () => {
               <p className="text-xs uppercase tracking-[0.26em] text-[#c15d1f]">What changes now</p>
               <div className="mt-5 space-y-3">
                 {[
-                  "Customer accounts remain separate from workspace sign-ins.",
-                  "Hotel and restaurant actions can now save real booking requests.",
-                  "Cab and flight interest can be captured while those services are still expanding.",
+                  "Search now works across dishes, cuisine labels, and restaurant names.",
+                  "Restaurant identity stays visible, but the dish remains the main result.",
+                  "Food requests can still be saved into the same customer account.",
                 ].map((item) => (
                   <div
                     key={item}
@@ -389,18 +290,18 @@ const HomePage = () => {
       <section className="grid gap-4 lg:grid-cols-3">
         {[
           {
-            title: "Hotels from live room data",
-            body: "Room types, prices, and inventory come from the existing hotel collections in your database.",
+            title: "Dish-first browsing",
+            body: "Customers now land on actual menu items instead of needing to pick a restaurant first.",
             tone: "bg-[#fff7ef]",
           },
           {
-            title: "Restaurants from live menus",
-            body: "Menu cards and item pricing are pulled from restaurant tenants without creating a duplicate content layer.",
+            title: "Shared menu feed",
+            body: "Available dishes from all partner restaurants are combined into one searchable catalog.",
             tone: "bg-[#fffaf4]",
           },
           {
-            title: "Requests saved to backend",
-            body: "Customer booking and enquiry actions now persist into a dedicated booking microservice for account history.",
+            title: "Actionable requests",
+            body: "When a customer is ready, they can jump into the outlet and save a structured food request.",
             tone: "bg-[#fdf5ed]",
           },
         ].map((item) => (
@@ -414,135 +315,80 @@ const HomePage = () => {
 
       <section className="space-y-6">
         <SectionHeader
-          eyebrow="Popular stays"
-          title="Hotels ready for customer discovery"
-          body="These cards are built from the same hotel tenant data your workspace frontend already manages, but presented as a travel shopping surface."
-          
-          to="/hotels"
-          cta="See all hotels"
-        />
-
-        {loading ? (
-          <div className="grid gap-5 lg:grid-cols-3">
-            {[...Array(3)].map((_, index) => (
-              <div key={index} className="soft-card h-80 animate-pulse rounded-[32px]" />
-            ))}
-          </div>
-        ) : (
-          <div className="grid gap-5 lg:grid-cols-3">
-            {hotelSpotlight.map((hotel) => (
-              <Link
-                key={hotel.id}
-                to={`/hotels/${hotel.slug}`}
-                className="soft-card group overflow-hidden rounded-[32px] transition hover:-translate-y-1"
-              >
-                <div className="relative h-56 overflow-hidden bg-[linear-gradient(135deg,#efddca_0%,#f6eadf_50%,#f0e4d7_100%)]">
-                  {hotel.logo ? (
-                    <img
-                      src={hotel.logo}
-                      alt={hotel.name}
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-[#a48369]">
-                      <Hotel className="h-10 w-10" />
-                    </div>
-                  )}
-                  <div className="absolute left-4 top-4 rounded-full bg-white/92 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#32695b]">
-                    {hotel.available_rooms || 0} rooms open
-                  </div>
-                </div>
-                <div className="space-y-4 p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="font-display text-4xl leading-none text-[#1f1812]">{hotel.name}</h3>
-                      <p className="mt-3 text-sm text-[#68584b]">{formatAddress(hotel.address)}</p>
-                    </div>
-                    <div className="rounded-2xl bg-[#eef7f2] px-3 py-2 text-right">
-                      <p className="text-xs uppercase tracking-[0.18em] text-[#32695b]">From</p>
-                      <p className="mt-1 font-semibold text-[#1f1812]">
-                        {hotel.starting_price ? formatCurrency(hotel.starting_price) : "NA"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {(hotel.room_type_labels || []).slice(0, 3).map((label) => (
-                      <span
-                        key={label}
-                        className="rounded-full bg-[#f4e6d8] px-3 py-1 text-xs font-medium text-[#5d4d40]"
-                      >
-                        {label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="space-y-6">
-        <SectionHeader
-          eyebrow="Trending eats"
-          title="Restaurant menus from tenant dashboards"
-          body="The restaurant lane behaves like a consumer ordering surface while still staying backed by the existing owner-managed menu data."
-          
+          eyebrow="Available now"
+          title="Popular dishes across the network"
+          body="These highlights come from the combined live menu feed, so each card is a real dish that can be explored immediately."
           to="/restaurants"
-          cta="See all restaurants"
+          cta="Browse all food"
         />
 
         {loading ? (
-          <div className="grid gap-5 lg:grid-cols-3">
-            {[...Array(3)].map((_, index) => (
+          <div className="grid gap-5 lg:grid-cols-2">
+            {[...Array(4)].map((_, index) => (
               <div key={index} className="soft-card h-80 animate-pulse rounded-[32px]" />
             ))}
           </div>
         ) : (
-          <div className="grid gap-5 lg:grid-cols-3">
-            {restaurantSpotlight.map((restaurant) => (
+          <div className="grid gap-5 lg:grid-cols-2">
+            {spotlightItems.map((item) => (
               <Link
-                key={restaurant.id}
-                to={`/restaurants/${restaurant.slug}`}
+                key={`${item.restaurant_slug}-${item.id}`}
+                to={`/restaurants/${item.restaurant_slug}?focus=${item.id}&diners=${foodSearch.diners}`}
                 className="soft-card group overflow-hidden rounded-[32px] transition hover:-translate-y-1"
               >
-                <div className="relative h-56 overflow-hidden bg-[#f1e3d4]">
-                  {restaurant.cover_image ? (
-                    <img
-                      src={restaurant.cover_image}
-                      alt={restaurant.name}
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-[#b88c6e]">
-                      <Store className="h-10 w-10" />
-                    </div>
-                  )}
-                  <div className="absolute left-4 top-4 rounded-full bg-white/92 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
-                    {restaurant.available_item_count || 0} items live
+                <div className="grid gap-0 md:grid-cols-[200px_1fr]">
+                  <div className="overflow-hidden bg-[#f1e3d4]">
+                    {item.image_url ? (
+                      <img
+                        src={item.image_url}
+                        alt={item.name}
+                        className="h-full min-h-56 w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex min-h-56 items-center justify-center text-[#b88c6e]">
+                        <Store className="h-10 w-10" />
+                      </div>
+                    )}
                   </div>
-                </div>
-                <div className="space-y-4 p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="font-display text-4xl leading-none text-[#1f1812]">
-                        {restaurant.name}
-                      </h3>
-                      <p className="mt-3 text-sm text-[#68584b]">{formatAddress(restaurant.address)}</p>
+
+                  <div className="space-y-4 p-5">
+                    <div className="flex flex-wrap gap-2">
+                      {item.category_name ? (
+                        <span className="rounded-full bg-[#f4e6d8] px-3 py-1 text-xs font-medium text-[#5d4d40]">
+                          {item.category_name}
+                        </span>
+                      ) : null}
+                      <span className="rounded-full bg-[#fbefe4] px-3 py-1 text-xs font-medium text-[#a54d16]">
+                        {item.restaurant_name}
+                      </span>
                     </div>
-                    <div className="rounded-2xl bg-[#fbefe4] px-3 py-2 text-right">
-                      <p className="text-xs uppercase tracking-[0.18em] text-[#a54d16]">Starts</p>
-                      <p className="mt-1 font-semibold text-[#1f1812]">
-                        {restaurant.starting_price ? formatCurrency(restaurant.starting_price) : "NA"}
+
+                    <div>
+                      <h3 className="font-display text-5xl leading-none text-[#1f1812]">{item.name}</h3>
+                      <p className="mt-3 text-sm leading-7 text-[#68584b]">
+                        {shortText(item.description, 120) || "Currently available to order from this outlet."}
                       </p>
                     </div>
+
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-[#6a5f56]">
+                      <span className="inline-flex items-center gap-1">
+                        <Clock3 className="h-4 w-4" />
+                        {item.prep_time_minutes} mins
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        {formatAddress(item.restaurant_address)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="font-semibold text-[#1f1812]">{formatCurrency(item.display_price)}</p>
+                      <span className="inline-flex items-center gap-2 text-sm font-medium text-[#8e3f11]">
+                        Open menu
+                        <ArrowRight className="h-4 w-4" />
+                      </span>
+                    </div>
                   </div>
-                  <p className="text-sm leading-7 text-[#68584b]">
-                    {(restaurant.featured_items || [])
-                      .slice(0, 2)
-                      .map((item) => item.name)
-                      .join(" • ") || "Menus will show here once the tenant publishes dishes."}
-                  </p>
                 </div>
               </Link>
             ))}
@@ -555,8 +401,8 @@ const HomePage = () => {
           <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Cab lane</p>
           <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">Airport transfers and local rides</h2>
           <p className="mt-4 text-sm leading-7 text-[#68584b]">
-            We have not built the live dispatch engine yet, but the user-facing lane is ready now
-            so you can capture customer intent and turn it into the next operational sprint.
+            The dispatch engine is still under development, but the customer-facing lane is ready
+            so you can capture demand now.
           </p>
           <Link
             to="/cabs"
@@ -569,39 +415,16 @@ const HomePage = () => {
 
         <div className="soft-card rounded-[34px] p-6 sm:p-8">
           <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Flight lane</p>
-          <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">Travel search staged for the next backend</h2>
+          <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">Travel requests staged for the next backend</h2>
           <p className="mt-4 text-sm leading-7 text-[#68584b]">
-            This keeps the travel story complete for customers today while still being honest that
-            the heavy search and ticketing layer is part of a later delivery.
+            Keep the travel lane visible today, then expand it into a full booking flow once that
+            backend is ready.
           </p>
           <Link
             to="/flights"
             className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#1f1812] px-5 py-3 text-sm font-semibold text-white"
           >
             Open flights
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-      </section>
-
-      <section className="glass-panel rounded-[36px] p-6 sm:p-8">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Why this structure works</p>
-            <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">
-              One portal for guests, one portal for operators.
-            </h2>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-[#68584b]">
-              The customer site now works as a booking portal, while the main frontend stays focused
-              on workspace operations. Both still use the same accounts backend, but they no longer
-              compete for the same refresh cookie or role rules.
-            </p>
-          </div>
-          <Link
-            to="/account"
-            className="inline-flex items-center gap-2 rounded-full border border-[rgba(87,62,39,0.12)] bg-white px-5 py-3 text-sm font-semibold text-[#1f1812]"
-          >
-            View my account
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>

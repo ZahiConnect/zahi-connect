@@ -223,6 +223,8 @@ services:
     restart: always
     ports:
       - "8008:8008"
+    env_file:
+      - ./services/accounts/.env
     depends_on:
       db:
         condition: service_healthy
