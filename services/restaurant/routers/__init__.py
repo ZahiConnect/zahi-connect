@@ -6,3 +6,4 @@ from routers.kitchen import router as kitchen_router
 from routers.reports import router as reports_router
 from routers.service import router as service_router
 from routers.billing import router as billing_router
+from routers.settings import router as settings_router

@@ -24,6 +24,7 @@ from routers import (
     kitchen_router,
     reports_router,
     service_router,
+    settings_router,
 )
 from services.realtime import build_restaurant_event, restaurant_realtime
 
@@ -131,6 +132,7 @@ app.include_router(kitchen_router, prefix="/rms/kitchen")
 app.include_router(service_router, prefix="/rms/service")
 app.include_router(billing_router, prefix="/rms/billing")
 app.include_router(reports_router, prefix="/rms/reports")
+app.include_router(settings_router, prefix="/rms/settings")
 
 
 @app.get("/rms")

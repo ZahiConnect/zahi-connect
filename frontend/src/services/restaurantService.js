@@ -143,6 +143,59 @@ export const restaurantService = {
     return response.data;
   },
 
+  getSettings: async () => {
+    const response = await api.get(`${RMS_BASE}/settings`);
+    return response.data;
+  },
+
+  updateSettingsGeneral: async (data) => {
+    const response = await api.patch(`${RMS_BASE}/settings/general`, data);
+    return response.data;
+  },
+
+  updateSettingsOperations: async (data) => {
+    const response = await api.patch(`${RMS_BASE}/settings/operations`, data);
+    return response.data;
+  },
+
+  uploadSettingsCoverImage: async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post(`${RMS_BASE}/settings/images/cover`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+
+  uploadSettingsGalleryImages: async (files) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append("files", file));
+    const response = await api.post(`${RMS_BASE}/settings/images/gallery`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+
+  setSettingsCoverImage: async (imageUrl) => {
+    const response = await api.patch(`${RMS_BASE}/settings/images/cover`, {
+      image_url: imageUrl,
+    });
+    return response.data;
+  },
+
+  removeSettingsGalleryImage: async (imageUrl) => {
+    const response = await api.delete(`${RMS_BASE}/settings/images/gallery`, {
+      params: {
+        image_url: imageUrl,
+      },
+    });
+    return response.data;
+  },
+
   createMenuCategory: async (data) => {
     const response = await api.post(`${RMS_BASE}/menu/categories`, data);
     return response.data;

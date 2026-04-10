@@ -31,6 +31,10 @@ import Inventory from "./pages/restaurant/Inventory";
 import Attender from "./pages/restaurant/Attender";
 import Accountant from "./pages/restaurant/Accountant";
 import RestaurantReports from "./pages/restaurant/Reports";
+import RestaurantSettings from "./pages/restaurant/Settings";
+import RestaurantSettingsGeneral from "./pages/restaurant/settings/General";
+import RestaurantSettingsOperations from "./pages/restaurant/settings/Operations";
+import RestaurantSettingsImages from "./pages/restaurant/settings/Images";
 import HotelBookings from "./hotel/pages/Bookings";
 import HotelConfig from "./hotel/pages/Config";
 import HotelCalender from "./hotel/pages/Calender";
@@ -140,6 +144,45 @@ const ReportsPage = () => {
   );
 };
 
+const WorkspaceSettingsPage = () => {
+  const { user } = useSelector((state) => state.auth);
+
+  if (user?.business_type === "restaurant" || user?.role === "super_admin") {
+    return <RestaurantSettings />;
+  }
+
+  if (user?.business_type === "hotel") {
+    return <HotelSettings />;
+  }
+
+  return (
+    <WorkspaceModulePage
+      eyebrow="Settings shell"
+      title={`${getWorkspaceLabel(user?.business_type)} settings are staged here.`}
+      description="Business details, branding, and operational defaults can plug into this same settings surface once the next module is ready."
+      primaryLabel="Settings shell"
+      secondaryLabel="Shared workspace pattern"
+      highlights={[
+        {
+          kicker: "Identity",
+          title: "Business basics",
+          body: "Business name, contacts, and public-facing defaults can all live in one owner-managed settings layer.",
+        },
+        {
+          kicker: "Media",
+          title: "Brand assets",
+          body: "Logos, cover images, and gallery media can reuse the same upload pattern across future workspaces.",
+        },
+        {
+          kicker: "Operations",
+          title: "Default controls",
+          body: "Hours, service modes, and availability rules can plug into this view as the workspace matures.",
+        },
+      ]}
+    />
+  );
+};
+
 const PublicRoute = () => {
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   if (isAuthenticated && hasWorkspaceAccess(user)) {
@@ -161,6 +204,16 @@ const HotelWorkspaceRoute = () => {
   const { user } = useSelector((state) => state.auth);
 
   if (user?.business_type !== "hotel") {
+    return <Navigate to={getActiveWorkspaceRoute(user)} replace />;
+  }
+
+  return <Outlet />;
+};
+
+const RestaurantWorkspaceRoute = () => {
+  const { user } = useSelector((state) => state.auth);
+
+  if (user?.business_type !== "restaurant" && user?.role !== "super_admin") {
     return <Navigate to={getActiveWorkspaceRoute(user)} replace />;
   }
 
@@ -219,12 +272,20 @@ function App() {
             <Route path="/dashboard/accountant" element={<Accountant />} />
             <Route path="/dashboard/tables" element={<Tables />} />
             <Route path="/dashboard/inventory" element={<Inventory />} />
+            <Route path="/dashboard/settings" element={<WorkspaceSettingsPage />} />
+            <Route element={<RestaurantWorkspaceRoute />}>
+              <Route path="/dashboard/settings/general" element={<RestaurantSettingsGeneral />} />
+              <Route
+                path="/dashboard/settings/operations"
+                element={<RestaurantSettingsOperations />}
+              />
+              <Route path="/dashboard/settings/images" element={<RestaurantSettingsImages />} />
+            </Route>
             <Route element={<HotelWorkspaceRoute />}>
               <Route path="/dashboard/bookings" element={<HotelBookings />} />
               <Route path="/dashboard/rooms" element={<HotelConfig />} />
               <Route path="/dashboard/pricing" element={<HotelCalender />} />
               <Route path="/dashboard/guests" element={<HotelCustomers />} />
-              <Route path="/dashboard/settings" element={<HotelSettings />} />
             </Route>
             <Route
               path="/dashboard/rides"

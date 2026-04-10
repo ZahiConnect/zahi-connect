@@ -48,6 +48,22 @@ def normalize_image_urls(image_urls: Any, image_url: Any = None) -> list[str]:
     return urls
 
 
+def normalize_text_list(values: Any, *, lower: bool = False) -> list[str]:
+    if not isinstance(values, list):
+        return []
+
+    normalized: list[str] = []
+    for value in values:
+        cleaned = clean_text(value)
+        if not cleaned:
+            continue
+        final_value = cleaned.lower() if lower else cleaned
+        if final_value not in normalized:
+            normalized.append(final_value)
+
+    return normalized
+
+
 def build_public_tenant_payload(tenant: Tenant) -> dict[str, Any]:
     return {
         "id": str(tenant.id),
@@ -108,6 +124,32 @@ def normalize_hotel_settings(payload: dict[str, Any] | None, tenant: Tenant) -> 
         "logo": clean_text(payload.get("logo")),
         "signature": clean_text(payload.get("signature")),
         "invoice_footer": clean_text(payload.get("invoiceFooter")),
+    }
+
+
+def normalize_restaurant_profile(row: dict[str, Any] | None) -> dict[str, Any]:
+    row = row or {}
+    return {
+        "tagline": clean_text(row.get("tagline")),
+        "description": clean_text(row.get("description")),
+        "area_name": clean_text(row.get("area_name")),
+        "city": clean_text(row.get("city")),
+        "state": clean_text(row.get("state")),
+        "postal_code": clean_text(row.get("postal_code")),
+        "map_link": clean_text(row.get("map_link")),
+        "contact_email": clean_text(row.get("contact_email")),
+        "reservation_phone": clean_text(row.get("reservation_phone")),
+        "whatsapp_number": clean_text(row.get("whatsapp_number")),
+        "cuisine_tags": normalize_text_list(row.get("cuisine_tags")),
+        "service_modes": normalize_text_list(row.get("service_modes"), lower=True) or ["dine_in"],
+        "opening_time": clean_text(row.get("opening_time")) or "09:00",
+        "closing_time": clean_text(row.get("closing_time")) or "22:00",
+        "average_prep_minutes": int(row.get("average_prep_minutes") or 20),
+        "seating_capacity": row.get("seating_capacity"),
+        "price_band": clean_text(row.get("price_band")) or "mid_range",
+        "accepts_reservations": bool(row.get("accepts_reservations", True)),
+        "cover_image_url": clean_text(row.get("cover_image_url")),
+        "gallery_image_urls": normalize_image_urls(row.get("gallery_image_urls")),
     }
 
 
@@ -290,10 +332,65 @@ async def fetch_hotel_documents(
     return grouped
 
 
+async def fetch_restaurant_profiles(
+    db: AsyncSession,
+    tenant_ids: list[Any],
+) -> dict[Any, dict[str, Any]]:
+    grouped: dict[Any, dict[str, Any]] = {}
+
+    if not tenant_ids:
+        return grouped
+
+    table_name = (
+        await db.execute(text("SELECT to_regclass('public.restaurant_profiles')"))
+    ).scalar_one_or_none()
+    if not table_name:
+        return grouped
+
+    profiles_stmt = text(
+        """
+        SELECT
+            tenant_id,
+            tagline,
+            description,
+            area_name,
+            city,
+            state,
+            postal_code,
+            map_link,
+            contact_email,
+            reservation_phone,
+            whatsapp_number,
+            cuisine_tags,
+            service_modes,
+            opening_time,
+            closing_time,
+            average_prep_minutes,
+            seating_capacity,
+            price_band,
+            accepts_reservations,
+            cover_image_url,
+            gallery_image_urls
+        FROM restaurant_profiles
+        WHERE tenant_id IN :tenant_ids
+        """
+    ).bindparams(bindparam("tenant_ids", expanding=True))
+
+    rows = (
+        await db.execute(profiles_stmt, {"tenant_ids": tenant_ids})
+    ).mappings().all()
+
+    for row in rows:
+        grouped[row["tenant_id"]] = normalize_restaurant_profile(dict(row))
+
+    return grouped
+
+
 def build_restaurant_summary(
     tenant: Tenant,
     categories: list[dict[str, Any]],
     items: list[dict[str, Any]],
+    profile: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     available_items = [item for item in items if item.get("is_available")]
     sorted_featured = sorted(
@@ -308,15 +405,30 @@ def build_restaurant_summary(
     ]
 
     payload = build_public_tenant_payload(tenant)
+    profile = normalize_restaurant_profile(profile)
+    cover_image = profile.get("cover_image_url") or next(
+        (item.get("image_url") for item in sorted_featured if item.get("image_url")),
+        None,
+    )
     payload.update(
         {
-            "cover_image": next((item.get("image_url") for item in sorted_featured if item.get("image_url")), None),
+            "cover_image": cover_image,
+            "gallery_image_urls": profile.get("gallery_image_urls")
+            or ([cover_image] if cover_image else []),
             "category_count": len(categories),
             "item_count": len(items),
             "available_item_count": len(available_items),
             "starting_price": min(price_points) if price_points else None,
             "category_labels": [category["name"] for category in categories[:3]],
             "featured_items": sorted_featured[:4],
+            "tagline": profile.get("tagline"),
+            "area_name": profile.get("area_name"),
+            "city": profile.get("city"),
+            "state": profile.get("state"),
+            "service_modes": profile.get("service_modes") or ["dine_in"],
+            "opening_time": profile.get("opening_time"),
+            "closing_time": profile.get("closing_time"),
+            "price_band": profile.get("price_band"),
         }
     )
     return payload
@@ -326,6 +438,7 @@ def build_restaurant_detail(
     tenant: Tenant,
     categories: list[dict[str, Any]],
     items: list[dict[str, Any]],
+    profile: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     category_lookup = {category["id"]: category for category in categories}
     grouped_sections: list[dict[str, Any]] = []
@@ -354,10 +467,11 @@ def build_restaurant_detail(
             }
         )
 
-    summary = build_restaurant_summary(tenant, categories, items)
+    summary = build_restaurant_summary(tenant, categories, items, profile)
     return {
         "tenant": build_public_tenant_payload(tenant),
         "summary": summary,
+        "profile": normalize_restaurant_profile(profile),
         "categories": categories,
         "menu_sections": grouped_sections,
     }
@@ -367,9 +481,11 @@ def build_food_catalog_entry(
     tenant: Tenant,
     category_lookup: dict[str, dict[str, Any]],
     item: dict[str, Any],
+    profile: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     category = category_lookup.get(item["category_id"], {})
     restaurant = build_public_tenant_payload(tenant)
+    profile = normalize_restaurant_profile(profile)
     return {
         **item,
         "category_name": category.get("name"),
@@ -378,6 +494,9 @@ def build_food_catalog_entry(
         "restaurant_name": restaurant["name"],
         "restaurant_slug": restaurant["slug"],
         "restaurant_address": restaurant.get("address"),
+        "restaurant_cover_image": profile.get("cover_image_url"),
+        "restaurant_area_name": profile.get("area_name"),
+        "restaurant_city": profile.get("city"),
     }
 
 
@@ -455,12 +574,14 @@ async def list_restaurants(db: AsyncSession = Depends(get_db)):
         db,
         [tenant.id for tenant in tenants],
     )
+    profiles_by_tenant = await fetch_restaurant_profiles(db, [tenant.id for tenant in tenants])
 
     return [
         build_restaurant_summary(
             tenant,
             categories_by_tenant.get(tenant.id, []),
             items_by_tenant.get(tenant.id, []),
+            profiles_by_tenant.get(tenant.id),
         )
         for tenant in tenants
     ]
@@ -480,6 +601,7 @@ async def list_food_items(db: AsyncSession = Depends(get_db)):
         db,
         [tenant.id for tenant in tenants],
     )
+    profiles_by_tenant = await fetch_restaurant_profiles(db, [tenant.id for tenant in tenants])
 
     food_items: list[dict[str, Any]] = []
     for tenant in tenants:
@@ -493,7 +615,14 @@ async def list_food_items(db: AsyncSession = Depends(get_db)):
             if item.get("is_available")
         ]
         for item in available_items:
-            food_items.append(build_food_catalog_entry(tenant, category_lookup, item))
+            food_items.append(
+                build_food_catalog_entry(
+                    tenant,
+                    category_lookup,
+                    item,
+                    profiles_by_tenant.get(tenant.id),
+                )
+            )
 
     return sorted(
         food_items,
@@ -522,10 +651,12 @@ async def get_restaurant_detail(slug: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Restaurant not found.")
 
     categories_by_tenant, items_by_tenant = await fetch_menu_payload(db, [tenant.id])
+    profiles_by_tenant = await fetch_restaurant_profiles(db, [tenant.id])
     return build_restaurant_detail(
         tenant,
         categories_by_tenant.get(tenant.id, []),
         items_by_tenant.get(tenant.id, []),
+        profiles_by_tenant.get(tenant.id),
     )
 
 

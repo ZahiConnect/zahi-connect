@@ -37,6 +37,16 @@ const menuItemsByType = {
     { name: "Tables", path: "/dashboard/tables", icon: MdOutlineTableBar },
     { name: "Inventory", path: "/dashboard/inventory", icon: HiOutlineArchive },
     { name: "Reports", path: "/dashboard/reports", icon: HiOutlineChartPie },
+    {
+      name: "Settings",
+      path: "/dashboard/settings",
+      icon: HiOutlineCog,
+      children: [
+        { name: "General", title: "General Settings", path: "/dashboard/settings/general" },
+        { name: "Operations", title: "Operations Settings", path: "/dashboard/settings/operations" },
+        { name: "Images", title: "Image Settings", path: "/dashboard/settings/images" },
+      ],
+    },
   ],
   hotel: [
     { name: "Dashboard", path: "/dashboard", icon: HiOutlineHome },
@@ -60,9 +70,13 @@ const extraPageTitles = {
   "/dashboard/upgrade": "Upgrade",
 };
 
+const flattenMenuItems = (items) =>
+  items.flatMap((item) => (item.children?.length ? [item, ...item.children] : [item]));
+
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState({});
   const { user } = useSelector((state) => state.auth);
   const location = useLocation();
   const navigate = useNavigate();
@@ -72,8 +86,10 @@ const DashboardLayout = () => {
   const businessType = user?.business_type || "restaurant";
   const isHotelWorkspace = businessType === "hotel";
   const menuItems = menuItemsByType[businessType] || menuItemsByType.restaurant;
+  const flatMenuItems = flattenMenuItems(menuItems);
   const activeTitle =
-    menuItems.find((item) => item.path === location.pathname)?.name ||
+    flatMenuItems.find((item) => item.path === location.pathname)?.title ||
+    flatMenuItems.find((item) => item.path === location.pathname)?.name ||
     extraPageTitles[location.pathname] ||
     "Dashboard";
   const displayName = user?.tenant_name || user?.username || "Workspace";
@@ -100,6 +116,13 @@ const DashboardLayout = () => {
       dispatch(logout());
       navigate("/", { replace: true });
     }
+  };
+
+  const toggleGroup = (path) => {
+    setExpandedGroups((current) => ({
+      ...current,
+      [path]: !(current[path] ?? location.pathname.startsWith(path)),
+    }));
   };
 
   return (
@@ -134,8 +157,60 @@ const DashboardLayout = () => {
         <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
+            const hasChildren = Array.isArray(item.children) && item.children.length > 0;
+            const isGroupActive = hasChildren
+              ? item.children.some((child) => location.pathname === child.path)
+              : false;
+            const isExpanded = hasChildren
+              ? expandedGroups[item.path] ?? location.pathname.startsWith(item.path)
+              : false;
             const Icon = item.icon;
-            return (
+            return hasChildren ? (
+              <div key={item.name} className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(item.path)}
+                  className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+                    isGroupActive || location.pathname === item.path
+                      ? "bg-[#E5E2DC] text-[#1A1A1A]"
+                      : "text-[#666666] hover:bg-[#EAE7E1] hover:text-[#1A1A1A]"
+                  }`}
+                >
+                  <Icon
+                    className={`text-lg ${
+                      isGroupActive || location.pathname === item.path
+                        ? "text-[#1A1A1A]"
+                        : "text-[#888888]"
+                    }`}
+                  />
+                  <span className="flex-1 text-left">{item.name}</span>
+                  <HiOutlineChevronDown
+                    className={`text-base transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {isExpanded ? (
+                  <div className="ml-5 space-y-1 border-l border-[#DED6CC] pl-4">
+                    {item.children.map((child) => {
+                      const isChildActive = location.pathname === child.path;
+                      return (
+                        <Link
+                          key={child.path}
+                          to={child.path}
+                          className={`block rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                            isChildActive
+                              ? "bg-[#F0EBE4] text-[#1A1A1A]"
+                              : "text-[#6B5E52] hover:bg-[#F4EFE8] hover:text-[#1A1A1A]"
+                          }`}
+                        >
+                          {child.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
               <Link
                 key={item.name}
                 to={item.path}

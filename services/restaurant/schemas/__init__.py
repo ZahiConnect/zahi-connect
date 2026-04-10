@@ -16,3 +16,11 @@ from schemas.order import (
 )
 from schemas.table import TableCreate, TableResponse, TableStatusUpdate, TableUpdate
 from schemas.inventory import InventoryItemCreate, InventoryItemResponse, InventoryItemUpdate
+from schemas.settings import (
+    RestaurantCoverImageUpdate,
+    RestaurantGeneralSettingsUpdate,
+    RestaurantOperationsSettingsUpdate,
+    RestaurantProfileSettingsResponse,
+    RestaurantSettingsResponse,
+    RestaurantTenantSnapshot,
+)
