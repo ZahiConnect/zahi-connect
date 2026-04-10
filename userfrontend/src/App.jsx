@@ -77,8 +77,8 @@ const PublicOnlyRoute = ({ children }) => {
   return children;
 };
 
-const LocationBadge = ({ isAuthenticated }) => {
-  const { locationLabel, status, requestLocation } = useCustomerLocation(isAuthenticated);
+const LocationBadge = () => {
+  const { locationLabel, status, requestLocation } = useCustomerLocation(true);
 
   if (status === "loading") {
     return (
@@ -161,7 +161,7 @@ const Header = () => {
           </div>
           <div>
             <p className="font-display text-3xl leading-none text-[#1c1712]">Zahi Trips</p>
-            <LocationBadge isAuthenticated={isAuthenticated} />
+            <LocationBadge />
           </div>
         </Link>
 

@@ -45,6 +45,8 @@ SCHEMA_PATCHES = [
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(100)",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS settled_at TIMESTAMP",
     "ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS image_urls JSON DEFAULT '[]'",
+    "ALTER TABLE restaurant_profiles ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION",
+    "ALTER TABLE restaurant_profiles ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION",
     "UPDATE menu_items SET image_urls = CASE WHEN image_url IS NOT NULL THEN json_build_array(image_url) ELSE '[]'::json END WHERE image_urls IS NULL OR image_urls::text = 'null'",
 ]
 

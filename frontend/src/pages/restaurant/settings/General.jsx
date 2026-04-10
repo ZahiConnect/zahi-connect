@@ -55,8 +55,8 @@ const buildCityFromAddress = (address = {}) =>
 
 const buildLocationSuggestion = (result) => {
   const address = result?.address || {};
-  const latitude = cleanText(result?.lat);
-  const longitude = cleanText(result?.lon);
+  const latitude = Number.parseFloat(result?.lat);
+  const longitude = Number.parseFloat(result?.lon);
 
   return {
     label: cleanText(result?.display_name),
@@ -65,8 +65,10 @@ const buildLocationSuggestion = (result) => {
     city: buildCityFromAddress(address),
     state: cleanText(address.state),
     postal_code: keepDigitsOnly(address.postcode || "", 10),
+    latitude: Number.isFinite(latitude) ? latitude : "",
+    longitude: Number.isFinite(longitude) ? longitude : "",
     map_link:
-      latitude && longitude
+      Number.isFinite(latitude) && Number.isFinite(longitude)
         ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
         : "",
   };
@@ -88,6 +90,8 @@ const buildLocationFromReverseGeocode = (payload, latitude, longitude) => {
     city,
     state,
     postal_code: postcode,
+    latitude,
+    longitude,
     map_link:
       latitude && longitude
         ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
@@ -172,6 +176,8 @@ export default function RestaurantGeneralSettings() {
       city: suggestion.city || "",
       state: suggestion.state || "",
       postal_code: suggestion.postal_code || "",
+      latitude: suggestion.latitude ?? "",
+      longitude: suggestion.longitude ?? "",
       map_link: suggestion.map_link || "",
     }));
     setLocationQuery(suggestion.label || "");

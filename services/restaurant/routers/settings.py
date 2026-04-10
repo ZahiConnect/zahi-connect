@@ -32,6 +32,18 @@ def clean_optional_text(value: Any) -> str | None:
     return text_value or None
 
 
+def clean_optional_float(value: Any, minimum: float, maximum: float) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return None
+    if numeric_value < minimum or numeric_value > maximum:
+        return None
+    return numeric_value
+
+
 def normalize_string_list(values: list[str] | None, *, lower: bool = False) -> list[str]:
     seen: set[str] = set()
     cleaned: list[str] = []
@@ -61,6 +73,8 @@ def serialize_profile(profile: RestaurantProfile | None, tenant_id: uuid.UUID) -
             "state": None,
             "postal_code": None,
             "map_link": None,
+            "latitude": None,
+            "longitude": None,
             "contact_email": None,
             "reservation_phone": None,
             "whatsapp_number": None,
@@ -88,6 +102,8 @@ def serialize_profile(profile: RestaurantProfile | None, tenant_id: uuid.UUID) -
         "state": clean_optional_text(profile.state),
         "postal_code": clean_optional_text(profile.postal_code),
         "map_link": clean_optional_text(profile.map_link),
+        "latitude": clean_optional_float(profile.latitude, -90, 90),
+        "longitude": clean_optional_float(profile.longitude, -180, 180),
         "contact_email": clean_optional_text(profile.contact_email),
         "reservation_phone": clean_optional_text(profile.reservation_phone),
         "whatsapp_number": clean_optional_text(profile.whatsapp_number),
@@ -173,6 +189,8 @@ def apply_general_profile_updates(
     profile.state = clean_optional_text(data.state)
     profile.postal_code = clean_optional_text(data.postal_code)
     profile.map_link = clean_optional_text(data.map_link)
+    profile.latitude = clean_optional_float(data.latitude, -90, 90)
+    profile.longitude = clean_optional_float(data.longitude, -180, 180)
     profile.contact_email = clean_optional_text(data.contact_email)
     profile.reservation_phone = clean_optional_text(data.reservation_phone)
     profile.whatsapp_number = clean_optional_text(data.whatsapp_number)

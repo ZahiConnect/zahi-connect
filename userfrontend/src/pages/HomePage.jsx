@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
-import { formatAddress, formatCurrency, shortText } from "../lib/format";
+import useCustomerLocation from "../hooks/useCustomerLocation";
+import { formatAddress, formatCurrency, formatDistance, shortText } from "../lib/format";
 import marketplaceService from "../services/marketplaceService";
 
 const serviceTabs = [
@@ -42,6 +43,10 @@ const SectionHeader = ({ eyebrow, title, body, to, cta }) => (
 const HomePage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { coordinates, locationLabel, requestLocation } = useCustomerLocation(true);
+  const coordinateKey = coordinates
+    ? `${coordinates.latitude.toFixed(5)}:${coordinates.longitude.toFixed(5)}`
+    : "no-location";
   const [activeTab, setActiveTab] = useState("restaurants");
   const [foodItems, setFoodItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +60,14 @@ const HomePage = () => {
 
     const load = async () => {
       try {
-        const data = await marketplaceService.getFoodItems();
+        const data = await marketplaceService.getFoodItems(
+          coordinates
+            ? {
+                latitude: coordinates.latitude,
+                longitude: coordinates.longitude,
+              }
+            : undefined
+        );
         if (!active) return;
         setFoodItems(Array.isArray(data) ? data : []);
       } catch (error) {
@@ -71,7 +83,7 @@ const HomePage = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [coordinateKey]);
 
   const representedRestaurants = useMemo(
     () => new Set(foodItems.map((item) => item.restaurant?.id || item.restaurant_slug)).size,
@@ -88,7 +100,9 @@ const HomePage = () => {
       {
         label: "Partner outlets",
         value: representedRestaurants,
-        caption: "Restaurant names stay visible as supporting context",
+        caption: coordinates
+          ? `Ranked around ${locationLabel || "your location"}`
+          : "Restaurant names stay visible as supporting context",
       },
       {
         label: "Customer requests",
@@ -96,7 +110,7 @@ const HomePage = () => {
         caption: "Food requests can be saved into one customer account",
       },
     ],
-    [foodItems.length, isAuthenticated, representedRestaurants]
+    [coordinates, foodItems.length, isAuthenticated, locationLabel, representedRestaurants]
   );
 
   const spotlightItems = foodItems.slice(0, 4);
@@ -128,8 +142,27 @@ const HomePage = () => {
             <p className="mt-6 max-w-3xl text-base leading-8 text-[#68584b]">
               This customer experience is now dish-first. Search across all currently available menu
               items, keep the restaurant as supporting detail, and move into the outlet only when
-              you are ready to order.
+              you are ready to order. When location is available, the nearest restaurants rise to
+              the top automatically.
             </p>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              {coordinates && locationLabel ? (
+                <span className="inline-flex items-center gap-2 rounded-full bg-[#f5e4d2] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8e4a1d]">
+                  <MapPin className="h-3.5 w-3.5" />
+                  Nearest around {locationLabel}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={requestLocation}
+                  className="inline-flex items-center gap-2 rounded-full border border-[rgba(198,99,44,0.22)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8e4a1d] transition hover:bg-[#fff8f1]"
+                >
+                  <MapPin className="h-3.5 w-3.5" />
+                  Enable nearby results
+                </button>
+              )}
+            </div>
 
             <div className="mt-8 flex flex-wrap gap-3">
               {serviceTabs.map((tab) => {
@@ -361,6 +394,11 @@ const HomePage = () => {
                       <span className="rounded-full bg-[#fbefe4] px-3 py-1 text-xs font-medium text-[#a54d16]">
                         {item.restaurant_name}
                       </span>
+                      {item.distance_km !== null && item.distance_km !== undefined ? (
+                        <span className="rounded-full bg-[#f5e4d2] px-3 py-1 text-xs font-medium text-[#8e4a1d]">
+                          {formatDistance(item.distance_km)}
+                        </span>
+                      ) : null}
                     </div>
 
                     <div>

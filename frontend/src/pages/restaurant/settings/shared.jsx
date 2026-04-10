@@ -32,6 +32,8 @@ export const buildGeneralForm = (settings) => ({
   state: settings?.profile?.state || "",
   postal_code: settings?.profile?.postal_code || "",
   map_link: settings?.profile?.map_link || "",
+  latitude: settings?.profile?.latitude ?? "",
+  longitude: settings?.profile?.longitude ?? "",
   contact_email: settings?.profile?.contact_email || "",
   reservation_phone: settings?.profile?.reservation_phone || "",
   whatsapp_number: settings?.profile?.whatsapp_number || "",

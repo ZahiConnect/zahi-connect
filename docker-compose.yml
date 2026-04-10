@@ -113,7 +113,7 @@ services:
     container_name: zahi_accounts
     volumes:
       - ./services/accounts:/app
-    command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8001 --reload --reload-dir /app"
+    command: uvicorn main:app --host 0.0.0.0 --port 8001
     restart: always
     ports:
       - "8001:8001"

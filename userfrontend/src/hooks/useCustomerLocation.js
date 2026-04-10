@@ -1,6 +1,29 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const STORAGE_KEY = "zahi_customer_location_label";
+const COORDINATES_STORAGE_KEY = "zahi_customer_location_coords";
+
+const parseStoredCoordinates = () => {
+  try {
+    const payload = JSON.parse(window.localStorage.getItem(COORDINATES_STORAGE_KEY) || "null");
+    const latitude = Number(payload?.latitude);
+    const longitude = Number(payload?.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return null;
+    }
+    return { latitude, longitude };
+  } catch {
+    return null;
+  }
+};
+
+const coordinatesMatch = (left, right) => {
+  if (!left || !right) return false;
+  return (
+    Math.abs(Number(left.latitude) - Number(right.latitude)) < 0.00001 &&
+    Math.abs(Number(left.longitude) - Number(right.longitude)) < 0.00001
+  );
+};
 
 const cleanAreaName = (value) =>
   String(value || "")
@@ -73,33 +96,61 @@ const reverseGeocode = async (latitude, longitude) => {
 };
 
 export const useCustomerLocation = (enabled = true) => {
-  const [locationLabel, setLocationLabel] = useState(
-    () => window.localStorage.getItem(STORAGE_KEY) || ""
-  );
+  const [locationLabel, setLocationLabel] = useState(() => window.localStorage.getItem(STORAGE_KEY) || "");
+  const [coordinates, setCoordinates] = useState(() => parseStoredCoordinates());
   const [status, setStatus] = useState(locationLabel ? "ready" : "idle");
+  const coordinatesRef = useRef(coordinates);
+  const locationLabelRef = useRef(locationLabel);
+  const requestingRef = useRef(false);
+
+  useEffect(() => {
+    coordinatesRef.current = coordinates;
+  }, [coordinates]);
+
+  useEffect(() => {
+    locationLabelRef.current = locationLabel;
+  }, [locationLabel]);
 
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setStatus("unsupported");
       return;
     }
+    if (requestingRef.current) return;
 
+    requestingRef.current = true;
     setStatus("loading");
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
+          const nextCoordinates = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          };
           const label = await reverseGeocode(
-            position.coords.latitude,
-            position.coords.longitude
+            nextCoordinates.latitude,
+            nextCoordinates.longitude
           );
           window.localStorage.setItem(STORAGE_KEY, label);
-          setLocationLabel(label);
+          window.localStorage.setItem(
+            COORDINATES_STORAGE_KEY,
+            JSON.stringify(nextCoordinates)
+          );
+          if (label !== locationLabelRef.current) {
+            setLocationLabel(label);
+          }
+          if (!coordinatesMatch(coordinatesRef.current, nextCoordinates)) {
+            setCoordinates(nextCoordinates);
+          }
           setStatus("ready");
         } catch {
           setStatus("error");
+        } finally {
+          requestingRef.current = false;
         }
       },
       (error) => {
+        requestingRef.current = false;
         if (error.code === error.PERMISSION_DENIED) {
           setStatus("denied");
           return;
@@ -134,9 +185,9 @@ export const useCustomerLocation = (enabled = true) => {
         if (permissionStatus.state === "granted") {
           requestLocation();
         } else if (permissionStatus.state === "denied") {
-          setStatus("denied");
+          setStatus(locationLabelRef.current && coordinatesRef.current ? "ready" : "denied");
         } else {
-          setStatus(locationLabel ? "ready" : "needs_permission");
+          setStatus(locationLabelRef.current && coordinatesRef.current ? "ready" : "needs_permission");
         }
 
         permissionStatus.onchange = () => {
@@ -145,13 +196,13 @@ export const useCustomerLocation = (enabled = true) => {
             return;
           }
           if (permissionStatus.state === "denied") {
-            setStatus("denied");
+            setStatus(locationLabelRef.current && coordinatesRef.current ? "ready" : "denied");
             return;
           }
-          setStatus(locationLabel ? "ready" : "needs_permission");
+          setStatus(locationLabelRef.current && coordinatesRef.current ? "ready" : "needs_permission");
         };
       } catch {
-        setStatus(locationLabel ? "ready" : "needs_permission");
+        setStatus(locationLabelRef.current && coordinatesRef.current ? "ready" : "needs_permission");
       }
     };
 
@@ -161,9 +212,10 @@ export const useCustomerLocation = (enabled = true) => {
         permissionStatus.onchange = null;
       }
     };
-  }, [enabled, locationLabel, requestLocation]);
+  }, [enabled, requestLocation]);
 
   return {
+    coordinates,
     locationLabel,
     status,
     requestLocation,

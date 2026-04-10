@@ -2,14 +2,24 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, ChefHat, Clock3, MapPin, Search, Store, Users } from "lucide-react";
 
+import useCustomerLocation from "../hooks/useCustomerLocation";
 import marketplaceService from "../services/marketplaceService";
-import { formatAddress, formatCurrency, shortText } from "../lib/format";
+import {
+  formatAddress,
+  formatCurrency,
+  formatDistance,
+  shortText,
+} from "../lib/format";
 
 const RestaurantsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [foodItems, setFoodItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTag, setActiveTag] = useState("all");
+  const { coordinates, locationLabel, requestLocation } = useCustomerLocation(true);
+  const coordinateKey = coordinates
+    ? `${coordinates.latitude.toFixed(5)}:${coordinates.longitude.toFixed(5)}`
+    : "no-location";
 
   const query = searchParams.get("query") || "";
   const diners = Number(searchParams.get("diners") || "2");
@@ -17,9 +27,17 @@ const RestaurantsPage = () => {
   useEffect(() => {
     let active = true;
 
-    const load = async () => {
+    const loadNearest = async () => {
       try {
-        const data = await marketplaceService.getFoodItems();
+        setLoading(true);
+        const data = await marketplaceService.getFoodItems(
+          coordinates
+            ? {
+                latitude: coordinates.latitude,
+                longitude: coordinates.longitude,
+              }
+            : undefined
+        );
         if (active) {
           setFoodItems(Array.isArray(data) ? data : []);
         }
@@ -32,11 +50,11 @@ const RestaurantsPage = () => {
       }
     };
 
-    load();
+    loadNearest();
     return () => {
       active = false;
     };
-  }, []);
+  }, [coordinateKey]);
 
   const allTags = useMemo(() => {
     const tags = new Set();
@@ -64,9 +82,11 @@ const RestaurantsPage = () => {
     });
   }, [activeTag, foodItems, query]);
 
+  const rankedItems = useMemo(() => filteredItems, [filteredItems]);
+
   const representedRestaurants = useMemo(
-    () => new Set(filteredItems.map((item) => item.restaurant?.id || item.restaurant_slug)).size,
-    [filteredItems]
+    () => new Set(rankedItems.map((item) => item.restaurant?.id || item.restaurant_slug)).size,
+    [rankedItems]
   );
 
   const updateParam = (key, value) => {
@@ -87,8 +107,26 @@ const RestaurantsPage = () => {
             </h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[#68584b]">
               This page works as one shared menu feed. Search by dish, cuisine, or restaurant, and
-              keep the restaurant name as supporting context instead of the main result.
+              keep the restaurant name as supporting context instead of the main result. When your
+              location is enabled, dishes are ranked from the nearest restaurant first.
             </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              {coordinates && locationLabel ? (
+                <span className="inline-flex items-center gap-2 rounded-full bg-[#f5e4d2] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8e4a1d]">
+                  <MapPin className="h-3.5 w-3.5" />
+                  Sorted near {locationLabel}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={requestLocation}
+                  className="inline-flex items-center gap-2 rounded-full border border-[rgba(198,99,44,0.22)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8e4a1d] transition hover:bg-[#fff8f1]"
+                >
+                  <MapPin className="h-3.5 w-3.5" />
+                  Enable nearby sorting
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -152,7 +190,7 @@ const RestaurantsPage = () => {
             <div key={index} className="soft-card h-56 animate-pulse rounded-[32px]" />
           ))}
         </div>
-      ) : filteredItems.length === 0 ? (
+      ) : rankedItems.length === 0 ? (
         <div className="soft-card rounded-[34px] px-6 py-14 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f3e6d5] text-[#8e3f11]">
             <ChefHat className="h-6 w-6" />
@@ -164,7 +202,7 @@ const RestaurantsPage = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredItems.map((item) => (
+          {rankedItems.map((item) => (
             <article key={`${item.restaurant_slug}-${item.id}`} className="soft-card rounded-[32px] p-4 sm:p-5">
               <div className="grid gap-5 lg:grid-cols-[170px_minmax(0,1fr)_250px]">
                 <div className="overflow-hidden rounded-[26px] bg-[#f1e3d4]">
@@ -207,6 +245,12 @@ const RestaurantsPage = () => {
                       <Clock3 className="h-4 w-4" />
                       {item.prep_time_minutes} mins
                     </span>
+                    {item.distance_km !== null && item.distance_km !== undefined ? (
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        {formatDistance(item.distance_km)}
+                      </span>
+                    ) : null}
                     <span className="inline-flex items-center gap-1">
                       <Store className="h-4 w-4" />
                       {item.restaurant_name}
@@ -231,6 +275,11 @@ const RestaurantsPage = () => {
                     <p className="mt-2 text-sm leading-6 text-[#68584b]">
                       {formatAddress(item.restaurant_address)}
                     </p>
+                    {item.distance_km !== null && item.distance_km !== undefined ? (
+                      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
+                        {formatDistance(item.distance_km)}
+                      </p>
+                    ) : null}
                   </div>
 
                   <Link

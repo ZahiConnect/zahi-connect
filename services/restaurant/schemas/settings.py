@@ -28,6 +28,8 @@ class RestaurantGeneralSettingsUpdate(BaseModel):
     state: str | None = Field(default=None, max_length=120)
     postal_code: str | None = Field(default=None, max_length=20)
     map_link: str | None = Field(default=None, max_length=500)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
     contact_email: str | None = Field(default=None, max_length=255)
     reservation_phone: str | None = Field(default=None, max_length=20)
     whatsapp_number: str | None = Field(default=None, max_length=20)
@@ -54,6 +56,8 @@ class RestaurantProfileSettingsResponse(BaseModel):
     state: str | None = None
     postal_code: str | None = None
     map_link: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     contact_email: str | None = None
     reservation_phone: str | None = None
     whatsapp_number: str | None = None

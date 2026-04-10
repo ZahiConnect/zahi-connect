@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.types import JSON
@@ -25,6 +25,8 @@ class RestaurantProfile(Base):
     state = Column(String(120), nullable=True)
     postal_code = Column(String(20), nullable=True)
     map_link = Column(String(500), nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
 
     contact_email = Column(String(255), nullable=True)
     reservation_phone = Column(String(20), nullable=True)

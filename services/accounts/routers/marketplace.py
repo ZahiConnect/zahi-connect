@@ -1,7 +1,9 @@
 from collections import defaultdict
 from decimal import Decimal
+from math import asin, cos, radians, sin, sqrt
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
 from sqlalchemy import bindparam, select, text
@@ -13,6 +15,11 @@ from models.user import Tenant
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 
 HOTEL_COLLECTIONS = ("settings", "room_types", "rooms", "pricing_defaults")
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+NOMINATIM_HEADERS = {
+    "User-Agent": "ZahiConnectMarketplace/1.0 (customer distance enrichment)",
+}
+GEOCODE_CACHE: dict[str, dict[str, Any] | None] = {}
 
 
 def clean_text(value: Any) -> str | None:
@@ -137,6 +144,8 @@ def normalize_restaurant_profile(row: dict[str, Any] | None) -> dict[str, Any]:
         "state": clean_text(row.get("state")),
         "postal_code": clean_text(row.get("postal_code")),
         "map_link": clean_text(row.get("map_link")),
+        "latitude": to_float(row.get("latitude")),
+        "longitude": to_float(row.get("longitude")),
         "contact_email": clean_text(row.get("contact_email")),
         "reservation_phone": clean_text(row.get("reservation_phone")),
         "whatsapp_number": clean_text(row.get("whatsapp_number")),
@@ -151,6 +160,181 @@ def normalize_restaurant_profile(row: dict[str, Any] | None) -> dict[str, Any]:
         "cover_image_url": clean_text(row.get("cover_image_url")),
         "gallery_image_urls": normalize_image_urls(row.get("gallery_image_urls")),
     }
+
+
+def build_restaurant_geocode_query(tenant: Tenant, profile: dict[str, Any]) -> str | None:
+    parts = [
+        clean_text(profile.get("area_name")),
+        clean_text(profile.get("city")),
+        clean_text(profile.get("state")),
+        clean_text(tenant.address),
+    ]
+    unique_parts: list[str] = []
+    for part in parts:
+        if part and part not in unique_parts:
+            unique_parts.append(part)
+
+    if not unique_parts:
+        return None
+
+    return ", ".join(unique_parts)
+
+
+async def geocode_restaurant_location(query: str) -> dict[str, Any] | None:
+    cached = GEOCODE_CACHE.get(query)
+    if cached is not None:
+        return cached
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+            response = await client.get(
+                NOMINATIM_URL,
+                params={
+                    "format": "jsonv2",
+                    "limit": 1,
+                    "addressdetails": 1,
+                    "q": query,
+                },
+                headers=NOMINATIM_HEADERS,
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except Exception:
+        GEOCODE_CACHE[query] = None
+        return None
+
+    if not isinstance(payload, list) or not payload:
+        GEOCODE_CACHE[query] = None
+        return None
+
+    first_match = payload[0]
+    latitude = to_float(first_match.get("lat"))
+    longitude = to_float(first_match.get("lon"))
+    if latitude is None or longitude is None:
+        GEOCODE_CACHE[query] = None
+        return None
+
+    address = first_match.get("address") or {}
+    result = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "area_name": clean_text(
+            address.get("suburb")
+            or address.get("neighbourhood")
+            or address.get("quarter")
+            or address.get("city_district")
+            or address.get("town")
+            or address.get("village")
+            or address.get("municipality")
+            or address.get("county")
+        ),
+        "city": clean_text(
+            address.get("city")
+            or address.get("town")
+            or address.get("village")
+            or address.get("municipality")
+            or address.get("state_district")
+            or address.get("county")
+        ),
+        "state": clean_text(address.get("state")),
+    }
+    GEOCODE_CACHE[query] = result
+    return result
+
+
+async def enrich_restaurant_profiles_with_coordinates(
+    db: AsyncSession,
+    tenants: list[Tenant],
+    profiles_by_tenant: dict[Any, dict[str, Any]],
+) -> dict[Any, dict[str, Any]]:
+    pending_db_updates: list[dict[str, Any]] = []
+
+    for tenant in tenants:
+        raw_profile = profiles_by_tenant.get(tenant.id)
+        profile = normalize_restaurant_profile(raw_profile)
+
+        if profile.get("latitude") is not None and profile.get("longitude") is not None:
+            profiles_by_tenant[tenant.id] = profile
+            continue
+
+        query = build_restaurant_geocode_query(tenant, profile)
+        if not query:
+            profiles_by_tenant[tenant.id] = profile
+            continue
+
+        geocoded = await geocode_restaurant_location(query)
+        if not geocoded:
+            profiles_by_tenant[tenant.id] = profile
+            continue
+
+        profile["latitude"] = geocoded["latitude"]
+        profile["longitude"] = geocoded["longitude"]
+        profile["area_name"] = profile.get("area_name") or geocoded.get("area_name")
+        profile["city"] = profile.get("city") or geocoded.get("city")
+        profile["state"] = profile.get("state") or geocoded.get("state")
+        if not profile.get("map_link"):
+            profile["map_link"] = (
+                "https://www.google.com/maps/search/?api=1&query="
+                f"{profile['latitude']},{profile['longitude']}"
+            )
+
+        profiles_by_tenant[tenant.id] = profile
+
+        if raw_profile is not None:
+            pending_db_updates.append(
+                {
+                    "tenant_id": tenant.id,
+                    "latitude": profile["latitude"],
+                    "longitude": profile["longitude"],
+                    "area_name": profile.get("area_name"),
+                    "city": profile.get("city"),
+                    "state": profile.get("state"),
+                    "map_link": profile.get("map_link"),
+                }
+            )
+
+    if pending_db_updates:
+        update_stmt = text(
+            """
+            UPDATE restaurant_profiles
+            SET
+                latitude = COALESCE(latitude, :latitude),
+                longitude = COALESCE(longitude, :longitude),
+                area_name = COALESCE(area_name, :area_name),
+                city = COALESCE(city, :city),
+                state = COALESCE(state, :state),
+                map_link = COALESCE(map_link, :map_link),
+                updated_at = NOW()
+            WHERE tenant_id = :tenant_id
+            """
+        )
+        for payload in pending_db_updates:
+            await db.execute(update_stmt, payload)
+        await db.commit()
+
+    return profiles_by_tenant
+
+
+def compute_distance_km(
+    origin_latitude: float | None,
+    origin_longitude: float | None,
+    target_latitude: float | None,
+    target_longitude: float | None,
+) -> float | None:
+    if None in [origin_latitude, origin_longitude, target_latitude, target_longitude]:
+        return None
+
+    earth_radius_km = 6371
+    delta_latitude = radians(target_latitude - origin_latitude)
+    delta_longitude = radians(target_longitude - origin_longitude)
+
+    haversine = (
+        sin(delta_latitude / 2) ** 2
+        + cos(radians(origin_latitude))
+        * cos(radians(target_latitude))
+        * sin(delta_longitude / 2) ** 2
+    )
+    return round(2 * earth_radius_km * asin(sqrt(haversine)), 2)
 
 
 def normalize_room(room: dict[str, Any]) -> dict[str, Any]:
@@ -358,6 +542,8 @@ async def fetch_restaurant_profiles(
             state,
             postal_code,
             map_link,
+            latitude,
+            longitude,
             contact_email,
             reservation_phone,
             whatsapp_number,
@@ -391,6 +577,7 @@ def build_restaurant_summary(
     categories: list[dict[str, Any]],
     items: list[dict[str, Any]],
     profile: dict[str, Any] | None = None,
+    distance_km: float | None = None,
 ) -> dict[str, Any]:
     available_items = [item for item in items if item.get("is_available")]
     sorted_featured = sorted(
@@ -425,6 +612,9 @@ def build_restaurant_summary(
             "area_name": profile.get("area_name"),
             "city": profile.get("city"),
             "state": profile.get("state"),
+            "latitude": profile.get("latitude"),
+            "longitude": profile.get("longitude"),
+            "distance_km": distance_km,
             "service_modes": profile.get("service_modes") or ["dine_in"],
             "opening_time": profile.get("opening_time"),
             "closing_time": profile.get("closing_time"),
@@ -439,6 +629,7 @@ def build_restaurant_detail(
     categories: list[dict[str, Any]],
     items: list[dict[str, Any]],
     profile: dict[str, Any] | None = None,
+    distance_km: float | None = None,
 ) -> dict[str, Any]:
     category_lookup = {category["id"]: category for category in categories}
     grouped_sections: list[dict[str, Any]] = []
@@ -467,7 +658,7 @@ def build_restaurant_detail(
             }
         )
 
-    summary = build_restaurant_summary(tenant, categories, items, profile)
+    summary = build_restaurant_summary(tenant, categories, items, profile, distance_km)
     return {
         "tenant": build_public_tenant_payload(tenant),
         "summary": summary,
@@ -482,6 +673,7 @@ def build_food_catalog_entry(
     category_lookup: dict[str, dict[str, Any]],
     item: dict[str, Any],
     profile: dict[str, Any] | None = None,
+    distance_km: float | None = None,
 ) -> dict[str, Any]:
     category = category_lookup.get(item["category_id"], {})
     restaurant = build_public_tenant_payload(tenant)
@@ -497,6 +689,9 @@ def build_food_catalog_entry(
         "restaurant_cover_image": profile.get("cover_image_url"),
         "restaurant_area_name": profile.get("area_name"),
         "restaurant_city": profile.get("city"),
+        "restaurant_latitude": profile.get("latitude"),
+        "restaurant_longitude": profile.get("longitude"),
+        "distance_km": distance_km,
     }
 
 
@@ -561,7 +756,11 @@ def build_hotel_detail(tenant: Tenant, docs: dict[str, list[dict[str, Any]]]) ->
 
 
 @router.get("/restaurants")
-async def list_restaurants(db: AsyncSession = Depends(get_db)):
+async def list_restaurants(
+    latitude: float | None = None,
+    longitude: float | None = None,
+    db: AsyncSession = Depends(get_db),
+):
     tenants = (
         await db.execute(
             select(Tenant)
@@ -575,20 +774,44 @@ async def list_restaurants(db: AsyncSession = Depends(get_db)):
         [tenant.id for tenant in tenants],
     )
     profiles_by_tenant = await fetch_restaurant_profiles(db, [tenant.id for tenant in tenants])
+    profiles_by_tenant = await enrich_restaurant_profiles_with_coordinates(
+        db,
+        tenants,
+        profiles_by_tenant,
+    )
 
-    return [
+    summaries = [
         build_restaurant_summary(
             tenant,
             categories_by_tenant.get(tenant.id, []),
             items_by_tenant.get(tenant.id, []),
             profiles_by_tenant.get(tenant.id),
+            compute_distance_km(
+                latitude,
+                longitude,
+                profiles_by_tenant.get(tenant.id, {}).get("latitude"),
+                profiles_by_tenant.get(tenant.id, {}).get("longitude"),
+            ),
         )
         for tenant in tenants
     ]
 
+    return sorted(
+        summaries,
+        key=lambda restaurant: (
+            restaurant.get("distance_km") is None,
+            restaurant.get("distance_km") or 0,
+            restaurant.get("name") or "",
+        ),
+    )
+
 
 @router.get("/food-items")
-async def list_food_items(db: AsyncSession = Depends(get_db)):
+async def list_food_items(
+    latitude: float | None = None,
+    longitude: float | None = None,
+    db: AsyncSession = Depends(get_db),
+):
     tenants = (
         await db.execute(
             select(Tenant)
@@ -602,9 +825,21 @@ async def list_food_items(db: AsyncSession = Depends(get_db)):
         [tenant.id for tenant in tenants],
     )
     profiles_by_tenant = await fetch_restaurant_profiles(db, [tenant.id for tenant in tenants])
+    profiles_by_tenant = await enrich_restaurant_profiles_with_coordinates(
+        db,
+        tenants,
+        profiles_by_tenant,
+    )
 
     food_items: list[dict[str, Any]] = []
     for tenant in tenants:
+        profile = profiles_by_tenant.get(tenant.id, {})
+        distance_km = compute_distance_km(
+            latitude,
+            longitude,
+            profile.get("latitude"),
+            profile.get("longitude"),
+        )
         category_lookup = {
             category["id"]: category
             for category in categories_by_tenant.get(tenant.id, [])
@@ -620,14 +855,16 @@ async def list_food_items(db: AsyncSession = Depends(get_db)):
                     tenant,
                     category_lookup,
                     item,
-                    profiles_by_tenant.get(tenant.id),
+                    profile,
+                    distance_km,
                 )
             )
 
     return sorted(
         food_items,
         key=lambda item: (
-            not bool(item.get("image_url")),
+            item.get("distance_km") is None,
+            item.get("distance_km") or 0,
             item.get("restaurant_name") or "",
             item.get("category_name") or "",
             item.get("name") or "",
@@ -636,7 +873,12 @@ async def list_food_items(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/restaurants/{slug}")
-async def get_restaurant_detail(slug: str, db: AsyncSession = Depends(get_db)):
+async def get_restaurant_detail(
+    slug: str,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    db: AsyncSession = Depends(get_db),
+):
     tenant = (
         await db.execute(
             select(Tenant).where(
@@ -652,11 +894,22 @@ async def get_restaurant_detail(slug: str, db: AsyncSession = Depends(get_db)):
 
     categories_by_tenant, items_by_tenant = await fetch_menu_payload(db, [tenant.id])
     profiles_by_tenant = await fetch_restaurant_profiles(db, [tenant.id])
+    profiles_by_tenant = await enrich_restaurant_profiles_with_coordinates(
+        db,
+        [tenant],
+        profiles_by_tenant,
+    )
     return build_restaurant_detail(
         tenant,
         categories_by_tenant.get(tenant.id, []),
         items_by_tenant.get(tenant.id, []),
         profiles_by_tenant.get(tenant.id),
+        compute_distance_km(
+            latitude,
+            longitude,
+            profiles_by_tenant.get(tenant.id, {}).get("latitude"),
+            profiles_by_tenant.get(tenant.id, {}).get("longitude"),
+        ),
     )
 
 

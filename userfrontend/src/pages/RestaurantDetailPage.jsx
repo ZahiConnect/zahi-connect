@@ -4,7 +4,8 @@ import { ArrowLeft, Clock3, Minus, Plus, ShoppingBag, Store, Users } from "lucid
 import toast from "react-hot-toast";
 
 import { useAuth } from "../context/AuthContext";
-import { buildWhatsAppLink, formatAddress, formatCurrency, shortText } from "../lib/format";
+import useCustomerLocation from "../hooks/useCustomerLocation";
+import { buildWhatsAppLink, formatAddress, formatCurrency, formatDistance, shortText } from "../lib/format";
 import bookingService from "../services/bookingService";
 import marketplaceService from "../services/marketplaceService";
 
@@ -13,6 +14,10 @@ const RestaurantDetailPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated } = useAuth();
+  const { coordinates } = useCustomerLocation(true);
+  const coordinateKey = coordinates
+    ? `${coordinates.latitude.toFixed(5)}:${coordinates.longitude.toFixed(5)}`
+    : "no-location";
   const [searchParams] = useSearchParams();
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +43,15 @@ const RestaurantDetailPage = () => {
 
     const load = async () => {
       try {
-        const data = await marketplaceService.getRestaurant(slug);
+        const data = await marketplaceService.getRestaurant(
+          slug,
+          coordinates
+            ? {
+                latitude: coordinates.latitude,
+                longitude: coordinates.longitude,
+              }
+            : undefined
+        );
         if (active) {
           setRestaurant(data);
         }
@@ -58,7 +71,7 @@ const RestaurantDetailPage = () => {
     return () => {
       active = false;
     };
-  }, [slug]);
+  }, [coordinateKey, slug]);
 
   useEffect(() => {
     if (!focusedItemId || loading) return;
@@ -218,6 +231,12 @@ const RestaurantDetailPage = () => {
               <p className="mt-5 text-sm leading-7 text-[#68584b]">
                 {formatAddress(restaurant.tenant?.address)}
               </p>
+              {restaurant.summary?.distance_km !== null &&
+              restaurant.summary?.distance_km !== undefined ? (
+                <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
+                  {formatDistance(restaurant.summary.distance_km)}
+                </p>
+              ) : null}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
