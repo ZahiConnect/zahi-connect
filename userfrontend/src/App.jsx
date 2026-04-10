@@ -4,6 +4,7 @@ import {
   CarFront,
   Hotel,
   LogOut,
+  MapPin,
   Menu,
   Plane,
   Store,
@@ -14,6 +15,7 @@ import { useMemo, useState } from "react";
 
 import { useAuth } from "./context/AuthContext";
 import AccountPage from "./pages/AccountPage";
+import useCustomerLocation from "./hooks/useCustomerLocation";
 import CabsPage from "./pages/CabsPage";
 import FlightsPage from "./pages/FlightsPage";
 import HomePage from "./pages/HomePage";
@@ -75,6 +77,51 @@ const PublicOnlyRoute = ({ children }) => {
   return children;
 };
 
+const LocationBadge = ({ isAuthenticated }) => {
+  const { locationLabel, status, requestLocation } = useCustomerLocation(isAuthenticated);
+
+  if (status === "loading") {
+    return (
+      <p className="mt-1 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.24em] text-[#9c7f64]">
+        <MapPin className="h-3.5 w-3.5" />
+        Detecting location
+      </p>
+    );
+  }
+
+  if (status === "ready" && locationLabel) {
+    return (
+      <p
+        title={locationLabel}
+        className="mt-1 inline-flex max-w-[220px] items-center gap-1 rounded-full bg-[#f5e4d2] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-[#8e4a1d]"
+      >
+        <MapPin className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{locationLabel}</span>
+      </p>
+    );
+  }
+
+  if (status === "unsupported") {
+    return (
+      <p className="mt-1 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.24em] text-[#9c7f64]">
+        <MapPin className="h-3.5 w-3.5" />
+        Location unavailable
+      </p>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={requestLocation}
+      className="mt-1 inline-flex items-center gap-1 rounded-full border border-[rgba(198,99,44,0.22)] bg-white px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-[#8e4a1d] transition hover:bg-[#fff8f1]"
+    >
+      <MapPin className="h-3.5 w-3.5" />
+      Enable location
+    </button>
+  );
+};
+
 const Header = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -114,9 +161,7 @@ const Header = () => {
           </div>
           <div>
             <p className="font-display text-3xl leading-none text-[#1c1712]">Zahi Trips</p>
-            <p className="mt-1 text-xs uppercase tracking-[0.26em] text-[#9c7f64]">
-              Customer portal
-            </p>
+            <LocationBadge isAuthenticated={isAuthenticated} />
           </div>
         </Link>
 
