@@ -2,7 +2,6 @@ import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useLocat
 import {
   ArrowRight,
   CarFront,
-  Compass,
   Hotel,
   LogOut,
   Menu,
@@ -29,7 +28,6 @@ import RestaurantDetailPage from "./pages/RestaurantDetailPage";
 import RestaurantsPage from "./pages/RestaurantsPage";
 
 const navItems = [
-  { to: "/", label: "Discover", icon: Compass },
   { to: "/hotels", label: "Hotels", icon: Hotel },
   { to: "/restaurants", label: "Restaurants", icon: Store },
   { to: "/cabs", label: "Cabs", icon: CarFront },
@@ -88,14 +86,23 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-40 border-b border-[rgba(87,62,39,0.08)] bg-[rgba(255,248,239,0.86)] backdrop-blur-xl">
       <div className="border-b border-[rgba(87,62,39,0.06)] bg-[#231a12] text-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2 text-xs sm:px-6 lg:px-8">
-          <p className="tracking-[0.18em] text-white/72">
-            Zahi Trips: a Goibibo-style discovery layer for your hotel and restaurant network
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <p className="py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-white/72 md:hidden">
+            Customer booking portal for the Zahi hospitality network
           </p>
-          <div className="hidden items-center gap-6 md:flex">
-            <span>Hotels live from your DB</span>
-            <span>Restaurant menus from tenants</span>
-            <span>Cabs and flights staged next</span>
+          <div className="hidden grid-cols-[minmax(0,1.7fr)_auto_auto_auto] items-center gap-6 py-2.5 md:grid">
+            <p className="whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.16em] text-white/72 lg:text-xs">
+              Customer booking portal for the Zahi hospitality network
+            </p>
+            <span className="whitespace-nowrap text-[11px] font-medium text-white/92 lg:text-xs">
+              Live hotel inventory
+            </span>
+            <span className="whitespace-nowrap text-[11px] font-medium text-white/92 lg:text-xs">
+              Partner restaurant menus
+            </span>
+            <span className="whitespace-nowrap text-[11px] font-medium text-white/92 lg:text-xs">
+              Cab and flight requests
+            </span>
           </div>
         </div>
       </div>
@@ -120,14 +127,17 @@ const Header = () => {
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to === "/"}
+                end
                 className={({ isActive }) =>
-                  `inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition ${
+                  `inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition ${
                     isActive
-                      ? "bg-[#1f1812] text-white"
-                      : "text-[#5c4a3d] hover:bg-white hover:text-[#1f1812]"
+                      ? "border-[rgba(214,106,47,0.24)] bg-[#f5e4d2] text-[#1f1812] shadow-sm"
+                      : "border-transparent text-[#5c4a3d] hover:border-[rgba(87,62,39,0.08)] hover:bg-white hover:text-[#1f1812]"
                   }`
                 }
+                style={({ isActive }) => ({
+                  color: isActive ? "#1f1812" : "#5c4a3d",
+                })}
               >
                 <Icon className="h-4 w-4" />
                 {item.label}
@@ -167,7 +177,8 @@ const Header = () => {
               </Link>
               <Link
                 to="/register"
-                className="inline-flex items-center gap-2 rounded-full bg-[#1f1812] px-4 py-2.5 text-sm font-medium text-white shadow-[0_16px_32px_rgba(31,24,18,0.12)]"
+                className="inline-flex items-center gap-2 rounded-full border border-[rgba(198,99,44,0.22)] bg-[#c8632c] px-4 py-2.5 text-sm font-medium text-[#fffaf4] shadow-[0_16px_32px_rgba(104,47,18,0.16)] transition hover:bg-[#b95825]"
+                style={{ color: "#fffaf4" }}
               >
                 Create account
                 <ArrowRight className="h-4 w-4" />
@@ -194,13 +205,18 @@ const Header = () => {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end={item.to === "/"}
+                  end
                   onClick={() => setMobileOpen(false)}
                   className={({ isActive }) =>
-                    `inline-flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium ${
-                      isActive ? "bg-[#1f1812] text-white" : "bg-white text-[#1f1812]"
+                    `inline-flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium ${
+                      isActive
+                        ? "border-[rgba(214,106,47,0.24)] bg-[#f5e4d2] text-[#1f1812]"
+                        : "border-[rgba(87,62,39,0.08)] bg-white text-[#1f1812]"
                     }`
                   }
+                  style={({ isActive }) => ({
+                    color: isActive ? "#1f1812" : "#1f1812",
+                  })}
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
@@ -241,7 +257,8 @@ const Header = () => {
                 <Link
                   to="/register"
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-2xl bg-[#1f1812] px-4 py-3 text-sm font-medium text-white"
+                  className="rounded-2xl border border-[rgba(198,99,44,0.22)] bg-[#c8632c] px-4 py-3 text-sm font-medium text-[#fffaf4]"
+                  style={{ color: "#fffaf4" }}
                 >
                   Create account
                 </Link>
@@ -301,8 +318,7 @@ const NotFoundPage = () => (
     <p className="text-xs uppercase tracking-[0.32em] text-[#c15d1f]">Off route</p>
     <h1 className="font-display mt-4 text-6xl text-[#1f1812]">This trip lane does not exist yet.</h1>
     <p className="mt-4 text-[#67574a]">
-      Jump back to the main discovery board and keep exploring the live hotel and restaurant
-      inventory.
+      Jump back to the main portal and continue browsing live hotel and restaurant inventory.
     </p>
     <Link
       to="/"

@@ -39,6 +39,10 @@ body {
   text-decoration: none;
 }
 
+:where(a, button) {
+  -webkit-tap-highlight-color: transparent;
+}
+
 button,
 input,
 select,

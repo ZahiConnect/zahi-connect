@@ -155,12 +155,12 @@ const HomePage = () => {
           <div>
             <p className="text-xs uppercase tracking-[0.32em] text-[#c15d1f]">Zahi customer travel board</p>
             <h1 className="font-display mt-4 max-w-4xl text-6xl leading-none text-[#1f1812] sm:text-7xl">
-              Goibibo-style discovery, rebuilt for your Zahi ecosystem.
+              Customer booking, dining, and travel access for the Zahi network.
             </h1>
             <p className="mt-6 max-w-3xl text-base leading-8 text-[#68584b]">
-              Hotels and restaurants already read from your live business data. Cabs and flights now
-              have proper customer-facing lanes so the product feels complete without pretending those
-              operations are fully shipped yet.
+              Hotels and restaurants are already connected to live operating data. Cab and flight
+              sections are now presented as structured customer lanes, so the portal feels complete
+              while those services continue moving toward full rollout.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
@@ -369,9 +369,9 @@ const HomePage = () => {
               <p className="text-xs uppercase tracking-[0.26em] text-[#c15d1f]">What changes now</p>
               <div className="mt-5 space-y-3">
                 {[
-                  "Customer accounts now stay isolated from workspace logins.",
-                  "Hotel and restaurant CTAs can save real booking requests.",
-                  "Cabs and flights have consumer lanes ready for the next backend sprint.",
+                  "Customer accounts remain separate from workspace sign-ins.",
+                  "Hotel and restaurant actions can now save real booking requests.",
+                  "Cab and flight interest can be captured while those services are still expanding.",
                 ].map((item) => (
                   <div
                     key={item}
@@ -417,6 +417,7 @@ const HomePage = () => {
           eyebrow="Popular stays"
           title="Hotels ready for customer discovery"
           body="These cards are built from the same hotel tenant data your workspace frontend already manages, but presented as a travel shopping surface."
+          
           to="/hotels"
           cta="See all hotels"
         />
@@ -486,6 +487,7 @@ const HomePage = () => {
           eyebrow="Trending eats"
           title="Restaurant menus from tenant dashboards"
           body="The restaurant lane behaves like a consumer ordering surface while still staying backed by the existing owner-managed menu data."
+          
           to="/restaurants"
           cta="See all restaurants"
         />
@@ -590,9 +592,9 @@ const HomePage = () => {
               One portal for guests, one portal for operators.
             </h2>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[#68584b]">
-              The customer site now behaves like a booking and discovery experience, while the main
-              frontend stays focused on workspace operations. Both still use the same accounts
-              backend, but they no longer fight over the same refresh cookie or role expectations.
+              The customer site now works as a booking portal, while the main frontend stays focused
+              on workspace operations. Both still use the same accounts backend, but they no longer
+              compete for the same refresh cookie or role rules.
             </p>
           </div>
           <Link
