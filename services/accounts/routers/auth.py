@@ -36,6 +36,13 @@ from schemas.auth import (
 )
 from services.auth_service import AuthService
 from services.email_service import send_otp_email, send_password_reset_email
+from services.client_portal import (
+    CUSTOMER_PORTAL,
+    WORKSPACE_PORTAL,
+    assert_user_matches_portal,
+    get_client_portal,
+    get_registration_role,
+)
 from services.user_payload import build_authenticated_user_payload
 
 router = APIRouter(tags=["Authentication"])
@@ -47,8 +54,13 @@ auth = AuthService()
 #  POST /register — Mirrors MyCalo's RegisterView
 # ═══════════════════════════════════════════════════════════════
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(data: RegisterSchema, db: AsyncSession = Depends(get_db)):
+async def register(
+    request: Request,
+    data: RegisterSchema,
+    db: AsyncSession = Depends(get_db),
+):
     """Register a new user. Sends an OTP to the email."""
+    portal = get_client_portal(request)
 
     # Check if user exists (same as MyCalo)
     result = await db.execute(select(User).where(User.email == data.email))
@@ -83,7 +95,7 @@ async def register(data: RegisterSchema, db: AsyncSession = Depends(get_db)):
         email=data.email,
         hashed_password=auth.hash_password(data.password),
         mobile=data.mobile,
-        role=data.role,
+        role=get_registration_role(data.role, portal),
         tenant_id=data.tenant_id,
         otp=otp_code,
         is_active=False,  # Same as MyCalo
@@ -116,11 +128,13 @@ async def register(data: RegisterSchema, db: AsyncSession = Depends(get_db)):
 # ═══════════════════════════════════════════════════════════════
 @router.post("/verify-otp")
 async def verify_otp(
+    request: Request,
     data: VerifyOTPSchema,
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
     """Verify User OTP and log them in."""
+    portal = get_client_portal(request)
 
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
@@ -137,12 +151,13 @@ async def verify_otp(
     await db.commit()
 
     # Generate tokens (mirrors MyCalo's RefreshToken.for_user(user))
+    assert_user_matches_portal(user, portal)
     token_data = auth.build_token_data(user)
     access_token = auth.create_access_token(token_data)
     refresh_token = auth.create_refresh_token(token_data)
 
     # Set refresh cookie (same as MyCalo)
-    auth.set_refresh_cookie(response, refresh_token)
+    auth.set_refresh_cookie(response, refresh_token, portal)
     user_payload = await build_authenticated_user_payload(db, user)
 
     return {
@@ -157,11 +172,13 @@ async def verify_otp(
 # ═══════════════════════════════════════════════════════════════
 @router.post("/login")
 async def login(
+    request: Request,
     data: LoginSchema,
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
     """Obtain Access and Refresh tokens. Refresh token stored in HttpOnly cookie."""
+    portal = get_client_portal(request)
 
     # Find user by email OR username (mirrors MyCalo's EmailUsernameBackend)
     result = await db.execute(
@@ -191,12 +208,13 @@ async def login(
         )
 
     # Generate tokens
+    assert_user_matches_portal(user, portal)
     token_data = auth.build_token_data(user)
     access_token = auth.create_access_token(token_data)
     refresh_token = auth.create_refresh_token(token_data)
 
     # Set refresh in HttpOnly cookie, remove from response body (same as MyCalo)
-    auth.set_refresh_cookie(response, refresh_token)
+    auth.set_refresh_cookie(response, refresh_token, portal)
     user_payload = await build_authenticated_user_payload(db, user)
 
     return {
@@ -215,16 +233,18 @@ async def token_refresh(
     db: AsyncSession = Depends(get_db),
 ):
     """Refresh Access Token using HttpOnly cookie."""
+    portal = get_client_portal(request)
+    cookie_name = auth.get_refresh_cookie_name(portal)
 
     # Read refresh token from cookie (same as MyCalo)
-    refresh_token = request.cookies.get(settings.AUTH_COOKIE)
+    refresh_token = request.cookies.get(cookie_name) or request.cookies.get(settings.AUTH_COOKIE)
 
     if not refresh_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token missing")
 
     payload = auth.decode_token(refresh_token)
     if not payload or payload.get("type") != "refresh":
-        response.delete_cookie(settings.AUTH_COOKIE)
+        auth.clear_refresh_cookie(response, portal)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token",
@@ -235,15 +255,16 @@ async def token_refresh(
     user = result.scalar_one_or_none()
 
     if not user:
-        response.delete_cookie(settings.AUTH_COOKIE)
+        auth.clear_refresh_cookie(response, portal)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
     # Rotate tokens (mirrors MyCalo's ROTATE_REFRESH_TOKENS=True)
+    assert_user_matches_portal(user, portal)
     new_token_data = auth.build_token_data(user)
     new_access = auth.create_access_token(new_token_data)
     new_refresh = auth.create_refresh_token(new_token_data)
 
-    auth.set_refresh_cookie(response, new_refresh)
+    auth.set_refresh_cookie(response, new_refresh, portal)
     user_payload = await build_authenticated_user_payload(db, user)
     user_payload.update({
         "status": user.status,
@@ -262,11 +283,13 @@ async def token_refresh(
 # ═══════════════════════════════════════════════════════════════
 @router.post("/google-login")
 async def google_login(
+    request: Request,
     data: GoogleLoginSchema,
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
     """Login or Register with Google Access Token."""
+    portal = get_client_portal(request)
 
     if not data.token:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No token provided")
@@ -294,6 +317,7 @@ async def google_login(
     user = result.scalar_one_or_none()
 
     if user:
+        assert_user_matches_portal(user, portal)
         # Check if admin role needs OTP (same as MyCalo)
         if user.role in ("super_admin", "business_admin"):
             return {"requires_otp": True, "email": user.email, "role": user.role}
@@ -311,7 +335,7 @@ async def google_login(
             username=username,
             first_name=first_name,
             last_name=last_name,
-            role="customer",
+            role="business_admin" if portal == WORKSPACE_PORTAL else "customer",
             is_active=True,
             status="active",
             hashed_password=None,
@@ -325,7 +349,7 @@ async def google_login(
     access_token = auth.create_access_token(token_data)
     refresh_tok = auth.create_refresh_token(token_data)
 
-    auth.set_refresh_cookie(response, refresh_tok)
+    auth.set_refresh_cookie(response, refresh_tok, portal)
     user_payload = await build_authenticated_user_payload(db, user)
 
     return {
@@ -430,10 +454,10 @@ async def change_password(
 #  POST /logout — Mirrors MyCalo's LogoutView
 # ═══════════════════════════════════════════════════════════════
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
     """Logout user and clear auth cookie."""
     try:
-        response.delete_cookie(settings.AUTH_COOKIE)
+        auth.clear_refresh_cookie(response, get_client_portal(request))
         return {"message": "Logout successful"}
     except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Logout failed")

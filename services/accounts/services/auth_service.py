@@ -96,7 +96,15 @@ class AuthService:
     # ─── Cookie Helper (mirrors MyCalo's response.set_cookie) ───
 
     @staticmethod
-    def set_refresh_cookie(response, refresh_token: str) -> None:
+    def get_refresh_cookie_name(portal: str | None = None) -> str:
+        if portal == "customer":
+            return settings.AUTH_COOKIE_CUSTOMER
+        if portal == "workspace":
+            return settings.AUTH_COOKIE_WORKSPACE
+        return settings.AUTH_COOKIE
+
+    @staticmethod
+    def set_refresh_cookie(response, refresh_token: str, portal: str | None = None) -> None:
         """
         Mirrors MyCalo's:
         response.set_cookie(
@@ -109,13 +117,33 @@ class AuthService:
         )
         """
         response.set_cookie(
-            key=settings.AUTH_COOKIE,
+            key=AuthService.get_refresh_cookie_name(portal),
             value=refresh_token,
             max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
             secure=settings.AUTH_COOKIE_SECURE,
             httponly=settings.AUTH_COOKIE_HTTP_ONLY,
             samesite=settings.AUTH_COOKIE_SAMESITE,
         )
+
+    @staticmethod
+    def clear_refresh_cookie(response, portal: str | None = None) -> None:
+        cookie_names = (
+            [AuthService.get_refresh_cookie_name(portal)]
+            if portal in {"customer", "workspace"}
+            else [
+                settings.AUTH_COOKIE,
+                settings.AUTH_COOKIE_CUSTOMER,
+                settings.AUTH_COOKIE_WORKSPACE,
+            ]
+        )
+
+        for cookie_name in cookie_names:
+            response.delete_cookie(
+                key=cookie_name,
+                secure=settings.AUTH_COOKIE_SECURE,
+                httponly=settings.AUTH_COOKIE_HTTP_ONLY,
+                samesite=settings.AUTH_COOKIE_SAMESITE,
+            )
 
     # ─── Google OAuth Username Generator ───
 

@@ -19,6 +19,8 @@ class Settings:
 
     # Cookie Settings (mirrors MyCalo's SIMPLE_JWT config)
     AUTH_COOKIE: str = "refresh_token"
+    AUTH_COOKIE_CUSTOMER: str = os.getenv("AUTH_COOKIE_CUSTOMER", "refresh_token_customer")
+    AUTH_COOKIE_WORKSPACE: str = os.getenv("AUTH_COOKIE_WORKSPACE", "refresh_token_workspace")
     AUTH_COOKIE_SECURE: bool = os.getenv("AUTH_COOKIE_SECURE", "True").lower() == "true"
     AUTH_COOKIE_HTTP_ONLY: bool = True
     AUTH_COOKIE_SAMESITE: str = os.getenv("AUTH_COOKIE_SAMESITE", "None")
