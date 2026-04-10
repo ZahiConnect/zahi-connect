@@ -214,6 +214,19 @@ services:
       chromadb:
         condition: service_started
 
+  booking:
+    build: ./services/booking
+    container_name: zahi_booking
+    volumes:
+      - ./services/booking:/app
+    command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8008 --reload --reload-dir /app"
+    restart: always
+    ports:
+      - "8008:8008"
+    depends_on:
+      db:
+        condition: service_healthy
+
   # ───────────────────────────────────────────────
   #  API GATEWAY (NGINX) — Same pattern as MyCalo
   # ───────────────────────────────────────────────
@@ -231,6 +244,7 @@ services:
       - hotel
       - restaurant
       - ai_service
+      - booking
 
 
 volumes:

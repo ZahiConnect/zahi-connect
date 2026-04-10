@@ -1,15 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Clock3, Minus, Plus, ShoppingBag, Store } from "lucide-react";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ArrowLeft, Clock3, Minus, Plus, ShoppingBag, Store, Users } from "lucide-react";
+import toast from "react-hot-toast";
 
-import marketplaceService from "../services/marketplaceService";
+import { useAuth } from "../context/AuthContext";
 import { buildWhatsAppLink, formatAddress, formatCurrency, shortText } from "../lib/format";
+import bookingService from "../services/bookingService";
+import marketplaceService from "../services/marketplaceService";
 
 const RestaurantDetailPage = () => {
   const { slug } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
+  const [searchParams] = useSearchParams();
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [notes, setNotes] = useState("");
+  const diners = Number(searchParams.get("diners") || "2");
 
   useEffect(() => {
     let active = true;
@@ -76,27 +86,70 @@ const RestaurantDetailPage = () => {
     if (!restaurant) return "";
     const intro = `Hi Zahi, I want to place an order from ${restaurant.tenant?.name || "this restaurant"}.`;
     if (cartLines.length === 0) {
-      return `${intro} Please help me choose dishes.`;
+      return `${intro} Please help me choose dishes for ${diners} diners.`;
     }
 
     const lines = cartLines.map(
       (line) => `- ${line.name} x${line.quantity} (${formatCurrency(line.total)})`
     );
-    return `${intro}\n${lines.join("\n")}\nTotal: ${formatCurrency(grandTotal)}`;
-  }, [cartLines, grandTotal, restaurant]);
+    const noteLine = notes ? `Notes: ${notes}` : "";
+    return `${intro}\n${lines.join("\n")}\nParty size: ${diners}\n${noteLine}\nTotal: ${formatCurrency(grandTotal)}`;
+  }, [cartLines, diners, grandTotal, notes, restaurant]);
+
+  const submitOrderRequest = async () => {
+    if (!restaurant) return;
+    if (cartLines.length === 0) {
+      toast.error("Add at least one dish before saving the request.");
+      return;
+    }
+    if (!isAuthenticated) {
+      navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await bookingService.createRequest({
+        service_type: "restaurant",
+        title: `Dining request for ${restaurant.tenant?.name}`,
+        summary: `${cartLines.length} item(s), ${diners} diner(s), total ${formatCurrency(grandTotal)}`,
+        tenant_id: restaurant.tenant?.id || null,
+        tenant_slug: restaurant.tenant?.slug || null,
+        tenant_name: restaurant.tenant?.name || null,
+        total_amount: grandTotal,
+        metadata: {
+          diners,
+          notes,
+          items: cartLines.map((line) => ({
+            id: line.id,
+            name: line.name,
+            quantity: line.quantity,
+            unit_price: line.display_price,
+            total: line.total,
+          })),
+        },
+      });
+      toast.success("Restaurant request saved to your account.");
+      navigate("/account");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Could not save the restaurant request.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
-    return <div className="soft-card h-[30rem] animate-pulse rounded-[34px]" />;
+    return <div className="soft-card h-[30rem] animate-pulse rounded-[36px]" />;
   }
 
   if (!restaurant) {
     return (
-      <div className="soft-card rounded-[34px] px-6 py-14 text-center">
+      <div className="soft-card rounded-[36px] px-6 py-14 text-center">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f3e6d5] text-[#8e3f11]">
           <Store className="h-6 w-6" />
         </div>
         <h1 className="font-display mt-5 text-5xl text-[#1f1812]">Restaurant not found</h1>
-        <p className="mt-4 text-sm leading-7 text-[#6a5f56]">
+        <p className="mt-4 text-sm leading-7 text-[#68584b]">
           The tenant may have been removed or does not have marketplace data yet.
         </p>
         <Link
@@ -117,9 +170,9 @@ const RestaurantDetailPage = () => {
         Back to restaurants
       </Link>
 
-      <section className="glass-panel overflow-hidden rounded-[36px]">
+      <section className="glass-panel overflow-hidden rounded-[40px]">
         <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="relative min-h-[22rem] bg-[#f2dfcd]">
+          <div className="relative min-h-[24rem] bg-[#f2dfcd]">
             {restaurant.summary?.cover_image ? (
               <img
                 src={restaurant.summary.cover_image}
@@ -131,32 +184,38 @@ const RestaurantDetailPage = () => {
                 <Store className="h-12 w-12" />
               </div>
             )}
+            <div className="absolute left-6 top-6 rounded-full bg-white/92 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
+              {restaurant.summary?.available_item_count || 0} dishes live
+            </div>
           </div>
           <div className="space-y-6 px-6 py-7 sm:px-8">
             <div>
-              <p className="text-xs uppercase tracking-[0.26em] text-[#a6633b]">Restaurant detail</p>
+              <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Restaurant detail</p>
               <h1 className="font-display mt-4 text-6xl leading-none text-[#1f1812]">
                 {restaurant.tenant?.name}
               </h1>
-              <p className="mt-5 text-sm leading-7 text-[#6a5f56]">
+              <p className="mt-5 text-sm leading-7 text-[#68584b]">
                 {formatAddress(restaurant.tenant?.address)}
               </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-[26px] bg-white p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[#a6633b]">Starting price</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Starting price</p>
                 <p className="mt-2 font-semibold text-[#1f1812]">
                   {restaurant.summary?.starting_price ? formatCurrency(restaurant.summary.starting_price) : "NA"}
                 </p>
               </div>
               <div className="rounded-[26px] bg-white p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[#a6633b]">Categories</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Categories</p>
                 <p className="mt-2 font-semibold text-[#1f1812]">{restaurant.categories?.length || 0}</p>
               </div>
               <div className="rounded-[26px] bg-white p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[#a6633b]">Items live</p>
-                <p className="mt-2 font-semibold text-[#1f1812]">{restaurant.summary?.available_item_count || 0}</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Party size</p>
+                <p className="mt-2 inline-flex items-center gap-1 font-semibold text-[#1f1812]">
+                  <Users className="h-4 w-4" />
+                  {diners}
+                </p>
               </div>
             </div>
 
@@ -167,15 +226,6 @@ const RestaurantDetailPage = () => {
                 </span>
               ))}
             </div>
-
-            <a
-              href={buildWhatsAppLink(whatsappMessage)}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex rounded-full bg-[#1f1812] px-5 py-3 text-sm font-semibold text-white"
-            >
-              Continue on WhatsApp
-            </a>
           </div>
         </div>
       </section>
@@ -183,18 +233,18 @@ const RestaurantDetailPage = () => {
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] xl:grid-cols-[1.3fr_0.7fr]">
         <div className="space-y-6">
           {(restaurant.menu_sections || []).map((section) => (
-            <section key={section.id} className="soft-card rounded-[32px] p-5 sm:p-6">
+            <section key={section.id} className="soft-card rounded-[34px] p-5 sm:p-6">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-[#a6633b]">Section</p>
+                  <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Section</p>
                   <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">
                     {section.name}
                   </h2>
                   {section.description ? (
-                    <p className="mt-3 text-sm leading-7 text-[#6a5f56]">{section.description}</p>
+                    <p className="mt-3 text-sm leading-7 text-[#68584b]">{section.description}</p>
                   ) : null}
                 </div>
-                <span className="rounded-full bg-[#f8efe4] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8e3f11]">
+                <span className="rounded-full bg-[#fbefe4] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
                   {section.item_count} items
                 </span>
               </div>
@@ -218,7 +268,7 @@ const RestaurantDetailPage = () => {
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <h3 className="text-lg font-semibold text-[#1f1812]">{item.name}</h3>
-                              <p className="mt-2 text-sm leading-6 text-[#6a5f56]">
+                              <p className="mt-2 text-sm leading-6 text-[#68584b]">
                                 {shortText(item.description, 96) || "Freshly prepared and ready to serve."}
                               </p>
                             </div>
@@ -275,20 +325,20 @@ const RestaurantDetailPage = () => {
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <div className="soft-card rounded-[32px] p-5">
+          <div className="soft-card rounded-[34px] p-5">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1f1812] text-white">
                 <ShoppingBag className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-[#a6633b]">Local cart</p>
-                <h2 className="font-display text-4xl leading-none text-[#1f1812]">Order summary</h2>
+                <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Cart</p>
+                <h2 className="font-display text-4xl leading-none text-[#1f1812]">Save this request</h2>
               </div>
             </div>
 
             {cartLines.length === 0 ? (
-              <div className="mt-5 rounded-[24px] bg-[#fcf5ec] px-4 py-6 text-sm leading-7 text-[#6a5f56]">
-                Build a cart here, then hand the order to WhatsApp for the final step.
+              <div className="mt-5 rounded-[24px] bg-[#fcf5ec] px-4 py-6 text-sm leading-7 text-[#68584b]">
+                Build a cart here, then save it into your account or hand it to WhatsApp for final confirmation.
               </div>
             ) : (
               <div className="mt-5 space-y-3">
@@ -307,17 +357,37 @@ const RestaurantDetailPage = () => {
                 ))}
 
                 <div className="flex items-center justify-between rounded-[24px] border border-[rgba(96,73,53,0.12)] bg-white px-4 py-4">
-                  <span className="text-sm font-medium text-[#6a5f56]">Grand total</span>
+                  <span className="text-sm font-medium text-[#68584b]">Grand total</span>
                   <span className="text-lg font-semibold text-[#1f1812]">{formatCurrency(grandTotal)}</span>
                 </div>
               </div>
             )}
 
+            <label className="mt-4 block">
+              <span className="mb-2 block text-sm font-medium text-[#3f342a]">Notes for the restaurant</span>
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                rows={3}
+                placeholder="Spice level, delivery note, dine-in preference..."
+                className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-4 py-3 outline-none focus:border-[#8e3f11]"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={submitOrderRequest}
+              disabled={submitting}
+              className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-[#1f1812] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {submitting ? "Saving request..." : isAuthenticated ? "Save food request" : "Sign in to save"}
+            </button>
+
             <a
               href={buildWhatsAppLink(whatsappMessage)}
               target="_blank"
               rel="noreferrer"
-              className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-[#1f1812] px-5 py-3 text-sm font-semibold text-white"
+              className="mt-3 inline-flex w-full items-center justify-center rounded-full border border-[rgba(96,73,53,0.14)] bg-white px-5 py-3 text-sm font-semibold text-[#1f1812]"
             >
               Send to WhatsApp
             </a>

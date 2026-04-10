@@ -33,7 +33,11 @@ const VerifyOtpPage = () => {
         otp,
       });
       localStorage.removeItem("otp_email");
-      applySession(response.data);
+      const sessionUser = applySession(response.data);
+      if (!sessionUser) {
+        setError("This verification flow is reserved for customer accounts.");
+        return;
+      }
       toast.success("Your account is verified.");
       navigate("/account", { replace: true });
     } catch (requestError) {

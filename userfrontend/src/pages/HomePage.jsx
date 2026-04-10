@@ -1,37 +1,49 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
-  Bot,
   CarFront,
+  CalendarDays,
   Hotel,
+  MapPin,
+  Plane,
   Store,
-  Ticket,
+  Users,
 } from "lucide-react";
 
+import { useAuth } from "../context/AuthContext";
 import marketplaceService from "../services/marketplaceService";
-import { buildWhatsAppLink, formatAddress, formatCurrency, shortText } from "../lib/format";
+import {
+  formatAddress,
+  formatCurrency,
+  shortText,
+  todayDate,
+} from "../lib/format";
 
-const promptReplies = {
-  "Find dinner near me":
-    "I can guide you to live restaurant menus right here, and the WhatsApp bot can later handle the final handoff.",
-  "Book a room tonight":
-    "The hotel marketplace below shows live room types and pricing from the existing owner dashboards.",
-  "Need an airport cab":
-    "Cab dispatch is staged for the next sprint, so this demo keeps the card visible but clearly marked as coming soon.",
+const serviceTabs = [
+  { key: "hotels", label: "Hotels", icon: Hotel },
+  { key: "restaurants", label: "Restaurants", icon: Store },
+  { key: "cabs", label: "Cabs", icon: CarFront },
+  { key: "flights", label: "Flights", icon: Plane },
+];
+
+const tomorrowDate = () => {
+  const next = new Date();
+  next.setDate(next.getDate() + 1);
+  return next.toISOString().slice(0, 10);
 };
 
-const SectionHeader = ({ eyebrow, title, body, cta, to }) => (
+const SectionHeader = ({ eyebrow, title, body, to, cta }) => (
   <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
     <div>
-      <p className="text-xs uppercase tracking-[0.26em] text-[#a6633b]">{eyebrow}</p>
+      <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">{eyebrow}</p>
       <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">{title}</h2>
-      <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6a5f56]">{body}</p>
+      <p className="mt-4 max-w-3xl text-sm leading-7 text-[#68584b]">{body}</p>
     </div>
-    {cta && to ? (
+    {to && cta ? (
       <Link
         to={to}
-        className="inline-flex items-center gap-2 self-start rounded-full border border-[rgba(96,73,53,0.14)] bg-white px-5 py-3 text-sm font-medium text-[#1f1812] shadow-sm"
+        className="inline-flex items-center gap-2 self-start rounded-full border border-[rgba(87,62,39,0.12)] bg-white px-5 py-3 text-sm font-medium text-[#1f1812] shadow-sm"
       >
         {cta}
         <ArrowRight className="h-4 w-4" />
@@ -41,10 +53,22 @@ const SectionHeader = ({ eyebrow, title, body, cta, to }) => (
 );
 
 const HomePage = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const [activeTab, setActiveTab] = useState("hotels");
   const [restaurants, setRestaurants] = useState([]);
   const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activePrompt, setActivePrompt] = useState("Find dinner near me");
+  const [hotelSearch, setHotelSearch] = useState({
+    query: "",
+    checkIn: todayDate(),
+    checkOut: tomorrowDate(),
+    guests: 2,
+  });
+  const [restaurantSearch, setRestaurantSearch] = useState({
+    query: "",
+    diners: 2,
+  });
 
   useEffect(() => {
     let active = true;
@@ -74,247 +98,344 @@ const HomePage = () => {
     };
   }, []);
 
-  const stats = useMemo(
+  const heroStats = useMemo(
     () => [
-      { label: "Restaurants", value: restaurants.length || "0" },
-      { label: "Hotels", value: hotels.length || "0" },
-      { label: "Live menu items", value: restaurants.reduce((sum, item) => sum + (item.item_count || 0), 0) || "0" },
+      {
+        label: "Live hotels",
+        value: hotels.length,
+        caption: "Room types and rates pulled from tenant dashboards",
+      },
+      {
+        label: "Live restaurants",
+        value: restaurants.length,
+        caption: "Menus and hero dishes surfaced directly from the DB",
+      },
+      {
+        label: "Customer requests",
+        value: isAuthenticated ? "Ready" : "Login",
+        caption: "Book, enquire, and save travel requests from one account",
+      },
     ],
-    [hotels.length, restaurants]
+    [hotels.length, isAuthenticated, restaurants.length]
   );
+
+  const hotelSpotlight = hotels.slice(0, 3);
+  const restaurantSpotlight = restaurants.slice(0, 3);
+
+  const handleHeroSubmit = (event) => {
+    event.preventDefault();
+
+    if (activeTab === "hotels") {
+      const params = new URLSearchParams({
+        query: hotelSearch.query,
+        checkIn: hotelSearch.checkIn,
+        checkOut: hotelSearch.checkOut,
+        guests: String(hotelSearch.guests),
+      });
+      navigate(`/hotels?${params.toString()}`);
+      return;
+    }
+
+    if (activeTab === "restaurants") {
+      const params = new URLSearchParams({
+        query: restaurantSearch.query,
+        diners: String(restaurantSearch.diners),
+      });
+      navigate(`/restaurants?${params.toString()}`);
+      return;
+    }
+
+    navigate(activeTab === "cabs" ? "/cabs" : "/flights");
+  };
 
   return (
     <div className="space-y-16">
-      <section className="glass-panel overflow-hidden rounded-[36px] fade-up">
-        <div className="grid gap-10 px-6 py-8 lg:grid-cols-[1.15fr_0.85fr] lg:px-10 lg:py-10">
+      <section className="glass-panel overflow-hidden rounded-[40px] p-6 sm:p-8 lg:p-10">
+        <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr]">
           <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-[#a6633b]">User Frontend Demo</p>
+            <p className="text-xs uppercase tracking-[0.32em] text-[#c15d1f]">Zahi customer travel board</p>
             <h1 className="font-display mt-4 max-w-4xl text-6xl leading-none text-[#1f1812] sm:text-7xl">
-              One guest-facing website for food and stays.
+              Goibibo-style discovery, rebuilt for your Zahi ecosystem.
             </h1>
-            <p className="mt-6 max-w-2xl text-base leading-8 text-[#6a5f56]">
-              This separate frontend turns your existing hotel and restaurant dashboards into a
-              customer marketplace. Menus and room data come from the live database. Cabs and
-              flights stay visible as the next phase, not fake-complete.
+            <p className="mt-6 max-w-3xl text-base leading-8 text-[#68584b]">
+              Hotels and restaurants already read from your live business data. Cabs and flights now
+              have proper customer-facing lanes so the product feels complete without pretending those
+              operations are fully shipped yet.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                to="/restaurants"
-                className="rounded-full bg-[#1f1812] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_36px_rgba(31,24,18,0.12)]"
-              >
-                Browse restaurants
-              </Link>
-              <Link
-                to="/hotels"
-                className="rounded-full border border-[rgba(96,73,53,0.14)] bg-white px-5 py-3 text-sm font-semibold text-[#1f1812]"
-              >
-                Browse hotels
-              </Link>
-            </div>
-
-            <div className="mt-10 grid gap-4 sm:grid-cols-3">
-              {stats.map((stat) => (
-                <div key={stat.label} className="soft-card rounded-[28px] px-5 py-5">
-                  <p className="text-xs uppercase tracking-[0.24em] text-[#a6633b]">{stat.label}</p>
-                  <p className="font-display mt-3 text-5xl text-[#1f1812]">{stat.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-5">
-            <div className="soft-card rounded-[30px] p-6">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1f1812] text-white">
-                  <Bot className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-[#a6633b]">Zahi AI preview</p>
-                  <p className="font-display text-3xl text-[#1f1812]">Chat-led service handoff</p>
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-[24px] bg-[#f9f1e7] p-4">
-                <p className="text-sm font-medium text-[#1f1812]">You</p>
-                <p className="mt-2 text-sm text-[#5f5145]">{activePrompt}</p>
-              </div>
-
-              <div className="mt-4 rounded-[24px] bg-white p-4">
-                <p className="text-sm font-medium text-[#1f1812]">Zahi</p>
-                <p className="mt-2 text-sm leading-7 text-[#5f5145]">{promptReplies[activePrompt]}</p>
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-2">
-                {Object.keys(promptReplies).map((prompt) => (
+              {serviceTabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
                   <button
-                    key={prompt}
+                    key={tab.key}
                     type="button"
-                    onClick={() => setActivePrompt(prompt)}
-                    className={`rounded-full px-4 py-2 text-sm font-medium ${
-                      activePrompt === prompt
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition ${
+                      activeTab === tab.key
                         ? "bg-[#1f1812] text-white"
-                        : "bg-[#f3e6d5] text-[#5b4d40]"
+                        : "bg-white text-[#5c4a3d] shadow-sm"
                     }`}
                   >
-                    {prompt}
+                    <Icon className="h-4 w-4" />
+                    {tab.label}
                   </button>
+                );
+              })}
+            </div>
+
+            <form onSubmit={handleHeroSubmit} className="mt-8 rounded-[32px] bg-white p-4 shadow-[0_22px_60px_rgba(63,44,27,0.08)]">
+              {activeTab === "hotels" ? (
+                <div className="grid gap-4 lg:grid-cols-[1.4fr_0.85fr_0.85fr_0.7fr_auto]">
+                  <label className="block">
+                    <span className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a2856b]">
+                      <MapPin className="h-4 w-4" />
+                      Destination
+                    </span>
+                    <input
+                      type="text"
+                      value={hotelSearch.query}
+                      onChange={(event) =>
+                        setHotelSearch((current) => ({ ...current, query: event.target.value }))
+                      }
+                      placeholder="Search hotel, area, or room type"
+                      className="w-full rounded-[22px] border border-[rgba(87,62,39,0.12)] bg-[#fffdf9] px-4 py-3 outline-none focus:border-[#d66a2f]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a2856b]">
+                      <CalendarDays className="h-4 w-4" />
+                      Check-in
+                    </span>
+                    <input
+                      type="date"
+                      value={hotelSearch.checkIn}
+                      onChange={(event) =>
+                        setHotelSearch((current) => ({ ...current, checkIn: event.target.value }))
+                      }
+                      className="w-full rounded-[22px] border border-[rgba(87,62,39,0.12)] bg-[#fffdf9] px-4 py-3 outline-none focus:border-[#d66a2f]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a2856b]">
+                      <CalendarDays className="h-4 w-4" />
+                      Check-out
+                    </span>
+                    <input
+                      type="date"
+                      value={hotelSearch.checkOut}
+                      onChange={(event) =>
+                        setHotelSearch((current) => ({ ...current, checkOut: event.target.value }))
+                      }
+                      className="w-full rounded-[22px] border border-[rgba(87,62,39,0.12)] bg-[#fffdf9] px-4 py-3 outline-none focus:border-[#d66a2f]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a2856b]">
+                      <Users className="h-4 w-4" />
+                      Guests
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="8"
+                      value={hotelSearch.guests}
+                      onChange={(event) =>
+                        setHotelSearch((current) => ({
+                          ...current,
+                          guests: Number(event.target.value) || 1,
+                        }))
+                      }
+                      className="w-full rounded-[22px] border border-[rgba(87,62,39,0.12)] bg-[#fffdf9] px-4 py-3 outline-none focus:border-[#d66a2f]"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="mt-auto inline-flex items-center justify-center rounded-[22px] bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white"
+                  >
+                    Search hotels
+                  </button>
+                </div>
+              ) : null}
+
+              {activeTab === "restaurants" ? (
+                <div className="grid gap-4 lg:grid-cols-[1.5fr_0.8fr_auto]">
+                  <label className="block">
+                    <span className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a2856b]">
+                      <MapPin className="h-4 w-4" />
+                      Area or cuisine
+                    </span>
+                    <input
+                      type="text"
+                      value={restaurantSearch.query}
+                      onChange={(event) =>
+                        setRestaurantSearch((current) => ({ ...current, query: event.target.value }))
+                      }
+                      placeholder="Search restaurant, area, or menu category"
+                      className="w-full rounded-[22px] border border-[rgba(87,62,39,0.12)] bg-[#fffdf9] px-4 py-3 outline-none focus:border-[#d66a2f]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a2856b]">
+                      <Users className="h-4 w-4" />
+                      Diners
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={restaurantSearch.diners}
+                      onChange={(event) =>
+                        setRestaurantSearch((current) => ({
+                          ...current,
+                          diners: Number(event.target.value) || 1,
+                        }))
+                      }
+                      className="w-full rounded-[22px] border border-[rgba(87,62,39,0.12)] bg-[#fffdf9] px-4 py-3 outline-none focus:border-[#d66a2f]"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="mt-auto inline-flex items-center justify-center rounded-[22px] bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white"
+                  >
+                    Explore restaurants
+                  </button>
+                </div>
+              ) : null}
+
+              {activeTab === "cabs" ? (
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#1f1812]">Cab booking lane is staged next.</p>
+                    <p className="mt-2 max-w-2xl text-sm leading-7 text-[#68584b]">
+                      Open the cab lane to capture pickup requests, airport transfers, and demand
+                      signals while the full dispatch system is still being built.
+                    </p>
+                  </div>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center rounded-[22px] bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white"
+                  >
+                    Open cab lane
+                  </button>
+                </div>
+              ) : null}
+
+              {activeTab === "flights" ? (
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#1f1812]">Flight discovery is staged next.</p>
+                    <p className="mt-2 max-w-2xl text-sm leading-7 text-[#68584b]">
+                      Keep the flight lane visible now, then turn it into a real search and booking
+                      flow once your travel backend is ready.
+                    </p>
+                  </div>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center rounded-[22px] bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white"
+                  >
+                    Open flight lane
+                  </button>
+                </div>
+              ) : null}
+            </form>
+          </div>
+
+          <div className="space-y-4">
+            <div className="soft-card rounded-[32px] p-5">
+              <p className="text-xs uppercase tracking-[0.26em] text-[#c15d1f]">Today on Zahi</p>
+              <div className="mt-5 grid gap-3">
+                {heroStats.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="rounded-[24px] border border-[rgba(87,62,39,0.08)] bg-[#fffdf9] p-4"
+                  >
+                    <div className="flex items-end justify-between gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">{stat.label}</p>
+                        <p className="font-display mt-2 text-5xl leading-none text-[#1f1812]">
+                          {stat.value}
+                        </p>
+                      </div>
+                      <ArrowRight className="h-5 w-5 text-[#d66a2f]" />
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-[#68584b]">{stat.caption}</p>
+                  </div>
                 ))}
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[
-                {
-                  icon: Store,
-                  label: "Restaurants",
-                  body: "Swiggy-style browse, local cart, and WhatsApp handoff using live menu data.",
-                  tone: "bg-[rgba(213,109,46,0.12)] text-[#8e3f11]",
-                },
-                {
-                  icon: Hotel,
-                  label: "Hotels",
-                  body: "Room types, default rates, room inventory, and direct inquiry flow.",
-                  tone: "bg-[rgba(46,125,103,0.12)] text-[#245f52]",
-                },
-                {
-                  icon: CarFront,
-                  label: "Cabs",
-                  body: "Placeholder card only. Dispatch will connect in the next sprint.",
-                  tone: "bg-[rgba(58,89,145,0.12)] text-[#324f7e]",
-                },
-                {
-                  icon: Ticket,
-                  label: "Flights",
-                  body: "Visible for roadmap clarity, but intentionally kept as coming soon.",
-                  tone: "bg-[rgba(122,96,62,0.12)] text-[#765735]",
-                },
-              ].map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div key={item.label} className="soft-card rounded-[28px] p-5">
-                    <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${item.tone}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <p className="mt-4 font-semibold text-[#1f1812]">{item.label}</p>
-                    <p className="mt-2 text-sm leading-7 text-[#6a5f56]">{item.body}</p>
+            <div className="soft-card rounded-[32px] p-5">
+              <p className="text-xs uppercase tracking-[0.26em] text-[#c15d1f]">What changes now</p>
+              <div className="mt-5 space-y-3">
+                {[
+                  "Customer accounts now stay isolated from workspace logins.",
+                  "Hotel and restaurant CTAs can save real booking requests.",
+                  "Cabs and flights have consumer lanes ready for the next backend sprint.",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-[24px] bg-[#fbf2e7] px-4 py-4 text-sm leading-7 text-[#4f4135]"
+                  >
+                    {item}
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="space-y-6">
-        <SectionHeader
-          eyebrow="Restaurant discovery"
-          title="Menu boards pulled from live tenants"
-          body="Each card below is powered by the new marketplace endpoints, so this demo frontend stays synced with whatever restaurant data exists in the database."
-          cta="Open all restaurants"
-          to="/restaurants"
-        />
-
-        {loading ? (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {[...Array(3)].map((_, index) => (
-              <div key={index} className="soft-card h-72 animate-pulse rounded-[30px]" />
-            ))}
+      <section className="grid gap-4 lg:grid-cols-3">
+        {[
+          {
+            title: "Hotels from live room data",
+            body: "Room types, prices, and inventory come from the existing hotel collections in your database.",
+            tone: "bg-[#fff7ef]",
+          },
+          {
+            title: "Restaurants from live menus",
+            body: "Menu cards and item pricing are pulled from restaurant tenants without creating a duplicate content layer.",
+            tone: "bg-[#fffaf4]",
+          },
+          {
+            title: "Requests saved to backend",
+            body: "Customer booking and enquiry actions now persist into a dedicated booking microservice for account history.",
+            tone: "bg-[#fdf5ed]",
+          },
+        ].map((item) => (
+          <div key={item.title} className={`soft-card rounded-[30px] p-6 ${item.tone}`}>
+            <p className="text-xs uppercase tracking-[0.24em] text-[#c15d1f]">Platform shift</p>
+            <h3 className="font-display mt-3 text-4xl leading-none text-[#1f1812]">{item.title}</h3>
+            <p className="mt-4 text-sm leading-7 text-[#68584b]">{item.body}</p>
           </div>
-        ) : restaurants.length === 0 ? (
-          <div className="soft-card rounded-[30px] px-6 py-10 text-center text-[#6a5f56]">
-            Restaurant owners have not added menu data yet. Once they do, this marketplace updates automatically.
-          </div>
-        ) : (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {restaurants.slice(0, 3).map((restaurant) => (
-              <Link
-                key={restaurant.id}
-                to={`/restaurants/${restaurant.slug}`}
-                className="soft-card group overflow-hidden rounded-[30px] transition hover:-translate-y-1"
-              >
-                <div className="relative h-52 overflow-hidden bg-[#f0e2d2]">
-                  {restaurant.cover_image ? (
-                    <img
-                      src={restaurant.cover_image}
-                      alt={restaurant.name}
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-[#b88c6e]">
-                      <Store className="h-10 w-10" />
-                    </div>
-                  )}
-                  <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#8e3f11]">
-                    Restaurant
-                  </div>
-                </div>
-                <div className="space-y-4 p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="font-display text-4xl leading-none text-[#1f1812]">{restaurant.name}</h3>
-                      <p className="mt-3 text-sm text-[#6a5f56]">{formatAddress(restaurant.address)}</p>
-                    </div>
-                    <div className="rounded-2xl bg-[#f8efe4] px-3 py-2 text-right">
-                      <p className="text-xs uppercase tracking-[0.18em] text-[#a6633b]">Starts</p>
-                      <p className="mt-1 font-semibold text-[#1f1812]">
-                        {restaurant.starting_price ? formatCurrency(restaurant.starting_price) : "NA"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <p className="text-sm leading-7 text-[#6a5f56]">
-                    {restaurant.category_labels?.length
-                      ? restaurant.category_labels.join(" • ")
-                      : "Live menu categories will show here"}
-                  </p>
-
-                  <div className="rounded-[24px] bg-[#fcf5ec] p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-[#a6633b]">Featured</p>
-                    <div className="mt-3 space-y-2">
-                      {restaurant.featured_items?.slice(0, 2).map((item) => (
-                        <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
-                          <span className="line-clamp-2 font-medium text-[#1f1812]">{item.name}</span>
-                          <span className="shrink-0 text-[#8e3f11]">{formatCurrency(item.display_price)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+        ))}
       </section>
 
       <section className="space-y-6">
         <SectionHeader
-          eyebrow="Stay discovery"
-          title="Hotels powered by room and rate data"
-          body="The hotel board pulls room type summaries, available room counts, and default pricing from the existing hotel collections already used by the owner dashboard."
-          cta="Open all hotels"
+          eyebrow="Popular stays"
+          title="Hotels ready for customer discovery"
+          body="These cards are built from the same hotel tenant data your workspace frontend already manages, but presented as a travel shopping surface."
           to="/hotels"
+          cta="See all hotels"
         />
 
         {loading ? (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-5 lg:grid-cols-3">
             {[...Array(3)].map((_, index) => (
-              <div key={index} className="soft-card h-72 animate-pulse rounded-[30px]" />
+              <div key={index} className="soft-card h-80 animate-pulse rounded-[32px]" />
             ))}
           </div>
-        ) : hotels.length === 0 ? (
-          <div className="soft-card rounded-[30px] px-6 py-10 text-center text-[#6a5f56]">
-            Hotel owners have not added room data yet. Once they do, this website starts surfacing it automatically.
-          </div>
         ) : (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {hotels.slice(0, 3).map((hotel) => (
+          <div className="grid gap-5 lg:grid-cols-3">
+            {hotelSpotlight.map((hotel) => (
               <Link
                 key={hotel.id}
                 to={`/hotels/${hotel.slug}`}
-                className="soft-card group overflow-hidden rounded-[30px] transition hover:-translate-y-1"
+                className="soft-card group overflow-hidden rounded-[32px] transition hover:-translate-y-1"
               >
-                <div className="relative h-52 overflow-hidden bg-[linear-gradient(135deg,#efddca_0%,#f6eadf_50%,#f0e4d7_100%)]">
+                <div className="relative h-56 overflow-hidden bg-[linear-gradient(135deg,#efddca_0%,#f6eadf_50%,#f0e4d7_100%)]">
                   {hotel.logo ? (
                     <img
                       src={hotel.logo}
@@ -322,42 +443,33 @@ const HomePage = () => {
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-[#9b7a63]">
+                    <div className="flex h-full items-center justify-center text-[#a48369]">
                       <Hotel className="h-10 w-10" />
                     </div>
                   )}
-                  <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#245f52]">
-                    Hotel
+                  <div className="absolute left-4 top-4 rounded-full bg-white/92 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#32695b]">
+                    {hotel.available_rooms || 0} rooms open
                   </div>
                 </div>
                 <div className="space-y-4 p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h3 className="font-display text-4xl leading-none text-[#1f1812]">{hotel.name}</h3>
-                      <p className="mt-3 text-sm text-[#6a5f56]">{formatAddress(hotel.address)}</p>
+                      <p className="mt-3 text-sm text-[#68584b]">{formatAddress(hotel.address)}</p>
                     </div>
-                    <div className="rounded-2xl bg-[#edf7f2] px-3 py-2 text-right">
-                      <p className="text-xs uppercase tracking-[0.18em] text-[#2e7d67]">From</p>
+                    <div className="rounded-2xl bg-[#eef7f2] px-3 py-2 text-right">
+                      <p className="text-xs uppercase tracking-[0.18em] text-[#32695b]">From</p>
                       <p className="mt-1 font-semibold text-[#1f1812]">
                         {hotel.starting_price ? formatCurrency(hotel.starting_price) : "NA"}
                       </p>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3 rounded-[24px] bg-[#f7f2eb] p-4 text-sm">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.18em] text-[#a6633b]">Available</p>
-                      <p className="mt-1 font-semibold text-[#1f1812]">{hotel.available_rooms || 0} rooms</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.18em] text-[#a6633b]">Room types</p>
-                      <p className="mt-1 font-semibold text-[#1f1812]">{hotel.room_type_count || 0}</p>
-                    </div>
-                  </div>
-
                   <div className="flex flex-wrap gap-2">
                     {(hotel.room_type_labels || []).slice(0, 3).map((label) => (
-                      <span key={label} className="rounded-full bg-[#f4e6d8] px-3 py-1 text-xs font-medium text-[#5d4d40]">
+                      <span
+                        key={label}
+                        className="rounded-full bg-[#f4e6d8] px-3 py-1 text-xs font-medium text-[#5d4d40]"
+                      >
                         {label}
                       </span>
                     ))}
@@ -369,66 +481,127 @@ const HomePage = () => {
         )}
       </section>
 
-      <section className="soft-card rounded-[34px] p-6 sm:p-8">
+      <section className="space-y-6">
         <SectionHeader
-          eyebrow="Roadmap honesty"
-          title="Cabs and flights stay visible, not fake-built"
-          body="You asked to keep cars and flights unfinished for now, so this section makes that explicit. The frontend acknowledges those service lanes without pretending their backend is already ready."
+          eyebrow="Trending eats"
+          title="Restaurant menus from tenant dashboards"
+          body="The restaurant lane behaves like a consumer ordering surface while still staying backed by the existing owner-managed menu data."
+          to="/restaurants"
+          cta="See all restaurants"
         />
 
-        <div className="mt-8 grid gap-4 lg:grid-cols-2">
-          {[
-            {
-              icon: CarFront,
-              title: "Cab booking lane",
-              body: "Driver registration, location sharing, and dispatch will connect later. The current card simply marks the slot in the product story.",
-            },
-            {
-              icon: Ticket,
-              title: "Flights and travel lane",
-              body: "GDS-backed search and package building are staged after the hotel and restaurant journeys feel solid.",
-            },
-          ].map((item) => {
-            const Icon = item.icon;
-            return (
-              <div key={item.title} className="rounded-[28px] border border-dashed border-[rgba(96,73,53,0.2)] bg-[#fffaf4] p-5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f3e6d5] text-[#5d4d40]">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[#1f1812]">{item.title}</p>
-                    <p className="text-xs uppercase tracking-[0.18em] text-[#a6633b]">Coming later</p>
+        {loading ? (
+          <div className="grid gap-5 lg:grid-cols-3">
+            {[...Array(3)].map((_, index) => (
+              <div key={index} className="soft-card h-80 animate-pulse rounded-[32px]" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-5 lg:grid-cols-3">
+            {restaurantSpotlight.map((restaurant) => (
+              <Link
+                key={restaurant.id}
+                to={`/restaurants/${restaurant.slug}`}
+                className="soft-card group overflow-hidden rounded-[32px] transition hover:-translate-y-1"
+              >
+                <div className="relative h-56 overflow-hidden bg-[#f1e3d4]">
+                  {restaurant.cover_image ? (
+                    <img
+                      src={restaurant.cover_image}
+                      alt={restaurant.name}
+                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-[#b88c6e]">
+                      <Store className="h-10 w-10" />
+                    </div>
+                  )}
+                  <div className="absolute left-4 top-4 rounded-full bg-white/92 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
+                    {restaurant.available_item_count || 0} items live
                   </div>
                 </div>
-                <p className="mt-4 text-sm leading-7 text-[#6a5f56]">{item.body}</p>
-              </div>
-            );
-          })}
+                <div className="space-y-4 p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="font-display text-4xl leading-none text-[#1f1812]">
+                        {restaurant.name}
+                      </h3>
+                      <p className="mt-3 text-sm text-[#68584b]">{formatAddress(restaurant.address)}</p>
+                    </div>
+                    <div className="rounded-2xl bg-[#fbefe4] px-3 py-2 text-right">
+                      <p className="text-xs uppercase tracking-[0.18em] text-[#a54d16]">Starts</p>
+                      <p className="mt-1 font-semibold text-[#1f1812]">
+                        {restaurant.starting_price ? formatCurrency(restaurant.starting_price) : "NA"}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-sm leading-7 text-[#68584b]">
+                    {(restaurant.featured_items || [])
+                      .slice(0, 2)
+                      .map((item) => item.name)
+                      .join(" • ") || "Menus will show here once the tenant publishes dishes."}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="grid gap-5 lg:grid-cols-2">
+        <div className="soft-card rounded-[34px] p-6 sm:p-8">
+          <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Cab lane</p>
+          <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">Airport transfers and local rides</h2>
+          <p className="mt-4 text-sm leading-7 text-[#68584b]">
+            We have not built the live dispatch engine yet, but the user-facing lane is ready now
+            so you can capture customer intent and turn it into the next operational sprint.
+          </p>
+          <Link
+            to="/cabs"
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#1f1812] px-5 py-3 text-sm font-semibold text-white"
+          >
+            Open cabs
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        <div className="soft-card rounded-[34px] p-6 sm:p-8">
+          <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Flight lane</p>
+          <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">Travel search staged for the next backend</h2>
+          <p className="mt-4 text-sm leading-7 text-[#68584b]">
+            This keeps the travel story complete for customers today while still being honest that
+            the heavy search and ticketing layer is part of a later delivery.
+          </p>
+          <Link
+            to="/flights"
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#1f1812] px-5 py-3 text-sm font-semibold text-white"
+          >
+            Open flights
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </section>
 
-      <section className="glass-panel rounded-[34px] p-6 sm:p-8">
+      <section className="glass-panel rounded-[36px] p-6 sm:p-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.26em] text-[#a6633b]">WhatsApp handoff</p>
+            <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Why this structure works</p>
             <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">
-              Keep the bot as the final action layer
+              One portal for guests, one portal for operators.
             </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-[#6a5f56]">
-              The website gives guests a manual browsing path. WhatsApp stays the fast handoff path
-              for final confirmation, AI support, or future agentic flows.
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-[#68584b]">
+              The customer site now behaves like a booking and discovery experience, while the main
+              frontend stays focused on workspace operations. Both still use the same accounts
+              backend, but they no longer fight over the same refresh cookie or role expectations.
             </p>
           </div>
-          <a
-            href={buildWhatsAppLink("Hi Zahi, I want help choosing a hotel or restaurant.")}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-full bg-[#1f1812] px-5 py-3 text-sm font-semibold text-white"
+          <Link
+            to="/account"
+            className="inline-flex items-center gap-2 rounded-full border border-[rgba(87,62,39,0.12)] bg-white px-5 py-3 text-sm font-semibold text-[#1f1812]"
           >
-            Open WhatsApp handoff
+            View my account
             <ArrowRight className="h-4 w-4" />
-          </a>
+          </Link>
         </div>
       </section>
     </div>

@@ -21,7 +21,11 @@ const LoginPage = () => {
   const nextPath = location.state?.from || "/account";
 
   const finishLogin = (payload) => {
-    applySession(payload);
+    const sessionUser = applySession(payload);
+    if (!sessionUser) {
+      setError("This login is reserved for customer accounts. Use the workspace frontend for operator access.");
+      return;
+    }
     toast.success("Welcome back to Zahi Connect.");
     navigate(nextPath, { replace: true });
   };

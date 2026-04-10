@@ -23,6 +23,11 @@ export const AuthProvider = ({ children }) => {
       return null;
     }
 
+    if (userPayload.role !== "customer") {
+      clearSession();
+      return null;
+    }
+
     setAccessToken(access);
     const nextUser = buildSessionUser(userPayload);
     setUser(nextUser);

@@ -11,6 +11,9 @@ const api = axios.create({
   // In dev, Vite proxies /auth and /rms to the gateway to avoid cross-origin issues.
   baseURL: import.meta.env.VITE_API_BASE_URL || (isDevelopment ? "/" : "http://localhost:8080"),
   withCredentials: true,
+  headers: {
+    "X-Zahi-Portal": "workspace",
+  },
 });
 
 export const setAccessToken = (token) => {

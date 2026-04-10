@@ -39,6 +39,7 @@ const Register = () => {
         email,
         password,
         confirm_password: confirmPassword,
+        role: "business_admin",
       });
 
       if (response.status === 200 || response.status === 201) {
