@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Clock3, Minus, Plus, ShoppingBag, Store, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Clock3,
+  ExternalLink,
+  MapPin,
+  Minus,
+  Phone,
+  Plus,
+  ShoppingBag,
+  Store,
+  Users,
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 import { useAuth } from "../context/AuthContext";
@@ -26,6 +37,35 @@ const RestaurantDetailPage = () => {
   const [notes, setNotes] = useState("");
   const diners = Number(searchParams.get("diners") || "2");
   const focusedItemId = searchParams.get("focus");
+  const shopGalleryImages = useMemo(() => {
+    const images = [
+      restaurant?.summary?.cover_image,
+      ...(restaurant?.summary?.gallery_image_urls || []),
+      ...(restaurant?.profile?.gallery_image_urls || []),
+    ]
+      .filter(Boolean)
+      .filter((value, index, list) => list.indexOf(value) === index);
+
+    return images;
+  }, [restaurant]);
+  const serviceModeLabels = useMemo(
+    () =>
+      (restaurant?.profile?.service_modes || [])
+        .map((mode) => String(mode).replaceAll("_", " "))
+        .filter(Boolean),
+    [restaurant]
+  );
+  const shopLocationLine = useMemo(
+    () =>
+      [
+        restaurant?.profile?.area_name,
+        restaurant?.profile?.city,
+        restaurant?.profile?.state,
+      ]
+        .filter(Boolean)
+        .join(", ") || formatAddress(restaurant?.tenant?.address),
+    [restaurant]
+  );
 
   const visibleSections = useMemo(
     () =>
@@ -228,6 +268,9 @@ const RestaurantDetailPage = () => {
               <h1 className="font-display mt-4 text-6xl leading-none text-[#1f1812]">
                 {restaurant.tenant?.name}
               </h1>
+              {restaurant.profile?.tagline ? (
+                <p className="mt-4 text-base font-medium text-[#8e3f11]">{restaurant.profile.tagline}</p>
+              ) : null}
               <p className="mt-5 text-sm leading-7 text-[#68584b]">
                 {formatAddress(restaurant.tenant?.address)}
               </p>
@@ -237,9 +280,14 @@ const RestaurantDetailPage = () => {
                   {formatDistance(restaurant.summary.distance_km)}
                 </p>
               ) : null}
+              {restaurant.profile?.description ? (
+                <p className="mt-5 max-w-3xl text-sm leading-7 text-[#68584b]">
+                  {restaurant.profile.description}
+                </p>
+              ) : null}
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-4">
               <div className="rounded-[26px] bg-white p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Starting price</p>
                 <p className="mt-2 font-semibold text-[#1f1812]">
@@ -257,6 +305,15 @@ const RestaurantDetailPage = () => {
                   {diners}
                 </p>
               </div>
+              <div className="rounded-[26px] bg-white p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Hours</p>
+                <p className="mt-2 inline-flex items-center gap-1 font-semibold text-[#1f1812]">
+                  <Clock3 className="h-4 w-4" />
+                  {(restaurant.profile?.opening_time || "09:00") +
+                    " - " +
+                    (restaurant.profile?.closing_time || "22:00")}
+                </p>
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -265,8 +322,101 @@ const RestaurantDetailPage = () => {
                   {label}
                 </span>
               ))}
+              {serviceModeLabels.map((label) => (
+                <span key={label} className="rounded-full bg-[#eef7f3] px-3 py-1 text-xs font-medium capitalize text-[#2e7d67]">
+                  {label}
+                </span>
+              ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="soft-card rounded-[34px] p-5 sm:p-6">
+          <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Shop details</p>
+          <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">
+            About this restaurant
+          </h2>
+
+          <div className="mt-6 space-y-3">
+            <div className="rounded-[24px] bg-[#fff9f2] px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Location</p>
+              <p className="mt-2 inline-flex items-start gap-2 text-sm font-medium leading-6 text-[#1f1812]">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#8e3f11]" />
+                <span>{shopLocationLine}</span>
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-[24px] bg-[#fff9f2] px-4 py-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Reservation line</p>
+                <p className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-[#1f1812]">
+                  <Phone className="h-4 w-4 text-[#8e3f11]" />
+                  {restaurant.profile?.reservation_phone ||
+                    restaurant.profile?.whatsapp_number ||
+                    restaurant.tenant?.phone ||
+                    "Not added"}
+                </p>
+              </div>
+              <div className="rounded-[24px] bg-[#fff9f2] px-4 py-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Customer email</p>
+                <p className="mt-2 text-sm font-medium text-[#1f1812]">
+                  {restaurant.profile?.contact_email || restaurant.tenant?.email || "Not added"}
+                </p>
+              </div>
+            </div>
+
+            {restaurant.profile?.map_link ? (
+              <a
+                href={restaurant.profile.map_link}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-[rgba(96,73,53,0.14)] bg-white px-4 py-3 text-sm font-semibold text-[#1f1812] transition hover:bg-[#fff7ef]"
+              >
+                Open location on map
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="soft-card rounded-[34px] p-5 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Shop gallery</p>
+              <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">
+                Restaurant images
+              </h2>
+            </div>
+            <span className="rounded-full bg-[#fbefe4] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
+              {shopGalleryImages.length} photos
+            </span>
+          </div>
+
+          {shopGalleryImages.length > 0 ? (
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {shopGalleryImages.slice(0, 6).map((imageUrl, index) => (
+                <div
+                  key={`${imageUrl}-${index}`}
+                  className={`overflow-hidden rounded-[28px] bg-[#f2dfcd] ${
+                    index === 0 ? "sm:col-span-2" : ""
+                  }`}
+                >
+                  <img
+                    src={imageUrl}
+                    alt={`${restaurant.tenant?.name} ${index + 1}`}
+                    className={`w-full object-cover ${index === 0 ? "h-64" : "h-40"}`}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-6 rounded-[28px] bg-[#fff9f2] px-5 py-12 text-center text-sm leading-7 text-[#68584b]">
+              Shop images have not been added yet. The restaurant can upload cover and gallery
+              photos from the workspace settings.
+            </div>
+          )}
         </div>
       </section>
 

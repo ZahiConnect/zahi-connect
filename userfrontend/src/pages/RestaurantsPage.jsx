@@ -251,10 +251,13 @@ const RestaurantsPage = () => {
                         {formatDistance(item.distance_km)}
                       </span>
                     ) : null}
-                    <span className="inline-flex items-center gap-1">
+                    <Link
+                      to={`/restaurants/${item.restaurant_slug}?diners=${diners}&focus=${item.id}`}
+                      className="inline-flex items-center gap-1 rounded-full bg-[#fff4e9] px-3 py-1 text-sm font-medium text-[#8e3f11] transition hover:bg-[#f7e4d1]"
+                    >
                       <Store className="h-4 w-4" />
                       {item.restaurant_name}
-                    </span>
+                    </Link>
                     <span className="inline-flex items-center gap-1">
                       <MapPin className="h-4 w-4" />
                       {formatAddress(item.restaurant_address)}
@@ -263,13 +266,16 @@ const RestaurantsPage = () => {
                 </div>
 
                 <div className="flex flex-col justify-between gap-4 rounded-[28px] bg-[#fff9f2] p-4">
-                  <div>
+                  <Link
+                    to={`/restaurants/${item.restaurant_slug}?diners=${diners}&focus=${item.id}`}
+                    className="block rounded-[22px] border border-[rgba(214,106,47,0.16)] bg-white px-4 py-4 transition hover:border-[rgba(214,106,47,0.3)] hover:bg-[#fff6ee]"
+                  >
                     <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Price</p>
                     <p className="mt-2 font-display text-5xl leading-none text-[#1f1812]">
                       {formatCurrency(item.display_price)}
                     </p>
                     <p className="mt-4 text-xs uppercase tracking-[0.18em] text-[#a2856b]">
-                      Served by
+                      Shop
                     </p>
                     <p className="mt-2 text-base font-semibold text-[#1f1812]">{item.restaurant_name}</p>
                     <p className="mt-2 text-sm leading-6 text-[#68584b]">
@@ -280,13 +286,17 @@ const RestaurantsPage = () => {
                         {formatDistance(item.distance_km)}
                       </p>
                     ) : null}
-                  </div>
+                    <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#8e3f11]">
+                      Open shop details
+                      <ArrowRight className="h-4 w-4" />
+                    </p>
+                  </Link>
 
                   <Link
                     to={`/restaurants/${item.restaurant_slug}?diners=${diners}&focus=${item.id}`}
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1f1812] px-4 py-3 text-sm font-semibold text-white"
                   >
-                    Open restaurant
+                    View menu
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </div>

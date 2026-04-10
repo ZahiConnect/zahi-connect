@@ -17,6 +17,8 @@ class Settings:
     DB_NAME: str = os.getenv("DB_NAME", "zahi_connect_db")
     DB_USER: str = os.getenv("DB_USER", "postgres")
     DB_PASSWORD: str = os.getenv("DB_PASSWORD", "postgres")
+    RAZORPAY_KEY_ID: str = os.getenv("RAZORPAY_KEY_ID", "")
+    RAZORPAY_KEY_SECRET: str = os.getenv("RAZORPAY_KEY_SECRET", "")
 
     @property
     def DATABASE_URL(self) -> str:
@@ -28,6 +30,8 @@ class Settings:
     def validate(self):
         if not self.SECRET_KEY:
             raise ValueError("SECRET_KEY not found. Please set it in .env")
+        if not self.RAZORPAY_KEY_ID or not self.RAZORPAY_KEY_SECRET:
+            print("Warning: Razorpay keys not set. Customer checkout will be unavailable.")
 
 
 settings = Settings()
