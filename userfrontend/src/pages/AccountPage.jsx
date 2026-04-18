@@ -188,6 +188,11 @@ const AccountPage = () => {
                             <p className="mt-2 text-sm leading-7 text-[#68584b]">
                               {request.summary || extractMetaLine(request)}
                             </p>
+                            {request.metadata?.payment?.provider === "razorpay" ? (
+                              <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
+                                Paid via Razorpay
+                              </p>
+                            ) : null}
                             <p className="mt-2 text-xs uppercase tracking-[0.18em] text-[#8a7869]">
                               {extractDateLabel(request)} • {extractMetaLine(request)}
                             </p>

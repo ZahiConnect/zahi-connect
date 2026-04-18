@@ -15,6 +15,7 @@ import {
 import toast from "react-hot-toast";
 
 import { useAuth } from "../context/AuthContext";
+import { loadRazorpayScript } from "../lib/razorpay";
 import useCustomerLocation from "../hooks/useCustomerLocation";
 import { buildWhatsAppLink, formatAddress, formatCurrency, formatDistance, shortText } from "../lib/format";
 import bookingService from "../services/bookingService";
@@ -34,6 +35,7 @@ const RestaurantDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [payingNow, setPayingNow] = useState(false);
   const [notes, setNotes] = useState("");
   const diners = Number(searchParams.get("diners") || "2");
   const focusedItemId = searchParams.get("focus");
@@ -209,6 +211,89 @@ const RestaurantDetailPage = () => {
       toast.error(error.response?.data?.detail || "Could not save the restaurant request.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const startRazorpayPayment = async () => {
+    if (!restaurant) return;
+    if (cartLines.length === 0) {
+      toast.error("Add at least one dish before starting payment.");
+      return;
+    }
+    if (!isAuthenticated) {
+      navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
+      return;
+    }
+
+    setPayingNow(true);
+
+    try {
+      const checkoutData = await bookingService.createPaymentCheckout({
+        service_type: "restaurant",
+        title: `Paid order for ${restaurant.tenant?.name}`,
+        summary: `${cartLines.length} item(s), ${diners} diner(s), total ${formatCurrency(grandTotal)}`,
+        tenant_id: restaurant.tenant?.id || null,
+        tenant_slug: restaurant.tenant?.slug || null,
+        tenant_name: restaurant.tenant?.name || null,
+        total_amount: grandTotal,
+        metadata: {
+          diners,
+          notes,
+          items: cartLines.map((line) => ({
+            id: line.id,
+            name: line.name,
+            quantity: line.quantity,
+            unit_price: line.display_price,
+            total: line.total,
+          })),
+        },
+      });
+
+      const razorpayLoaded = await loadRazorpayScript();
+      if (!razorpayLoaded || !window.Razorpay) {
+        throw new Error("Razorpay checkout could not be loaded.");
+      }
+
+      const razorpay = new window.Razorpay({
+        ...checkoutData.checkout,
+        theme: {
+          color: "#c8632c",
+        },
+        handler: async (paymentResult) => {
+          try {
+            await bookingService.verifyPayment({
+              payment_order_id: checkoutData.payment_order_id,
+              razorpay_order_id: paymentResult.razorpay_order_id,
+              razorpay_payment_id: paymentResult.razorpay_payment_id,
+              razorpay_signature: paymentResult.razorpay_signature,
+            });
+            toast.success("Payment completed and your order was saved.");
+            navigate("/account");
+          } catch (verificationError) {
+            console.error("Restaurant payment verification failed", verificationError);
+            toast.error(
+              verificationError.response?.data?.detail ||
+                "Payment was received, but order confirmation failed."
+            );
+            setPayingNow(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setPayingNow(false);
+          },
+        },
+      });
+
+      razorpay.open();
+    } catch (error) {
+      console.error("Failed to start restaurant payment", error);
+      toast.error(
+        error.response?.data?.detail ||
+          error.message ||
+          "Could not start the payment right now."
+      );
+      setPayingNow(false);
     }
   };
 
@@ -585,10 +670,23 @@ const RestaurantDetailPage = () => {
             <button
               type="button"
               onClick={submitOrderRequest}
-              disabled={submitting}
+              disabled={submitting || payingNow}
               className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-[#1f1812] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
             >
               {submitting ? "Saving request..." : isAuthenticated ? "Save food request" : "Sign in to save"}
+            </button>
+
+            <button
+              type="button"
+              onClick={startRazorpayPayment}
+              disabled={submitting || payingNow}
+              className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-[#c8632c] px-5 py-3 text-sm font-semibold text-[#fffaf4] shadow-[0_16px_32px_rgba(104,47,18,0.16)] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {payingNow
+                ? "Opening payment..."
+                : isAuthenticated
+                  ? `Pay ${formatCurrency(grandTotal)} with Razorpay`
+                  : "Sign in to pay"}
             </button>
 
             <a
