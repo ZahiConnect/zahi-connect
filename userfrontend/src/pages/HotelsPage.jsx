@@ -42,7 +42,16 @@ const HotelsPage = () => {
 
   const filteredHotels = useMemo(() => {
     return hotels.filter((hotel) => {
-      const haystack = `${hotel.name} ${hotel.address || ""} ${(hotel.room_type_labels || []).join(" ")}`.toLowerCase();
+      const haystack = [
+        hotel.name,
+        hotel.address || "",
+        hotel.tagline || "",
+        hotel.property_type || "",
+        ...(hotel.room_type_labels || []),
+        ...(hotel.featured_amenities || []),
+      ]
+        .join(" ")
+        .toLowerCase();
       const matchesQuery = haystack.includes(query.toLowerCase());
       const matchesAvailability = !availableOnly || Number(hotel.available_rooms || 0) > 0;
       return matchesQuery && matchesAvailability;
@@ -140,9 +149,9 @@ const HotelsPage = () => {
               className="soft-card group overflow-hidden rounded-[32px] transition hover:-translate-y-1"
             >
               <div className="relative h-56 overflow-hidden bg-[linear-gradient(135deg,#efddca_0%,#f6eadf_50%,#f0e4d7_100%)]">
-                {hotel.logo ? (
+                {hotel.cover_image || hotel.logo ? (
                   <img
-                    src={hotel.logo}
+                    src={hotel.cover_image || hotel.logo}
                     alt={hotel.name}
                     className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                   />
@@ -154,13 +163,21 @@ const HotelsPage = () => {
                 <div className="absolute left-4 top-4 rounded-full bg-white/92 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#32695b]">
                   {hotel.available_rooms || 0} rooms open
                 </div>
+                {hotel.property_type ? (
+                  <div className="absolute bottom-4 left-4 rounded-full bg-[#1f1812]/78 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white backdrop-blur-sm">
+                    {hotel.property_type}
+                  </div>
+                ) : null}
               </div>
 
               <div className="space-y-4 p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h2 className="font-display text-4xl leading-none text-[#1f1812]">{hotel.name}</h2>
-                    <p className="mt-3 text-sm text-[#68584b]">{formatAddress(hotel.address)}</p>
+                    {hotel.tagline ? (
+                      <p className="mt-3 text-sm font-medium text-[#8e3f11]">{hotel.tagline}</p>
+                    ) : null}
+                    <p className="mt-2 text-sm text-[#68584b]">{formatAddress(hotel.address)}</p>
                   </div>
                   <div className="rounded-2xl bg-[#eef7f2] px-3 py-2 text-right">
                     <p className="text-xs uppercase tracking-[0.18em] text-[#32695b]">From</p>
@@ -185,6 +202,11 @@ const HotelsPage = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  {(hotel.featured_amenities || []).slice(0, 2).map((label) => (
+                    <span key={label} className="rounded-full bg-[#eef7f2] px-3 py-1 text-xs font-medium text-[#32695b]">
+                      {label}
+                    </span>
+                  ))}
                   {(hotel.room_type_labels || []).slice(0, 3).map((label) => (
                     <span key={label} className="rounded-full bg-[#f4e6d8] px-3 py-1 text-xs font-medium text-[#5d4d40]">
                       {label}

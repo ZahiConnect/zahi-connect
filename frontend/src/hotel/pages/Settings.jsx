@@ -218,6 +218,140 @@ const ImgUpload = ({ label, hint, url, onUpload, onClear, aspect="square" }) => 
   );
 };
 
+const toTagList = (value) =>
+  String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item, index, list) => list.indexOf(item) === index);
+
+const GalleryUpload = ({ images = [], coverImage = "", onChange, onUseAsCover }) => {
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef(null);
+
+  const uploadFiles = async (fileList) => {
+    const files = Array.from(fileList || []).filter(Boolean);
+    if (!files.length) return;
+
+    setBusy(true);
+    try {
+      const uploaded = [];
+      for (const file of files) {
+        const result = await dbs.uploadImage(file);
+        if (result?.url) {
+          uploaded.push(result.url);
+        }
+      }
+
+      if (uploaded.length) {
+        onChange(
+          [...images, ...uploaded].filter((item, index, list) => list.indexOf(item) === index)
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gallery upload failed. Please try again.");
+    }
+
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+    setBusy(false);
+  };
+
+  const removeImage = (imageUrl) => {
+    onChange(images.filter((item) => item !== imageUrl));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Label ch="Guest Gallery"/>
+          <p className="text-xs text-gray-400">
+            Upload lobby, room, and property shots that should appear in the customer portal.
+          </p>
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(event) => uploadFiles(event.target.files)}
+        />
+        <Btn
+          sz="sm"
+          disabled={busy}
+          onClick={() => inputRef.current?.click()}
+          ch={
+            busy ? (
+              <>
+                <Loader2 size={13} className="animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Upload size={13} />
+                Add Images
+              </>
+            )
+          }
+        />
+      </div>
+
+      {images.length ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {images.map((imageUrl) => {
+            const isCover = imageUrl === coverImage;
+
+            return (
+              <div key={imageUrl} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div className="relative h-40 overflow-hidden bg-gray-50">
+                  <img src={imageUrl} className="h-full w-full object-cover" />
+                  {isCover && (
+                    <div className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-[#037ffc]">
+                      Cover
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center justify-between gap-2 p-3">
+                  <button
+                    type="button"
+                    onClick={() => onUseAsCover?.(imageUrl)}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                      isCover
+                        ? "bg-[#e8f3ff] text-[#037ffc]"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {isCover ? "Using as cover" : "Use as cover"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeImage(imageUrl)}
+                    className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-5 py-10 text-center">
+          <Camera size={20} className="mx-auto text-gray-300" />
+          <p className="mt-3 text-sm font-semibold text-gray-600">No gallery images yet</p>
+          <p className="mt-1 text-xs text-gray-400">
+            Add a few strong property photos so guests can see the space before booking.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Role Badge ───────────────────────────────────────────────────────────────
 const RoleBadge = ({ role }) => {
   const r = ROLES.find(x=>x.id===role)||ROLES[2];
@@ -402,36 +536,58 @@ const StaffModal = ({ open, onClose, existing, onSave }) => {
 const HotelTab = ({ toast }) => {
   const [info, setInfo] = useState(DEFAULT_HOTEL_SETTINGS);
   const [orig, setOrig]   = useState(DEFAULT_HOTEL_SETTINGS);
+  const [amenitiesInput, setAmenitiesInput] = useState("");
   const [saving, setSave] = useState(false);
   const [loaded, setLoad] = useState(false);
+
+  const hydrate = useCallback((payload) => {
+    const next = mergeHotelSettings(payload);
+    setInfo(next);
+    setOrig(next);
+    setAmenitiesInput((next.featuredAmenities || []).join(", "));
+  }, []);
 
   const fetch = useCallback(async()=>{
     try {
       const doc = await dbs.readDocument("settings","hotel");
-      const next = mergeHotelSettings(doc);
-      setInfo(next);
-      setOrig(next);
+      hydrate(doc);
     } catch (error) {
       console.error(error);
     }
     setLoad(true);
-  },[]);
+  },[hydrate]);
 
   useEffect(()=>{ fetch(); },[fetch]);
 
   const set = (k,v) => setInfo(i=>({...i,[k]:v}));
-  const save = async () => {
+  const persistInfo = useCallback(async (nextInfo, successMessage = "Business details saved!") => {
     setSave(true);
     try {
-      const payload = { ...mergeHotelSettings(info) };
+      const featuredAmenities = toTagList(amenitiesInput);
+      const rawGalleryImages = (nextInfo.galleryImages || []).filter(
+        (item, index, list) => item && list.indexOf(item) === index
+      );
+      const coverImage = nextInfo.coverImage || rawGalleryImages[0] || "";
+      const galleryImages = coverImage
+        ? [coverImage, ...rawGalleryImages.filter((item) => item !== coverImage)]
+        : rawGalleryImages;
+      const payload = {
+        ...mergeHotelSettings(nextInfo),
+        featuredAmenities,
+        coverImage,
+        galleryImages,
+      };
       const existing = await dbs.readDocument("settings","hotel").catch(()=>null);
       if (existing) await dbs.editDocument("settings","hotel",{...payload, updatedAt:new Date().toISOString()});
       else          await dbs.addDocument ("settings","hotel",{...payload, createdAt:new Date().toISOString()});
-      setInfo(payload);
-      setOrig(payload);
-      toast("Business details saved!","ok");
+      hydrate(payload);
+      toast(successMessage,"ok");
     } catch(e) { console.error(e); toast("Save failed.","err"); }
     setSave(false);
+  }, [amenitiesInput, hydrate, toast]);
+
+  const save = async () => {
+    await persistInfo(info);
   };
 
   if (!loaded) return (
@@ -468,6 +624,60 @@ const HotelTab = ({ toast }) => {
           <div>
             <Textarea label="Invoice Footer Note" placeholder="Thank you for your stay. We hope to see you again!"
               value={info.invoiceFooter} onChange={e=>set("invoiceFooter",e.target.value)} rows={3}/>
+          </div>
+        </div>
+      </Card>
+
+      <Card
+        title="Guest-Facing Stay Profile"
+        subtitle="Details that help customers understand the hotel before they open the room list"
+        icon={<FileText size={15}/>}
+      >
+        <div className="grid grid-cols-2 gap-5">
+          <div>
+            <Input
+              label="Property Type"
+              placeholder="Boutique hotel, serviced stay, family lodge..."
+              value={info.propertyType}
+              onChange={e=>set("propertyType",e.target.value)}
+            />
+          </div>
+          <div>
+            <Input
+              label="Short Tagline"
+              placeholder="Quiet stay near the city center"
+              value={info.tagline}
+              onChange={e=>set("tagline",e.target.value)}
+            />
+          </div>
+          <div className="col-span-2">
+            <Textarea
+              label="Guest Description"
+              placeholder="Describe the stay experience, room mood, and who this property is ideal for."
+              value={info.description}
+              onChange={e=>set("description",e.target.value)}
+              rows={4}
+            />
+          </div>
+          <div className="col-span-2">
+            <Input
+              label="Featured Amenities"
+              placeholder="Wi-Fi, Parking, Breakfast, Family rooms"
+              value={amenitiesInput}
+              onChange={e=>setAmenitiesInput(e.target.value)}
+            />
+            <p className="mt-1.5 text-[11px] text-gray-400">
+              Separate amenities with commas. These appear as quick guest-facing highlight chips.
+            </p>
+          </div>
+          <div className="col-span-2">
+            <Input
+              label="Google Maps Link"
+              placeholder="https://maps.google.com/..."
+              value={info.mapLink}
+              onChange={e=>set("mapLink",e.target.value)}
+              icon={<MapPin size={13}/>}
+            />
           </div>
         </div>
       </Card>
@@ -540,9 +750,84 @@ const HotelTab = ({ toast }) => {
         )}
       </Card>
 
+      <Card
+        title="Marketplace Images"
+        subtitle="Cover and gallery media shown to guests in the customer portal"
+        icon={<Camera size={15}/>}
+      >
+        <div className="space-y-6">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
+            <ImgUpload
+              label="Cover Image"
+              hint="Primary hotel image shown on listings and the detail-page hero."
+              aspect="wide"
+              url={info.coverImage}
+              onUpload={async (url) => {
+                const nextInfo = {
+                  ...info,
+                  coverImage: url,
+                  galleryImages: info.galleryImages.includes(url)
+                    ? info.galleryImages
+                    : [url, ...info.galleryImages],
+                };
+                setInfo(nextInfo);
+                await persistInfo(nextInfo, "Marketplace images saved!");
+              }}
+              onClear={async () => {
+                const nextInfo = {
+                  ...info,
+                  coverImage: info.galleryImages[0] && info.galleryImages[0] === info.coverImage
+                    ? info.galleryImages[1] || ""
+                    : "",
+                };
+                setInfo(nextInfo);
+                await persistInfo(nextInfo, "Marketplace images saved!");
+              }}
+            />
+
+            <GalleryUpload
+              images={info.galleryImages}
+              coverImage={info.coverImage}
+              onChange={async (galleryImages) => {
+                const nextInfo = {
+                  ...info,
+                  galleryImages,
+                  coverImage: galleryImages.includes(info.coverImage)
+                    ? info.coverImage
+                    : galleryImages[0] || "",
+                };
+                setInfo(nextInfo);
+                await persistInfo(nextInfo, "Marketplace images saved!");
+              }}
+              onUseAsCover={async (coverImage) => {
+                const nextInfo = {
+                  ...info,
+                  coverImage,
+                };
+                setInfo(nextInfo);
+                await persistInfo(nextInfo, "Marketplace images saved!");
+              }}
+            />
+          </div>
+
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-[#f8fbff] px-4 py-3 text-sm text-gray-500">
+            Logo and signature stay reserved for invoices. These cover and gallery images are the
+            guest-facing media used in `userfrontend`.
+          </div>
+        </div>
+      </Card>
+
       {/* Save */}
       <div className="flex justify-end gap-3 pb-6">
-        <Btn ch="Discard Changes" v="sec" onClick={()=>{ setInfo({...orig}); }} disabled={saving}/>
+        <Btn
+          ch="Discard Changes"
+          v="sec"
+          onClick={()=>{
+            setInfo({...orig});
+            setAmenitiesInput((orig.featuredAmenities || []).join(", "));
+          }}
+          disabled={saving}
+        />
         <Btn ch={saving?<><Loader2 size={14} className="animate-spin"/>Saving…</>:<><Save size={14}/>Save Business Details</>} disabled={saving} onClick={save}/>
       </div>
     </div>

@@ -294,7 +294,7 @@ const RestaurantsPage = () => {
 
                   <Link
                     to={`/restaurants/${item.restaurant_slug}?diners=${diners}&focus=${item.id}`}
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1f1812] px-4 py-3 text-sm font-semibold text-white"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#d66a2f] px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_30px_rgba(214,106,47,0.2)] transition hover:bg-[#be5620]"
                   >
                     View menu
                     <ArrowRight className="h-4 w-4" />

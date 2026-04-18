@@ -119,6 +119,13 @@ def normalize_menu_item(row: dict[str, Any]) -> dict[str, Any]:
 
 def normalize_hotel_settings(payload: dict[str, Any] | None, tenant: Tenant) -> dict[str, Any]:
     payload = payload or {}
+    gallery_image_urls = normalize_image_urls(payload.get("galleryImages"))
+    cover_image = clean_text(payload.get("coverImage")) or (gallery_image_urls[0] if gallery_image_urls else None)
+    if cover_image:
+        gallery_image_urls = [cover_image, *[url for url in gallery_image_urls if url != cover_image]]
+    elif clean_text(payload.get("logo")):
+        gallery_image_urls = normalize_image_urls(gallery_image_urls, payload.get("logo"))
+
     return {
         "display_name": clean_text(payload.get("name")) or tenant.name,
         "address": clean_text(payload.get("addr")) or clean_text(tenant.address),
@@ -128,9 +135,18 @@ def normalize_hotel_settings(payload: dict[str, Any] | None, tenant: Tenant) -> 
         "gstin": clean_text(payload.get("gstin")),
         "check_in_time": clean_text(payload.get("checkInTime")) or "14:00",
         "check_out_time": clean_text(payload.get("checkOutTime")) or "11:00",
+        "tagline": clean_text(payload.get("tagline")),
+        "description": clean_text(payload.get("description")),
+        "property_type": clean_text(payload.get("propertyType")),
+        "featured_amenities": normalize_text_list(payload.get("featuredAmenities")),
+        "cover_image": cover_image or clean_text(payload.get("logo")),
+        "gallery_image_urls": gallery_image_urls
+        or ([cover_image] if cover_image else [])
+        or normalize_image_urls(None, payload.get("logo")),
         "logo": clean_text(payload.get("logo")),
         "signature": clean_text(payload.get("signature")),
         "invoice_footer": clean_text(payload.get("invoiceFooter")),
+        "map_link": clean_text(payload.get("mapLink")),
     }
 
 
@@ -716,7 +732,17 @@ def build_hotel_summary(tenant: Tenant, docs: dict[str, list[dict[str, Any]]]) -
     payload = build_public_tenant_payload(tenant)
     payload.update(
         {
+            "name": settings.get("display_name") or tenant.name,
+            "display_name": settings.get("display_name") or tenant.name,
             "logo": settings.get("logo"),
+            "cover_image": settings.get("cover_image") or settings.get("logo"),
+            "gallery_image_urls": settings.get("gallery_image_urls")
+            or normalize_image_urls(None, settings.get("cover_image") or settings.get("logo")),
+            "tagline": settings.get("tagline"),
+            "description": settings.get("description"),
+            "property_type": settings.get("property_type"),
+            "featured_amenities": settings.get("featured_amenities") or [],
+            "map_link": settings.get("map_link"),
             "website": settings.get("website"),
             "check_in_time": settings.get("check_in_time"),
             "check_out_time": settings.get("check_out_time"),
@@ -744,10 +770,11 @@ def build_hotel_detail(tenant: Tenant, docs: dict[str, list[dict[str, Any]]]) ->
         )
     )
     room_types = build_room_type_summaries(docs.get("room_types", []), rooms, pricing_defaults)
+    summary = build_hotel_summary(tenant, docs)
 
     return {
         "tenant": build_public_tenant_payload(tenant),
-        "summary": build_hotel_summary(tenant, docs),
+        "summary": summary,
         "settings": settings,
         "pricing_defaults": pricing_defaults,
         "room_types": room_types,

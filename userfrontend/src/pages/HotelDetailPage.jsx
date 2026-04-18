@@ -4,9 +4,15 @@ import {
   ArrowLeft,
   BedDouble,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
+  ExternalLink,
+  Globe,
   Hotel,
+  Mail,
   MapPin,
+  Phone,
   Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -39,6 +45,7 @@ const HotelDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedRoomType, setSelectedRoomType] = useState("");
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [stay, setStay] = useState({
     checkIn: searchParams.get("checkIn") || todayDate(),
     checkOut: searchParams.get("checkOut") || tomorrowDate(),
@@ -79,17 +86,63 @@ const HotelDetailPage = () => {
       hotel?.room_types?.[0],
     [hotel, selectedRoomType]
   );
+  const hotelName =
+    hotel?.summary?.display_name ||
+    hotel?.summary?.name ||
+    hotel?.settings?.display_name ||
+    hotel?.tenant?.name ||
+    "this hotel";
+  const heroImage = hotel?.summary?.cover_image || hotel?.settings?.cover_image || hotel?.summary?.logo;
+  const galleryImages = useMemo(
+    () =>
+      [
+        hotel?.summary?.cover_image,
+        ...(hotel?.summary?.gallery_image_urls || []),
+        ...(hotel?.settings?.gallery_image_urls || []),
+        hotel?.summary?.logo,
+      ]
+        .filter(Boolean)
+        .filter((value, index, list) => list.indexOf(value) === index),
+    [hotel]
+  );
+  const currentHeroImage = galleryImages[activeImageIndex] || heroImage;
+  const hotelWebsiteHref = useMemo(() => {
+    const website = String(hotel?.settings?.website || "").trim();
+    if (!website) return "";
+    return website.startsWith("http://") || website.startsWith("https://")
+      ? website
+      : `https://${website}`;
+  }, [hotel]);
+
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [slug]);
+
+  useEffect(() => {
+    if (!galleryImages.length) {
+      setActiveImageIndex(0);
+      return;
+    }
+
+    setActiveImageIndex((current) => (current >= galleryImages.length ? 0 : current));
+  }, [galleryImages.length]);
+
+  const browseImages = (direction) => {
+    if (!galleryImages.length) return;
+
+    setActiveImageIndex((current) => (current + direction + galleryImages.length) % galleryImages.length);
+  };
 
   const whatsappMessage = useMemo(() => {
     if (!hotel) return "";
     return [
-      `Hi Zahi, I want to enquire about ${hotel.tenant?.name}.`,
+      `Hi Zahi, I want to enquire about ${hotelName}.`,
       `Check-in: ${stay.checkIn}`,
       `Check-out: ${stay.checkOut}`,
       `Guests: ${stay.guests}`,
       `Preferred room type: ${chosenRoomType?.name || "Please suggest one"}`,
     ].join("\n");
-  }, [chosenRoomType?.name, hotel, stay.checkIn, stay.checkOut, stay.guests]);
+  }, [chosenRoomType?.name, hotel, hotelName, stay.checkIn, stay.checkOut, stay.guests]);
 
   const submitBooking = async () => {
     if (!hotel) return;
@@ -102,11 +155,11 @@ const HotelDetailPage = () => {
     try {
       await bookingService.createRequest({
         service_type: "hotel",
-        title: `Stay request for ${hotel.tenant?.name}`,
+        title: `Stay request for ${hotelName}`,
         summary: `${stay.guests} guest(s), ${formatDateRange(stay.checkIn, stay.checkOut)}, ${chosenRoomType?.name || "Any room type"}`,
         tenant_id: hotel.tenant?.id || null,
         tenant_slug: hotel.tenant?.slug || null,
-        tenant_name: hotel.tenant?.name || null,
+        tenant_name: hotelName || null,
         total_amount: chosenRoomType?.starting_price || hotel.summary?.starting_price || null,
         metadata: {
           check_in: stay.checkIn,
@@ -160,23 +213,71 @@ const HotelDetailPage = () => {
 
       <section className="glass-panel overflow-hidden rounded-[40px]">
         <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="relative min-h-[24rem] bg-[linear-gradient(135deg,#efddca_0%,#f6eadf_50%,#f0e4d7_100%)]">
-            {hotel.summary?.logo ? (
-              <img src={hotel.summary.logo} alt={hotel.tenant?.name} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full items-center justify-center text-[#9b7a63]">
-                <Hotel className="h-12 w-12" />
+          <div className="flex flex-col bg-[linear-gradient(135deg,#efddca_0%,#f6eadf_50%,#f0e4d7_100%)]">
+            <div className="relative min-h-[24rem]">
+              {currentHeroImage ? (
+                <img src={currentHeroImage} alt={hotelName} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full items-center justify-center text-[#9b7a63]">
+                  <Hotel className="h-12 w-12" />
+                </div>
+              )}
+              <div className="absolute left-6 top-6 rounded-full bg-white/92 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#32695b]">
+                {hotel.summary?.available_rooms || 0} rooms available now
               </div>
-            )}
-            <div className="absolute left-6 top-6 rounded-full bg-white/92 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#32695b]">
-              {hotel.summary?.available_rooms || 0} rooms available now
+              {galleryImages.length > 1 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => browseImages(-1)}
+                    className="absolute left-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/88 text-[#1f1812] shadow-[0_12px_28px_rgba(31,24,18,0.12)] transition hover:bg-white"
+                    aria-label="Previous hotel image"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => browseImages(1)}
+                    className="absolute right-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/88 text-[#1f1812] shadow-[0_12px_28px_rgba(31,24,18,0.12)] transition hover:bg-white"
+                    aria-label="Next hotel image"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                  <div className="absolute bottom-5 right-5 rounded-full bg-[#1f1812]/72 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                    {activeImageIndex + 1} / {galleryImages.length}
+                  </div>
+                </>
+              ) : null}
             </div>
+
+            {galleryImages.length > 1 ? (
+              <div className="flex gap-3 overflow-x-auto px-4 py-4">
+                {galleryImages.map((imageUrl, index) => (
+                  <button
+                    key={`${imageUrl}-${index}`}
+                    type="button"
+                    onClick={() => setActiveImageIndex(index)}
+                    className={`h-20 w-24 shrink-0 overflow-hidden rounded-[20px] border-2 transition ${
+                      index === activeImageIndex
+                        ? "border-[#1f1812] shadow-[0_12px_24px_rgba(31,24,18,0.14)]"
+                        : "border-white/50 opacity-80"
+                    }`}
+                    aria-label={`Show hotel image ${index + 1}`}
+                  >
+                    <img src={imageUrl} alt={`${hotelName} thumbnail ${index + 1}`} className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-6 px-6 py-7 sm:px-8">
             <div>
               <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Hotel detail</p>
-              <h1 className="font-display mt-4 text-6xl leading-none text-[#1f1812]">{hotel.tenant?.name}</h1>
+              <h1 className="font-display mt-4 text-6xl leading-none text-[#1f1812]">{hotelName}</h1>
+              {hotel.summary?.tagline ? (
+                <p className="mt-4 text-base font-medium text-[#8e3f11]">{hotel.summary.tagline}</p>
+              ) : null}
               <p className="mt-5 inline-flex items-center gap-2 text-sm text-[#68584b]">
                 <MapPin className="h-4 w-4" />
                 {formatAddress(hotel.settings?.address)}
@@ -203,6 +304,16 @@ const HotelDetailPage = () => {
             </div>
 
             <div className="flex flex-wrap gap-2">
+              {hotel.summary?.property_type ? (
+                <span className="rounded-full bg-[#eef7f2] px-3 py-1 text-xs font-medium text-[#32695b]">
+                  {hotel.summary.property_type}
+                </span>
+              ) : null}
+              {(hotel.summary?.featured_amenities || []).slice(0, 4).map((label) => (
+                <span key={label} className="rounded-full bg-[#eef7f2] px-3 py-1 text-xs font-medium text-[#32695b]">
+                  {label}
+                </span>
+              ))}
               {(hotel.summary?.room_type_labels || []).map((label) => (
                 <span key={label} className="rounded-full bg-[#f4e6d8] px-3 py-1 text-xs font-medium text-[#5d4d40]">
                   {label}
@@ -213,8 +324,104 @@ const HotelDetailPage = () => {
         </div>
       </section>
 
+      {galleryImages.length > 1 ? (
+        <section className="soft-card rounded-[34px] p-5 sm:p-6">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Gallery</p>
+              <h2 className="font-display mt-3 text-4xl leading-none text-[#1f1812]">See the property mood</h2>
+            </div>
+            <span className="rounded-full bg-[#fbf2e7] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8e3f11]">
+              {galleryImages.length} photos
+            </span>
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {galleryImages.slice(0, 8).map((imageUrl, index) => (
+              <button
+                key={`${imageUrl}-${index}`}
+                type="button"
+                onClick={() => setActiveImageIndex(index)}
+                className={`overflow-hidden rounded-[26px] bg-[#f4e6d8] text-left transition ${
+                  index === activeImageIndex
+                    ? "ring-2 ring-[#1f1812] ring-offset-2 ring-offset-[#fff9f2]"
+                    : ""
+                }`}
+              >
+                <img src={imageUrl} alt={`${hotelName} gallery ${index + 1}`} className="h-48 w-full object-cover" />
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] xl:grid-cols-[1.25fr_0.75fr]">
         <div className="space-y-6">
+          <section className="soft-card rounded-[34px] p-5 sm:p-6">
+            <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Stay profile</p>
+            <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">About this property</h2>
+            <p className="mt-4 max-w-4xl text-sm leading-7 text-[#68584b]">
+              {hotel.summary?.description ||
+                hotel.settings?.description ||
+                "Hotel operators can now add a guest-facing description, stay photos, and key amenities from the hotel settings workspace."}
+            </p>
+
+            <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+              <div className="rounded-[28px] bg-[#fff9f2] p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Highlights</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(hotel.summary?.featured_amenities || hotel.settings?.featured_amenities || []).length ? (
+                    (hotel.summary?.featured_amenities || hotel.settings?.featured_amenities || []).map((label) => (
+                      <span key={label} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#32695b]">
+                        {label}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-[#68584b]">Amenities will appear here once added from hotel settings.</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-[28px] bg-[#fff9f2] p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Contact & links</p>
+                <div className="mt-4 space-y-3 text-sm text-[#68584b]">
+                  <p className="inline-flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-[#8e3f11]" />
+                    {hotel.settings?.phone || hotel.tenant?.phone || "Phone pending"}
+                  </p>
+                  <p className="inline-flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-[#8e3f11]" />
+                    {hotel.settings?.email || hotel.tenant?.email || "Email pending"}
+                  </p>
+                  {hotelWebsiteHref ? (
+                    <a
+                      href={hotelWebsiteHref}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 font-medium text-[#8e3f11]"
+                    >
+                      <Globe className="h-4 w-4" />
+                      Visit website
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  ) : null}
+                  {hotel.settings?.map_link ? (
+                    <a
+                      href={hotel.settings.map_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 font-medium text-[#2e7d67]"
+                    >
+                      <MapPin className="h-4 w-4" />
+                      Open in maps
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section className="soft-card rounded-[34px] p-5 sm:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>

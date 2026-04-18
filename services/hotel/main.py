@@ -1,11 +1,12 @@
 import asyncio
-import os
 import re
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import cloudinary
+import cloudinary.uploader
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -59,6 +60,11 @@ async def initialize_database():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ensure_upload_dir()
+    cloudinary.config(
+        cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+        api_key=settings.CLOUDINARY_API_KEY,
+        api_secret=settings.CLOUDINARY_API_SECRET,
+    )
     await initialize_database()
     yield
 
@@ -370,7 +376,7 @@ async def query_documents(
 @app.post("/hotel/images/upload")
 async def upload_image(
     file: UploadFile = File(...),
-    _: HotelWorkspaceContext = Depends(get_hotel_context),
+    context: HotelWorkspaceContext = Depends(get_hotel_context),
 ):
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported image type.")
@@ -379,15 +385,34 @@ async def upload_image(
     if len(content) > MAX_IMAGE_SIZE:
         raise HTTPException(status_code=413, detail="File too large.")
 
-    extension = Path(file.filename or "").suffix or ".jpg"
-    filename = f"{uuid.uuid4().hex}-{sanitize_filename(Path(file.filename or 'image').stem)}{extension}"
-    target = UPLOAD_DIR / filename
-    with open(target, "wb") as destination:
-        destination.write(content)
+    if not (
+        settings.CLOUDINARY_CLOUD_NAME
+        and settings.CLOUDINARY_API_KEY
+        and settings.CLOUDINARY_API_SECRET
+    ):
+        raise HTTPException(
+            status_code=500,
+            detail="Cloud image upload is not configured for the hotel service.",
+        )
+
+    try:
+        upload_result = cloudinary.uploader.upload(
+            content,
+            folder=f"zahi_connect/hotels/{context.tenant_id}/media",
+            public_id=f"{uuid.uuid4().hex}-{sanitize_filename(Path(file.filename or 'image').stem)}",
+            overwrite=False,
+            resource_type="image",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Image upload failed: {exc}") from exc
+
+    secure_url = upload_result.get("secure_url")
+    if not secure_url:
+        raise HTTPException(status_code=500, detail="Image upload failed.")
 
     return {
         "status": "success",
-        "filename": file.filename or filename,
+        "filename": file.filename or "image",
         "size": len(content),
-        "url": f"/hotel/uploads/{filename}",
+        "url": secure_url,
     }

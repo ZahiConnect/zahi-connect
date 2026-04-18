@@ -16,9 +16,16 @@ export const DEFAULT_HOTEL_SETTINGS = {
   gstin: "",
   checkInTime: "14:00",
   checkOutTime: "11:00",
+  tagline: "",
+  description: "",
+  propertyType: "",
+  featuredAmenities: [],
+  coverImage: "",
+  galleryImages: [],
   logo: "",
   signature: "",
   invoiceFooter: "",
+  mapLink: "",
 };
 
 export const DEFAULT_CUSTOM_BILL_DEFAULTS = {
@@ -50,9 +57,19 @@ export const normalizeBillColor = (value) => {
     : DEFAULT_BILLING_SETTINGS.billColor;
 };
 
+const normalizeStringArray = (value) =>
+  Array.isArray(value)
+    ? value
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+        .filter((item, index, list) => list.indexOf(item) === index)
+    : [];
+
 export const mergeHotelSettings = (doc = null) => ({
   ...DEFAULT_HOTEL_SETTINGS,
   ...(doc || {}),
+  featuredAmenities: normalizeStringArray(doc?.featuredAmenities),
+  galleryImages: normalizeStringArray(doc?.galleryImages),
 });
 
 export const mergeBillingSettings = (doc = null) => {

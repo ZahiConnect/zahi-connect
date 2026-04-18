@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   ExternalLink,
   MapPin,
@@ -37,6 +39,7 @@ const RestaurantDetailPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [payingNow, setPayingNow] = useState(false);
   const [notes, setNotes] = useState("");
+  const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const diners = Number(searchParams.get("diners") || "2");
   const focusedItemId = searchParams.get("focus");
   const shopGalleryImages = useMemo(() => {
@@ -57,6 +60,7 @@ const RestaurantDetailPage = () => {
         .filter(Boolean),
     [restaurant]
   );
+  const currentGalleryImage = shopGalleryImages[activeGalleryIndex] || restaurant?.summary?.cover_image;
   const shopLocationLine = useMemo(
     () =>
       [
@@ -124,6 +128,19 @@ const RestaurantDetailPage = () => {
     target.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [focusedItemId, loading, visibleSections]);
 
+  useEffect(() => {
+    setActiveGalleryIndex(0);
+  }, [slug]);
+
+  useEffect(() => {
+    if (!shopGalleryImages.length) {
+      setActiveGalleryIndex(0);
+      return;
+    }
+
+    setActiveGalleryIndex((current) => (current >= shopGalleryImages.length ? 0 : current));
+  }, [shopGalleryImages.length]);
+
   const allItems = useMemo(
     () => visibleSections.flatMap((section) => section.items || []),
     [visibleSections]
@@ -143,6 +160,14 @@ const RestaurantDetailPage = () => {
     () => cartLines.reduce((sum, line) => sum + line.total, 0),
     [cartLines]
   );
+
+  const browseGallery = (direction) => {
+    if (!shopGalleryImages.length) return;
+
+    setActiveGalleryIndex(
+      (current) => (current + direction + shopGalleryImages.length) % shopGalleryImages.length
+    );
+  };
 
   const updateQuantity = (itemId, nextQuantity) => {
     setCart((current) => {
@@ -331,21 +356,70 @@ const RestaurantDetailPage = () => {
 
       <section className="glass-panel overflow-hidden rounded-[40px]">
         <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="relative min-h-[24rem] bg-[#f2dfcd]">
-            {restaurant.summary?.cover_image ? (
-              <img
-                src={restaurant.summary.cover_image}
-                alt={restaurant.tenant?.name}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-[#b88c6e]">
-                <Store className="h-12 w-12" />
+          <div className="flex flex-col bg-[#f2dfcd]">
+            <div className="relative min-h-[24rem]">
+              {currentGalleryImage ? (
+                <img
+                  src={currentGalleryImage}
+                  alt={restaurant.tenant?.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-[#b88c6e]">
+                  <Store className="h-12 w-12" />
+                </div>
+              )}
+              <div className="absolute left-6 top-6 rounded-full bg-white/92 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
+                {restaurant.summary?.available_item_count || 0} dishes live
               </div>
-            )}
-            <div className="absolute left-6 top-6 rounded-full bg-white/92 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
-              {restaurant.summary?.available_item_count || 0} dishes live
+              {shopGalleryImages.length > 1 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => browseGallery(-1)}
+                    className="absolute left-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/88 text-[#1f1812] shadow-[0_12px_28px_rgba(31,24,18,0.12)] transition hover:bg-white"
+                    aria-label="Previous restaurant image"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => browseGallery(1)}
+                    className="absolute right-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/88 text-[#1f1812] shadow-[0_12px_28px_rgba(31,24,18,0.12)] transition hover:bg-white"
+                    aria-label="Next restaurant image"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                  <div className="absolute bottom-5 right-5 rounded-full bg-[#1f1812]/72 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                    {activeGalleryIndex + 1} / {shopGalleryImages.length}
+                  </div>
+                </>
+              ) : null}
             </div>
+
+            {shopGalleryImages.length > 1 ? (
+              <div className="flex gap-3 overflow-x-auto px-4 py-4">
+                {shopGalleryImages.map((imageUrl, index) => (
+                  <button
+                    key={`${imageUrl}-${index}`}
+                    type="button"
+                    onClick={() => setActiveGalleryIndex(index)}
+                    className={`h-20 w-24 shrink-0 overflow-hidden rounded-[20px] border-2 transition ${
+                      index === activeGalleryIndex
+                        ? "border-[#1f1812] shadow-[0_12px_24px_rgba(31,24,18,0.14)]"
+                        : "border-white/50 opacity-80"
+                    }`}
+                    aria-label={`Show restaurant image ${index + 1}`}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt={`${restaurant.tenant?.name} thumbnail ${index + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className="space-y-6 px-6 py-7 sm:px-8">
             <div>
@@ -482,10 +556,16 @@ const RestaurantDetailPage = () => {
           {shopGalleryImages.length > 0 ? (
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {shopGalleryImages.slice(0, 6).map((imageUrl, index) => (
-                <div
+                <button
                   key={`${imageUrl}-${index}`}
-                  className={`overflow-hidden rounded-[28px] bg-[#f2dfcd] ${
+                  type="button"
+                  onClick={() => setActiveGalleryIndex(index)}
+                  className={`overflow-hidden rounded-[28px] bg-[#f2dfcd] text-left transition ${
                     index === 0 ? "sm:col-span-2" : ""
+                  } ${
+                    index === activeGalleryIndex
+                      ? "ring-2 ring-[#1f1812] ring-offset-2 ring-offset-[#fff9f2]"
+                      : ""
                   }`}
                 >
                   <img
@@ -493,7 +573,7 @@ const RestaurantDetailPage = () => {
                     alt={`${restaurant.tenant?.name} ${index + 1}`}
                     className={`w-full object-cover ${index === 0 ? "h-64" : "h-40"}`}
                   />
-                </div>
+                </button>
               ))}
             </div>
           ) : (

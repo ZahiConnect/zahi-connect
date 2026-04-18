@@ -6,3 +6,4 @@ python-dotenv==1.0.1
 python-jose[cryptography]==3.3.0
 pydantic[email]==2.10.4
 python-multipart==0.0.20
+cloudinary==1.42.1
