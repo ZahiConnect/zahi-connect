@@ -5,6 +5,7 @@ import {
   RefreshCw, Search, MoreVertical, Building2,
   Sparkles, AlertTriangle, Hash, ChevronDown,
   ChevronUp, ArrowUp, ArrowDown,
+  ImageIcon, Upload,
 } from "lucide-react";
 import dbs from "../api/db";
 
@@ -76,6 +77,34 @@ const Toast = ({ msg, type }) => (
   </div>
 );
 
+const normalizeImageUrls = (value, fallback = null) => {
+  const listValue = Array.isArray(value) ? value : [];
+  const normalized = listValue
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .filter((item, index, list) => list.indexOf(item) === index);
+
+  const fallbackValue = String(fallback || "").trim();
+  if (fallbackValue && !normalized.includes(fallbackValue)) {
+    normalized.unshift(fallbackValue);
+  }
+
+  return normalized;
+};
+
+const normalizeRoomDraft = (room = {}) => {
+  const imageUrls = normalizeImageUrls(
+    room.imageUrls || room.image_urls,
+    room.imageUrl || room.image_url
+  );
+
+  return {
+    ...room,
+    imageUrls,
+    imageUrl: imageUrls[0] || "",
+  };
+};
+
 // Status pill
 const StatusPill = ({ status }) => {
   const s = STATUSES.find(x => x.value === status) || STATUSES[0];
@@ -94,6 +123,7 @@ const StatusPill = ({ status }) => {
 // ── Room Card ─────────────────────────────────────────────────────────────────
 const RoomCard = ({ room, onEdit, onDelete, onStatusChange }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const roomImages = normalizeImageUrls(room.imageUrls || room.image_urls, room.imageUrl || room.image_url);
   const statusColor = {
     Available:   "border-t-emerald-400",
     Occupied:    "border-t-blue-500",
@@ -106,6 +136,12 @@ const RoomCard = ({ room, onEdit, onDelete, onStatusChange }) => {
       overflow-visible group hover:shadow-md hover:border-slate-200 transition-all duration-200 relative`}
       style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
       <div className="p-4">
+        {roomImages[0] && (
+          <div className="mb-3 overflow-hidden rounded-xl bg-slate-100">
+            <img src={roomImages[0]} alt={`Room ${room.roomNumber}`} className="h-28 w-full object-cover" />
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div>
@@ -181,16 +217,80 @@ const RoomCard = ({ room, onEdit, onDelete, onStatusChange }) => {
 
 // ── Room Form Modal ───────────────────────────────────────────────────────────
 const RoomModal = ({ isOpen, onClose, onSave, room, roomTypes, floors }) => {
-  const blank = { roomNumber: "", floor: floors[0]?.name || "1", type: roomTypes[0]?.name || "", mode: "AC", status: "Available", notes: "" };
+  const blank = {
+    roomNumber: "",
+    floor: floors[0]?.name || "1",
+    type: roomTypes[0]?.name || "",
+    mode: "AC",
+    status: "Available",
+    notes: "",
+    imageUrls: [],
+    imageUrl: "",
+  };
   const [form, setForm] = useState(blank);
   const [saving, setSaving] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
-  useEffect(() => { setForm(room ? { ...blank, ...room } : blank); }, [room, isOpen]);
+  useEffect(() => { setForm(room ? { ...blank, ...normalizeRoomDraft(room) } : blank); }, [room, isOpen]);
+
+  const uploadRoomImages = async (fileList) => {
+    const files = Array.from(fileList || []).filter(Boolean);
+    if (!files.length) return;
+
+    setUploadingImages(true);
+    try {
+      const uploaded = await Promise.all(files.map((file) => dbs.uploadImage(file)));
+      setForm((current) => ({
+        ...current,
+        imageUrls: normalizeImageUrls(
+          [
+            ...(current.imageUrls || []),
+            ...uploaded.map((item) => item?.url),
+          ],
+          current.imageUrl
+        ),
+        imageUrl: normalizeImageUrls(
+          [
+            ...(current.imageUrls || []),
+            ...uploaded.map((item) => item?.url),
+          ],
+          current.imageUrl
+        )[0] || "",
+      }));
+    } catch (error) {
+      console.error(error);
+      alert("Room image upload failed.");
+    }
+    setUploadingImages(false);
+  };
+
+  const removeRoomImage = (targetUrl) => {
+    const nextImageUrls = (form.imageUrls || []).filter((url) => url !== targetUrl);
+    setForm((current) => ({
+      ...current,
+      imageUrls: nextImageUrls,
+      imageUrl: nextImageUrls[0] || "",
+    }));
+  };
+
+  const makePrimaryImage = (targetUrl) => {
+    const nextImageUrls = normalizeImageUrls(form.imageUrls, targetUrl);
+    setForm((current) => ({
+      ...current,
+      imageUrls: nextImageUrls,
+      imageUrl: nextImageUrls[0] || "",
+    }));
+  };
 
   const submit = async () => {
     if (!form.roomNumber.trim()) return alert("Room number required.");
     setSaving(true);
-    await onSave(form);
+    const imageUrls = normalizeImageUrls(form.imageUrls, form.imageUrl);
+    await onSave({
+      ...form,
+      imageUrls,
+      imageUrl: imageUrls[0] || "",
+    });
     setSaving(false);
   };
 
@@ -270,6 +370,66 @@ const RoomModal = ({ isOpen, onClose, onSave, room, roomTypes, floors }) => {
               placeholder="Any special notes about this room…"
               value={form.notes || ""} onChange={e => setForm({ ...form, notes: e.target.value })} />
           </Field>
+          <Field label="Room Images">
+            <div className="space-y-3">
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50/60">
+                {uploadingImages ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                {uploadingImages ? "Uploading images..." : "Add room images"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={e => uploadRoomImages(e.target.files)}
+                />
+              </label>
+
+              {form.imageUrls?.length ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {form.imageUrls.map((imageUrl, index) => {
+                    const isPrimary = index === 0;
+                    return (
+                      <div key={`${imageUrl}-${index}`} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div className="relative h-28 bg-slate-100">
+                          <img src={imageUrl} alt={`Room image ${index + 1}`} className="h-full w-full object-cover" />
+                          {isPrimary && (
+                            <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-blue-600">
+                              Primary
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-2 p-2">
+                          <button
+                            type="button"
+                            onClick={() => makePrimaryImage(imageUrl)}
+                            className={`flex-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition ${
+                              isPrimary
+                                ? "bg-blue-50 text-blue-600"
+                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                            }`}
+                          >
+                            {isPrimary ? "Primary image" : "Set primary"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeRoomImage(imageUrl)}
+                            className="rounded-lg bg-red-50 px-2 py-1.5 text-[11px] font-semibold text-red-500 transition hover:bg-red-100"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-400">
+                  <ImageIcon size={13} />
+                  Room photos have not been added yet.
+                </div>
+              )}
+            </div>
+          </Field>
         </div>
 
         {/* Footer */}
@@ -301,7 +461,18 @@ const BulkModal = ({ isOpen, onClose, onSave, roomTypes, floors }) => {
 
   const submit = async () => {
     setSaving(true);
-    await onSave(nums.map(n => ({ roomNumber: String(n), floor, type, mode, status: "Available", notes: "" })));
+    await onSave(
+      nums.map(n => ({
+        roomNumber: String(n),
+        floor,
+        type,
+        mode,
+        status: "Available",
+        notes: "",
+        imageUrls: [],
+        imageUrl: "",
+      }))
+    );
     setSaving(false); onClose();
   };
 
@@ -413,7 +584,9 @@ const RoomsTab = ({ roomTypes, floors }) => {
     setLoading(true);
     try {
       const res = await dbs.readCollection("rooms", 500);
-      const data = (res.data || res || []).sort((a, b) => String(a.roomNumber).localeCompare(String(b.roomNumber), undefined, { numeric: true }));
+      const data = (res.data || res || [])
+        .map((room) => normalizeRoomDraft(room))
+        .sort((a, b) => String(a.roomNumber).localeCompare(String(b.roomNumber), undefined, { numeric: true }));
       setRooms(data);
     } catch { showToast("Failed to load rooms", "error"); }
     setLoading(false);
@@ -423,11 +596,12 @@ const RoomsTab = ({ roomTypes, floors }) => {
 
   const saveRoom = async (form) => {
     try {
+      const normalizedForm = normalizeRoomDraft(form);
       if (form.id) {
-        await dbs.editDocument("rooms", form.roomNumber, form);
+        await dbs.editDocument("rooms", form.roomNumber, normalizedForm);
         showToast(`Room ${form.roomNumber} updated`);
       } else {
-        await dbs.addDocument("rooms", form.roomNumber, form);
+        await dbs.addDocument("rooms", form.roomNumber, normalizedForm);
         showToast(`Room ${form.roomNumber} added`);
       }
       setModal({ open: false, room: null });
@@ -437,7 +611,10 @@ const RoomsTab = ({ roomTypes, floors }) => {
 
   const bulkSave = async (list) => {
     try {
-      await Promise.all(list.map(r => dbs.addDocument("rooms", r.roomNumber, r)));
+      await Promise.all(list.map(r => {
+        const normalizedRoom = normalizeRoomDraft(r);
+        return dbs.addDocument("rooms", normalizedRoom.roomNumber, normalizedRoom);
+      }));
       showToast(`${list.length} rooms added`);
       fetch();
     } catch { showToast("Bulk add failed", "error"); }

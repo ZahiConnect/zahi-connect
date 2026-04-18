@@ -356,6 +356,10 @@ def compute_distance_km(
 def normalize_room(room: dict[str, Any]) -> dict[str, Any]:
     status = clean_text(room.get("status")) or "Available"
     mode = clean_text(room.get("mode")) or "Standard"
+    image_urls = normalize_image_urls(
+        room.get("image_urls") or room.get("imageUrls"),
+        room.get("image_url") or room.get("imageUrl"),
+    )
     return {
         "id": clean_text(room.get("id")) or clean_text(room.get("roomNumber")) or "",
         "room_number": clean_text(room.get("roomNumber")) or "-",
@@ -364,6 +368,8 @@ def normalize_room(room: dict[str, Any]) -> dict[str, Any]:
         "mode": mode,
         "status": status,
         "notes": clean_text(room.get("notes")),
+        "image_url": image_urls[0] if image_urls else None,
+        "image_urls": image_urls,
         "is_available": status.lower() == "available",
     }
 
@@ -425,6 +431,13 @@ def build_room_type_summaries(
         ac_price = to_float(rates.get("ac"))
         non_ac_price = to_float(rates.get("non_ac"))
         visible_prices = [price for price in [ac_price, non_ac_price] if price is not None]
+        room_images = normalize_image_urls(
+            [
+                url
+                for room in matching_rooms
+                for url in room.get("image_urls", [])
+            ]
+        )
 
         summaries.append(
             {
@@ -436,6 +449,8 @@ def build_room_type_summaries(
                 "modes": sorted({room.get("mode") for room in matching_rooms if room.get("mode")}),
                 "ac_price": ac_price,
                 "non_ac_price": non_ac_price,
+                "image_url": room_images[0] if room_images else None,
+                "image_urls": room_images,
                 "starting_price": min(visible_prices) if visible_prices else None,
             }
         )

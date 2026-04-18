@@ -149,7 +149,7 @@ const AccountPage = () => {
                 <CalendarDays className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Saved requests</p>
+                <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Bookings and requests</p>
                 <h2 className="font-display text-4xl leading-none text-[#1f1812]">My travel activity</h2>
               </div>
             </div>
@@ -162,8 +162,8 @@ const AccountPage = () => {
               </div>
             ) : requests.length === 0 ? (
               <div className="mt-5 rounded-[24px] bg-[#fcf5ec] px-4 py-6 text-sm leading-7 text-[#68584b]">
-                No booking requests yet. Start with a hotel stay, a restaurant order, or save your
-                future cab and flight interest from the new customer portal.
+                No bookings or requests yet. Start with a hotel stay, a restaurant order, or save
+                your future cab and flight interest from the new customer portal.
               </div>
             ) : (
               <div className="mt-5 space-y-5">
@@ -191,6 +191,11 @@ const AccountPage = () => {
                             {request.metadata?.payment?.provider === "razorpay" ? (
                               <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
                                 Paid via Razorpay
+                              </p>
+                            ) : null}
+                            {request.service_type === "hotel" && request.metadata?.hotel_reservation ? (
+                              <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#2e7d67]">
+                                Reservation confirmed
                               </p>
                             ) : null}
                             <p className="mt-2 text-xs uppercase tracking-[0.18em] text-[#8a7869]">
