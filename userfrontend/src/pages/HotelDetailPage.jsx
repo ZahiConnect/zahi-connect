@@ -1,23 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft,
-  BedDouble,
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
-  ExternalLink,
-  Globe,
-  Hotel,
-  Mail,
-  MapPin,
-  Phone,
-  ShieldCheck,
-  Users,
-  Wallet,
-  Zap,
-} from "lucide-react";
+  FiArrowLeft,
+  FiCalendar,
+  FiClock,
+  FiMapPin,
+  FiPhone,
+  FiMail,
+  FiShield,
+  FiUsers,
+  FiExternalLink
+} from "react-icons/fi";
+import { MdOutlineHotel, MdOutlineBed, MdChevronLeft, MdChevronRight } from "react-icons/md";
+import { FaWhatsapp, FaCreditCard } from "react-icons/fa";
+import { BiGlobe } from "react-icons/bi";
 import toast from "react-hot-toast";
 
 import { useAuth } from "../context/AuthContext";
@@ -94,13 +91,6 @@ const getRoomModePrice = (roomType, roomMode, hotelStartingPrice) => {
   return (hotelStartingPrice != null && hotelStartingPrice > 0) ? hotelStartingPrice : null;
 };
 
-/**
- * ONLY the images directly attached to this specific room record.
- * Room-type images are intentionally excluded because they are shared
- * across every room of that type and would cause all rooms to display
- * the same photos (the original bug: room 122's images appearing on
- * every other room).
- */
 const buildRoomGallery = (room) =>
   uniqueValues([
     ...(room?.image_urls || []),
@@ -117,83 +107,18 @@ const getRoomDescription = (room, roomType, hotel) =>
   hotel?.settings?.description ||
   "A comfortable, well-appointed room ready for a memorable stay. Contact the hotel for more details.";
 
-/* ── status badge style ─────────────────────────────────── */
-const statusStyle = (status, isAvailable) => {
-  if (isAvailable) return { bg: "#ecfdf5", color: "#047857" };
-  const s = String(status || "").toLowerCase();
-  if (s === "maintenance") return { bg: "#fef2f2", color: "#b91c1c" };
-  if (s === "cleaning") return { bg: "#fefce8", color: "#92400e" };
-  return { bg: "#fff7ed", color: "#c2410c" };
-};
-
-/* ── InfoChip helper ───────────────────────────────────── */
-const Chip = ({ children, style = {} }) => (
-  <span
-    style={{
-      fontSize: "10px",
-      fontWeight: "700",
-      letterSpacing: "0.12em",
-      textTransform: "uppercase",
-      padding: "4px 10px",
-      borderRadius: "100px",
-      ...style,
-    }}
-  >
-    {children}
-  </span>
-);
-
-/* ── StatBox ───────────────────────────────────────────── */
-const StatBox = ({ label, value }) => (
-  <div
-    style={{
-      background: "rgba(255,255,255,0.05)",
-      border: "1px solid rgba(255,255,255,0.1)",
-      borderRadius: "14px",
-      padding: "14px 16px",
-    }}
-  >
-    <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(255,255,255,0.4)", marginBottom: "6px" }}>
-      {label}
-    </p>
-    <p style={{ fontSize: "15px", fontWeight: "600", color: "#ffffff" }}>{value}</p>
-  </div>
-);
-
 /* ── FormField ─────────────────────────────────────────── */
 const FormField = ({ label, icon: Icon, children }) => (
-  <label style={{ display: "block" }}>
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "6px",
-        fontSize: "12px",
-        fontWeight: "600",
-        color: "#374151",
-        textTransform: "uppercase",
-        letterSpacing: "0.1em",
-        marginBottom: "8px",
-      }}
-    >
-      {Icon && <Icon style={{ width: "13px", height: "13px" }} />}
+  <label className="block">
+    <span className="flex items-center gap-1.5 text-xs font-bold text-gray-700 uppercase tracking-widest mb-2">
+      {Icon && <Icon />}
       {label}
     </span>
     {children}
   </label>
 );
 
-const inputStyle = {
-  width: "100%",
-  borderRadius: "12px",
-  border: "1px solid rgba(0,0,0,0.12)",
-  background: "#f9fafb",
-  padding: "10px 14px",
-  fontSize: "14px",
-  outline: "none",
-  color: "#111827",
-  boxSizing: "border-box",
-};
+const inputStyle = "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none text-gray-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all";
 
 /* ════════════════════════════════════════════════════════ */
 /*  Main component                                          */
@@ -298,7 +223,6 @@ const HotelDetailPage = () => {
   const selectedRoomType = selectedRoom ? roomTypeMap[selectedRoom.type] || null : null;
   const selectedRoomMode = normalizeRoomMode(selectedRoom?.mode);
 
-  /* Only the selected room's own images — no room-type bleed */
   const selectedRoomImages = useMemo(
     () => buildRoomGallery(selectedRoom),
     [selectedRoom]
@@ -344,21 +268,7 @@ const HotelDetailPage = () => {
     setActiveRoomImageIndex((c) => (c + dir + selectedRoomImages.length) % selectedRoomImages.length);
   };
 
-  const whatsappMessage = useMemo(() => {
-    if (!hotel || !selectedRoom) return "";
-    return [
-      `Hi Zahi, I want to book ${hotelName}.`,
-      `Room: ${selectedRoom.room_number}`,
-      `Type: ${selectedRoom.type}`,
-      `Check-in: ${stay.checkIn}`,
-      `Check-out: ${stay.checkOut}`,
-      `Guests: ${stay.guests}`,
-      specialRequest ? `Notes: ${specialRequest}` : null,
-    ].filter(Boolean).join("\n");
-  }, [hotel, hotelName, selectedRoom, specialRequest, stay.checkIn, stay.checkOut, stay.guests]);
-
   const startInstantBooking = async () => {
-    // ── validation ──────────────────────────────────────────
     if (!hotel || !selectedRoom) {
       toast.error("Please select a room first.");
       return;
@@ -388,10 +298,6 @@ const HotelDetailPage = () => {
       return;
     }
 
-    // ── price resolution ────────────────────────────────────
-    // Use the most specific price available, falling back upward:
-    // room-type price → hotel starting price.
-    // If nothing is set, advise the user to contact via WhatsApp.
     const effectiveNightlyRate =
       selectedRoomPrice ??
       hotel?.summary?.starting_price ??
@@ -452,16 +358,14 @@ const HotelDetailPage = () => {
 
       const checkoutData = await bookingService.createPaymentCheckout(bookingPayload);
 
-      // Load the Razorpay checkout script dynamically
       const razorpayLoaded = await loadRazorpayScript();
       if (!razorpayLoaded || !window.Razorpay) {
         throw new Error("Razorpay checkout failed to load. Please check your internet connection and try again.");
       }
 
       const razorpay = new window.Razorpay({
-        // All values (key, order_id, amount, currency, prefill…) come from the backend
         ...checkoutData.checkout,
-        theme: { color: "#2e7d67" },
+        theme: { color: "#4f46e5" }, // Indigo shade
         handler: async (result) => {
           try {
             await bookingService.verifyPayment({
@@ -498,7 +402,6 @@ const HotelDetailPage = () => {
     }
   };
 
-  // Effective total for display (may use hotel fallback price)
   const effectiveDisplayTotal =
     stayTotal ??
     (() => {
@@ -507,131 +410,76 @@ const HotelDetailPage = () => {
       return fallbackRate != null ? Number((fallbackRate * roomNights).toFixed(2)) : null;
     })();
 
-  /* ── Loading ── */
   if (loading) {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "24px" }}>
-        <div style={{ height: "520px", borderRadius: "20px", background: "linear-gradient(135deg,#f3f4f6,#e5e7eb)", animation: "pulse 1.5s ease-in-out infinite" }} />
-        <div style={{ height: "520px", borderRadius: "20px", background: "linear-gradient(135deg,#f3f4f6,#e5e7eb)", animation: "pulse 1.5s ease-in-out infinite" }} />
+      <div className="flex flex-col md:flex-row gap-6 p-6">
+        <div className="flex-1 h-[520px] rounded-3xl bg-gray-100 animate-pulse" />
+        <div className="w-full md:w-[380px] h-[520px] rounded-3xl bg-gray-100 animate-pulse" />
       </div>
     );
   }
 
-  /* ── Not found ── */
   if (!hotel) {
     return (
-      <div
-        style={{
-          textAlign: "center",
-          padding: "80px 40px",
-          background: "#ffffff",
-          borderRadius: "20px",
-          border: "1px solid rgba(0,0,0,0.06)",
-        }}
-      >
-        <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#f0fdf9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-          <Hotel style={{ width: "28px", height: "28px", color: "#2e7d67" }} />
+      <div className="text-center py-24 px-10 bg-white rounded-3xl border border-gray-100 mt-10 max-w-2xl mx-auto shadow-sm">
+        <div className="w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center mx-auto mb-6">
+          <MdOutlineHotel className="text-4xl text-indigo-500" />
         </div>
-        <h1 className="font-display" style={{ fontSize: "40px", color: "#111827", marginBottom: "12px" }}>
+        <h1 className="text-3xl font-extrabold text-gray-900 mb-4">
           Property unavailable
         </h1>
-        <p style={{ fontSize: "14px", color: "#6b7280", lineHeight: 1.7, maxWidth: "360px", margin: "0 auto 28px" }}>
-          We couldn&apos;t find this property. It may have moved or is temporarily unlisted.
+        <p className="text-gray-500 mb-8 max-w-md mx-auto">
+          We couldn't find this property. It may have moved or is temporarily unlisted.
         </p>
         <Link
           to="/hotels"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "8px",
-            background: "#111827",
-            color: "#ffffff",
-            borderRadius: "12px",
-            padding: "12px 24px",
-            fontSize: "14px",
-            fontWeight: "600",
-            textDecoration: "none",
-          }}
+          className="inline-flex items-center gap-2 bg-gray-900 text-white rounded-full px-6 py-3 text-sm font-semibold hover:bg-black transition-colors"
         >
-          <ArrowLeft style={{ width: "16px", height: "16px" }} />
+          <FiArrowLeft />
           Explore all hotels
         </Link>
       </div>
     );
   }
 
-  /* ════════════════════════════════════════════════════════ */
-  /*  Main layout                                             */
-  /* ════════════════════════════════════════════════════════ */
-  const ss = selectedRoom ? statusStyle(selectedRoom.status, selectedRoom.is_available) : null;
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden mb-12 pb-32 p-4 md:p-6 lg:p-8 flex flex-col gap-8">
 
-      {/* Back link */}
       <Link
         to="/hotels"
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "6px",
-          fontSize: "13px",
-          fontWeight: "600",
-          color: "#2e7d67",
-          textDecoration: "none",
-        }}
+        className="inline-flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 w-fit px-4 py-2 rounded-full"
       >
-        <ArrowLeft style={{ width: "15px", height: "15px" }} />
+        <FiArrowLeft />
         All hotels
       </Link>
 
-      {/* ── Hero panel ── */}
-      <section
-        style={{
-          background: "linear-gradient(135deg, #0f1117 0%, #1a1f2e 100%)",
-          borderRadius: "24px",
-          overflow: "hidden",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          minHeight: "440px",
-          position: "relative",
-        }}
-        className="hotel-hero-grid"
-      >
-        {/* Left: image carousel */}
-        <div style={{ position: "relative", overflow: "hidden" }}>
+      {/* ── Hero section ── */}
+      <section className="bg-gray-900 rounded-[32px] overflow-hidden grid grid-cols-1 lg:grid-cols-2 min-h-[440px] shadow-2xl relative">
+        <div className="relative overflow-hidden h-[300px] lg:h-auto">
           {currentHeroImage ? (
             <img
               src={currentHeroImage}
               alt={hotelName}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              className="w-full h-full object-cover"
             />
           ) : (
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: "320px",
-              }}
-            >
-              <Hotel style={{ width: "60px", height: "60px", color: "rgba(255,255,255,0.15)" }} />
+            <div className="w-full h-full flex items-center justify-center min-h-[320px] bg-gray-800">
+              <MdOutlineHotel className="text-6xl text-gray-600" />
             </div>
           )}
-          {/* Dark gradient right-side overlay */}
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, transparent 60%, rgba(15,17,23,0.85) 100%)" }} />
+          
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-gray-900/90 hidden lg:block" />
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent lg:hidden" />
 
-          {/* Available badge */}
-          <div style={{ position: "absolute", top: "20px", left: "20px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <Chip style={{ background: "rgba(46,125,103,0.9)", color: "#ffffff", backdropFilter: "blur(8px)" }}>
+          {/* Badges */}
+          <div className="absolute top-6 left-6 flex gap-2 flex-wrap z-10">
+            <span className="bg-green-500/90 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase shadow-lg">
               {hotel.summary?.available_rooms || 0} rooms available
-            </Chip>
+            </span>
             {hotel.summary?.property_type && (
-              <Chip style={{ background: "rgba(255,255,255,0.12)", color: "#ffffff", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.2)" }}>
+              <span className="bg-white/20 backdrop-blur-md border border-white/20 text-white px-3 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase shadow-lg">
                 {hotel.summary.property_type}
-              </Chip>
+              </span>
             )}
           </div>
 
@@ -641,67 +489,25 @@ const HotelDetailPage = () => {
               <button
                 type="button"
                 onClick={() => browseHeroImages(-1)}
-                style={{
-                  position: "absolute",
-                  left: "16px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "50%",
-                  background: "rgba(255,255,255,0.9)",
-                  border: "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
-                }}
-                aria-label="Previous image"
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 shadow-xl flex items-center justify-center hover:bg-white hover:scale-105 transition-all text-gray-900"
               >
-                <ChevronLeft style={{ width: "18px", height: "18px" }} />
+                <MdChevronLeft className="text-2xl" />
               </button>
               <button
                 type="button"
                 onClick={() => browseHeroImages(1)}
-                style={{
-                  position: "absolute",
-                  right: "16px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "50%",
-                  background: "rgba(255,255,255,0.9)",
-                  border: "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
-                }}
-                aria-label="Next image"
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 shadow-xl flex items-center justify-center hover:bg-white hover:scale-105 transition-all text-gray-900"
               >
-                <ChevronRight style={{ width: "18px", height: "18px" }} />
+                <MdChevronRight className="text-2xl" />
               </button>
 
-              {/* Thumbnail strip */}
-              <div style={{ position: "absolute", bottom: "12px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "6px" }}>
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
                 {propertyImages.map((_, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => setActiveHeroImageIndex(idx)}
-                    style={{
-                      width: idx === activeHeroImageIndex ? "24px" : "8px",
-                      height: "8px",
-                      borderRadius: "100px",
-                      background: idx === activeHeroImageIndex ? "#ffffff" : "rgba(255,255,255,0.4)",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: 0,
-                      transition: "all 0.25s ease",
-                    }}
+                    className={`h-2 rounded-full transition-all duration-300 ${idx === activeHeroImageIndex ? "w-6 bg-white" : "w-2 bg-white/40"}`}
                   />
                 ))}
               </div>
@@ -709,277 +515,144 @@ const HotelDetailPage = () => {
           )}
         </div>
 
-        {/* Right: hotel info */}
-        <div style={{ padding: "40px 40px 40px 48px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        {/* Info Box */}
+        <div className="p-8 md:p-12 flex flex-col justify-between z-10 relative">
           <div>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                background: "rgba(201,169,110,0.15)",
-                border: "1px solid rgba(201,169,110,0.3)",
-                borderRadius: "100px",
-                padding: "5px 14px",
-                marginBottom: "16px",
-              }}
-            >
-              <span style={{ fontSize: "10px", fontWeight: "700", letterSpacing: "0.16em", textTransform: "uppercase", color: "#c9a96e" }}>
-                Hotels &amp; Stays
-              </span>
-            </div>
+            <span className="inline-flex items-center gap-1.5 text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase mb-6">
+              Hotels & Stays
+            </span>
 
-            <h1
-              className="font-display"
-              style={{ fontSize: "clamp(32px, 4vw, 54px)", color: "#ffffff", lineHeight: 1.05, margin: "0 0 12px" }}
-            >
+            <h1 className="text-4xl md:text-5xl font-extrabold text-white leading-tight mb-3">
               {hotelName}
             </h1>
 
             {hotel.summary?.tagline && (
-              <p style={{ fontSize: "14px", color: "#c9a96e", fontWeight: "500", marginBottom: "10px" }}>
+              <p className="text-indigo-300 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
                 {hotel.summary.tagline}
               </p>
             )}
 
-            <p style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: "rgba(255,255,255,0.55)", marginBottom: "28px" }}>
-              <MapPin style={{ width: "14px", height: "14px", color: "#c9a96e", flexShrink: 0 }} />
-              {formatAddress(hotel.settings?.address)}
+            <p className="flex items-center gap-2 text-sm text-gray-400 mb-10">
+              <FiMapPin className="text-indigo-400 shrink-0" />
+              <span className="truncate">{formatAddress(hotel.settings?.address)}</span>
             </p>
 
-            {/* Stats */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-              <StatBox label="Starting from" value={hotel.summary?.starting_price ? formatCurrency(hotel.summary.starting_price) : "—"} />
-              <StatBox label="Check-in / out" value={`${hotel.settings?.check_in_time || "14:00"} / ${hotel.settings?.check_out_time || "11:00"}`} />
-              <StatBox label="Total rooms" value={`${hotel.summary?.total_rooms || 0}`} />
-              <StatBox label="Room types" value={`${hotel.summary?.room_type_count || 0} categories`} />
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-1">Starting from</p>
+                <p className="text-white font-bold text-base">{hotel.summary?.starting_price ? formatCurrency(hotel.summary.starting_price) : "—"}</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-1">Check In/Out</p>
+                <p className="text-white font-bold text-base">{hotel.settings?.check_in_time || "14:00"} / {hotel.settings?.check_out_time || "11:00"}</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-1">Total Rooms</p>
+                <p className="text-white font-bold text-base">{hotel.summary?.total_rooms || 0}</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-1">Room Types</p>
+                <p className="text-white font-bold text-base">{hotel.summary?.room_type_count || 0} categories</p>
+              </div>
             </div>
           </div>
 
-          {/* Amenity tags */}
           {(hotel.summary?.featured_amenities || []).length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "24px" }}>
+            <div className="flex flex-wrap gap-2 pt-4 border-t border-white/10">
               {(hotel.summary.featured_amenities).slice(0, 6).map((a) => (
-                <span
-                  key={a}
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: "500",
-                    color: "rgba(255,255,255,0.7)",
-                    background: "rgba(255,255,255,0.08)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    borderRadius: "100px",
-                    padding: "4px 12px",
-                  }}
-                >
-                  {a}
-                </span>
+                 <span key={a} className="text-[10px] font-bold text-gray-300 bg-white/10 border border-white/10 rounded-full px-3 py-1 tracking-wider uppercase">
+                   {a}
+                 </span>
               ))}
             </div>
           )}
         </div>
       </section>
 
-      {/* ── Contact quick row ── */}
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }} className="contact-grid">
+      {/* ── Contact links ── */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          {
-            href: hotel.settings?.map_link || "#",
-            icon: MapPin,
-            label: "Location",
-            value: "Open in maps",
-            external: !!hotel.settings?.map_link,
-          },
-          {
-            href: hotelWebsiteHref || "#",
-            icon: Globe,
-            label: "Website",
-            value: "Visit hotel site",
-            external: !!hotelWebsiteHref,
-          },
-          {
-            href: hotel.settings?.phone ? `tel:${hotel.settings.phone}` : "#",
-            icon: Phone,
-            label: "Phone",
-            value: hotel.settings?.phone || hotel.tenant?.phone || "—",
-            external: false,
-          },
-          {
-            href: hotel.settings?.email ? `mailto:${hotel.settings.email}` : "#",
-            icon: Mail,
-            label: "Email",
-            value: hotel.settings?.email || hotel.tenant?.email || "—",
-            external: false,
-          },
+          { href: hotel.settings?.map_link || "#", icon: FiMapPin, label: "Location", value: "Open in maps", external: !!hotel.settings?.map_link },
+          { href: hotelWebsiteHref || "#", icon: BiGlobe, label: "Website", value: "Visit hotel site", external: !!hotelWebsiteHref },
+          { href: hotel.settings?.phone ? `tel:${hotel.settings.phone}` : "#", icon: FiPhone, label: "Phone", value: hotel.settings?.phone || hotel.tenant?.phone || "—", external: false },
+          { href: hotel.settings?.email ? `mailto:${hotel.settings.email}` : "#", icon: FiMail, label: "Email", value: hotel.settings?.email || hotel.tenant?.email || "—", external: false },
         ].map(({ href, icon: Icon, label, value, external }) => (
           <a
             key={label}
             href={href}
             target={external ? "_blank" : undefined}
             rel={external ? "noreferrer" : undefined}
-            style={{
-              display: "block",
-              background: "#ffffff",
-              border: "1px solid rgba(0,0,0,0.07)",
-              borderRadius: "16px",
-              padding: "16px",
-              textDecoration: "none",
-              transition: "box-shadow 0.2s ease, transform 0.2s ease",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.1)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "translateY(0)"; }}
+            className="group block bg-white border border-gray-100 rounded-3xl p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-              <Icon style={{ width: "16px", height: "16px", color: "#2e7d67" }} />
-              <span style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.16em", color: "#9ca3af", fontWeight: "600" }}>
-                {label}
-              </span>
+            <div className="flex items-center gap-2 mb-2">
+              <Icon className="text-indigo-600" />
+              <span className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">{label}</span>
             </div>
-            <p style={{ fontSize: "13px", fontWeight: "600", color: "#111827", margin: 0 }}>{value}</p>
+            <p className="text-sm font-bold text-gray-900 group-hover:text-indigo-600 transition-colors truncate">{value}</p>
           </a>
         ))}
       </section>
 
-      {/* ── Main content: rooms + booking sidebar ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: "24px", alignItems: "start" }} className="rooms-grid">
-
-        {/* ── Left: Room browser ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-
-          {/* Section header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      {/* ── Main Layout ── */}
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
+        
+        {/* Left Side */}
+        <div className="flex-1 flex flex-col gap-6 w-full lg:w-auto">
+          
+          <div className="flex justify-between items-end border-b border-gray-200 pb-4">
             <div>
-              <p style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.2em", color: "#2e7d67", fontWeight: "700", marginBottom: "4px" }}>
-                Available Rooms
-              </p>
-              <h2 className="font-display" style={{ fontSize: "32px", color: "#111827", margin: 0 }}>
-                Select your room
-              </h2>
+              <p className="text-xs uppercase tracking-[0.2em] text-indigo-600 font-bold mb-1">Available Rooms</p>
+              <h2 className="text-3xl font-extrabold text-gray-900">Select your room</h2>
             </div>
-            <span
-              style={{
-                fontSize: "12px",
-                fontWeight: "700",
-                color: "#2e7d67",
-                background: "#f0fdf9",
-                border: "1px solid rgba(46,125,103,0.2)",
-                borderRadius: "100px",
-                padding: "6px 14px",
-              }}
-            >
+            <span className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-4 py-1.5 hidden sm:block">
               {sortedRooms.length} rooms
             </span>
           </div>
 
-          {/* Room grid */}
           {sortedRooms.length ? (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-                gap: "12px",
-                maxHeight: "600px",
-                overflowY: "auto",
-                paddingRight: "4px",
-              }}
-            >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
               {sortedRooms.map((room) => {
                 const isSelected = String(selectedRoom?.room_number) === String(room.room_number);
-                // Only use images directly attached to this specific room — no
-                // room-type fallback, which would bleed the same images onto every
-                // room that shares the same type (e.g. all "Standard" rooms).
                 const directImages = buildDirectRoomImages(room);
                 const previewImage = directImages[0] || null;
-                const { bg: sBg, color: sColor } = statusStyle(room.status, room.is_available);
 
+                let badgeColor = room.is_available ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700";
+                
                 return (
                   <button
                     key={room.id || room.room_number}
                     type="button"
                     onClick={() => setSelectedRoomNumber(room.room_number)}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      textAlign: "left",
-                      border: isSelected ? "2px solid #111827" : "1px solid rgba(0,0,0,0.08)",
-                      borderRadius: "16px",
-                      overflow: "hidden",
-                      background: isSelected ? "#111827" : "#ffffff",
-                      cursor: "pointer",
-                      transition: "all 0.22s ease",
-                      boxShadow: isSelected ? "0 16px 40px rgba(0,0,0,0.18)" : "0 2px 8px rgba(0,0,0,0.05)",
-                      transform: isSelected ? "scale(1.01)" : "scale(1)",
-                    }}
+                    className={`flex flex-col text-left rounded-3xl overflow-hidden transition-all duration-300 relative ${
+                      isSelected 
+                        ? "border-2 border-indigo-600 bg-indigo-50/50 shadow-md scale-[1.02] z-10" 
+                        : "border border-gray-100 bg-white hover:border-indigo-200 hover:shadow-lg"
+                    }`}
                   >
-                    {/* Room image */}
-                    <div
-                      style={{
-                        height: "120px",
-                        background: previewImage
-                          ? "transparent"
-                          : isSelected
-                          ? "rgba(255,255,255,0.08)"
-                          : "#f3f4f6",
-                        position: "relative",
-                        overflow: "hidden",
-                      }}
-                    >
+                    <div className={`h-32 relative overflow-hidden bg-gray-100 ${isSelected ? "opacity-100" : "opacity-90 grayscale-[20%]"}`}>
                       {previewImage ? (
-                        <img
-                          src={previewImage}
-                          alt={`Room ${room.room_number}`}
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        />
+                        <img src={previewImage} alt={`Room`} className="w-full h-full object-cover" />
                       ) : (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-                          <BedDouble style={{ width: "32px", height: "32px", color: isSelected ? "rgba(255,255,255,0.25)" : "#d1d5db" }} />
+                        <div className="h-full w-full flex items-center justify-center">
+                          <MdOutlineBed className="text-4xl text-gray-300" />
                         </div>
                       )}
-
-                      {/* Room number badge */}
-                      <span
-                        style={{
-                          position: "absolute",
-                          top: "8px",
-                          left: "8px",
-                          background: "rgba(255,255,255,0.92)",
-                          color: "#111827",
-                          fontSize: "10px",
-                          fontWeight: "700",
-                          letterSpacing: "0.12em",
-                          textTransform: "uppercase",
-                          padding: "3px 8px",
-                          borderRadius: "100px",
-                        }}
-                      >
+                      <span className="absolute top-3 left-3 bg-white/95 text-gray-900 text-[10px] font-extrabold tracking-widest uppercase px-3 py-1 rounded-full shadow-sm">
                         #{room.room_number}
                       </span>
                     </div>
 
-                    {/* Room info */}
-                    <div style={{ padding: "12px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
-                        <p style={{ fontSize: "13px", fontWeight: "700", color: isSelected ? "#ffffff" : "#111827", margin: 0 }}>
+                    <div className="p-4">
+                      <div className="flex justify-between items-start mb-1 gap-2">
+                        <p className={`text-sm font-extrabold truncate ${isSelected ? "text-indigo-900" : "text-gray-900"}`}>
                           {room.type}
                         </p>
-                        <span
-                          style={{
-                            fontSize: "9px",
-                            fontWeight: "700",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.1em",
-                            padding: "2px 7px",
-                            borderRadius: "100px",
-                            background: sBg,
-                            color: sColor,
-                            flexShrink: 0,
-                          }}
-                        >
+                        <span className={`text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full shrink-0 ${badgeColor}`}>
                           {room.status}
                         </span>
                       </div>
-                      <p style={{ fontSize: "11px", color: isSelected ? "rgba(255,255,255,0.5)" : "#6b7280", margin: 0 }}>
-                        Floor {room.floor || "G"} · {normalizeRoomMode(room.mode)}
+                      <p className={`text-xs font-semibold ${isSelected ? "text-indigo-600" : "text-gray-500"}`}>
+                         Floor {room.floor || "G"} · {normalizeRoomMode(room.mode)}
                       </p>
                     </div>
                   </button>
@@ -987,456 +660,175 @@ const HotelDetailPage = () => {
               })}
             </div>
           ) : (
-            <div
-              style={{
-                padding: "48px 32px",
-                textAlign: "center",
-                background: "#f9fafb",
-                borderRadius: "16px",
-                border: "2px dashed rgba(0,0,0,0.08)",
-                fontSize: "14px",
-                color: "#6b7280",
-              }}
-            >
+            <div className="p-10 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200 text-gray-500">
               Rooms will appear here once the property team publishes availability.
             </div>
           )}
 
-          {/* ── Selected room detail panel ── */}
-          {selectedRoom ? (
-            <div
-              style={{
-                background: "#ffffff",
-                border: "1px solid rgba(0,0,0,0.07)",
-                borderRadius: "20px",
-                overflow: "hidden",
-              }}
+          {/* Selected Room Details */}
+          {selectedRoom && (
+            <motion.div 
+               initial={{ opacity: 0, y: 10 }}
+               animate={{ opacity: 1, y: 0 }}
+               className="bg-white border border-gray-100 rounded-[32px] overflow-hidden mt-4 shadow-sm"
             >
-              {/* Room image viewer */}
-              <div style={{ position: "relative", height: "320px", background: "#f3f4f6" }}>
+              <div className="h-[400px] relative bg-gray-100">
                 {currentRoomImage ? (
-                  <img
-                    src={currentRoomImage}
-                    alt={`Room ${selectedRoom.room_number}`}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  />
+                   <img src={currentRoomImage} alt="Room View" className="w-full h-full object-cover" />
                 ) : (
-                  /* ── IMAGE FIX: no fallback to hotel images — show proper empty state ── */
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      height: "100%",
-                      gap: "12px",
-                    }}
-                  >
-                    <BedDouble style={{ width: "48px", height: "48px", color: "#d1d5db" }} />
-                    <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>No photos for this room yet</p>
-                  </div>
+                   <div className="flex flex-col items-center justify-center h-full gap-4">
+                     <MdOutlineBed className="text-6xl text-gray-300" />
+                     <p className="text-gray-400 font-medium">No photos for this room yet</p>
+                   </div>
                 )}
-
+                
                 {selectedRoomImages.length > 1 && (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => browseRoomImages(-1)}
-                      style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.9)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                      aria-label="Previous room image"
-                    >
-                      <ChevronLeft style={{ width: "16px", height: "16px" }} />
+                    <button onClick={() => browseRoomImages(-1)} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center hover:bg-white shadow-lg text-gray-900 transition-all hover:scale-105">
+                      <MdChevronLeft className="text-2xl" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => browseRoomImages(1)}
-                      style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.9)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                      aria-label="Next room image"
-                    >
-                      <ChevronRight style={{ width: "16px", height: "16px" }} />
+                    <button onClick={() => browseRoomImages(1)} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center hover:bg-white shadow-lg text-gray-900 transition-all hover:scale-105">
+                      <MdChevronRight className="text-2xl" />
                     </button>
                   </>
                 )}
 
-                {/* Bottom overlay */}
                 {currentRoomImage && (
-                  <div style={{ position: "absolute", bottom: 0, insetInline: 0, background: "linear-gradient(transparent, rgba(0,0,0,0.7))", padding: "24px 20px 16px", display: "flex", gap: "8px" }}>
-                    <Chip style={{ background: "rgba(255,255,255,0.9)", color: "#111827" }}>{selectedRoom.type}</Chip>
-                    <Chip style={{ background: "rgba(255,255,255,0.15)", color: "#ffffff", backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,0.2)" }}>{selectedRoomMode}</Chip>
-                    <Chip style={{ background: "rgba(255,255,255,0.15)", color: "#ffffff", backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,0.2)" }}>Floor {selectedRoom.floor || "G"}</Chip>
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-6 flex gap-2">
+                    <span className="bg-white text-gray-900 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full">{selectedRoom.type}</span>
+                    <span className="bg-black/50 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full">{selectedRoomMode}</span>
                   </div>
                 )}
               </div>
 
-              {/* Thumbnail strip */}
               {selectedRoomImages.length > 1 && (
-                <div style={{ display: "flex", gap: "8px", overflowX: "auto", padding: "12px 16px", background: "#f9fafb" }}>
+                <div className="flex gap-3 overflow-x-auto p-4 bg-gray-50 border-b border-gray-100 custom-scrollbar">
                   {selectedRoomImages.map((url, idx) => (
-                    <button
-                      key={`${url}-${idx}`}
-                      type="button"
-                      onClick={() => setActiveRoomImageIndex(idx)}
-                      style={{
-                        flexShrink: 0,
-                        width: "72px",
-                        height: "54px",
-                        borderRadius: "10px",
-                        overflow: "hidden",
-                        border: idx === activeRoomImageIndex ? "2px solid #111827" : "2px solid transparent",
-                        cursor: "pointer",
-                        padding: 0,
-                        opacity: idx === activeRoomImageIndex ? 1 : 0.65,
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      <img src={url} alt={`Room ${selectedRoom.room_number} view ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <button key={idx} onClick={() => setActiveRoomImageIndex(idx)} className={`shrink-0 w-24 h-16 rounded-xl overflow-hidden transition-all ${idx === activeRoomImageIndex ? "border-2 border-indigo-600 scale-105" : "border-2 border-transparent opacity-60 hover:opacity-100"}`}>
+                      <img src={url} alt="" className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* Room details */}
-              <div style={{ padding: "24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+              <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
-                  <h3 style={{ fontSize: "22px", fontWeight: "700", color: "#111827", marginBottom: "4px" }}>
-                    Room {selectedRoom.room_number}
-                  </h3>
-                  <p style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.14em", color: "#6b7280", marginBottom: "12px" }}>
+                  <h3 className="text-2xl font-extrabold text-gray-900 mb-1">Room {selectedRoom.room_number}</h3>
+                  <p className="text-indigo-600 text-xs font-bold uppercase tracking-widest mb-4">
                     {selectedRoom.type} · {selectedRoomMode}
                   </p>
-                  <p style={{ fontSize: "13px", lineHeight: 1.7, color: "#4b5563" }}>{selectedRoomDescription}</p>
+                  <p className="text-gray-600 leading-relaxed text-sm">
+                    {selectedRoomDescription}
+                  </p>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", alignContent: "start" }}>
-                  {[
-                    { label: "Nightly rate", value: selectedRoomPrice != null ? formatCurrency(selectedRoomPrice) : "—" },
-                    { label: "Stay total", value: effectiveDisplayTotal != null ? formatCurrency(effectiveDisplayTotal) : "—" },
-                    { label: "Availability", value: `${roomAvailabilityCount} of this type` },
-                    { label: "Stay length", value: `${roomNights} night${roomNights !== 1 ? "s" : ""}` },
-                  ].map(({ label, value }) => (
-                    <div key={label} style={{ background: "#f9fafb", borderRadius: "12px", padding: "12px 14px" }}>
-                      <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.14em", color: "#9ca3af", marginBottom: "4px" }}>{label}</p>
-                      <p style={{ fontSize: "14px", fontWeight: "700", color: "#111827" }}>{value}</p>
-                    </div>
-                  ))}
+                
+                <div className="grid grid-cols-2 gap-3">
+                   <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                     <p className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-1">Nightly rate</p>
+                     <p className="text-base font-extrabold text-gray-900">{selectedRoomPrice != null ? formatCurrency(selectedRoomPrice) : "—"}</p>
+                   </div>
+                   <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-100">
+                     <p className="text-[10px] uppercase tracking-widest font-bold text-indigo-400 mb-1">Stay total</p>
+                     <p className="text-base font-extrabold text-indigo-900">{effectiveDisplayTotal != null ? formatCurrency(effectiveDisplayTotal) : "—"}</p>
+                   </div>
+                   <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                     <p className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-1">Availability</p>
+                     <p className="text-base font-extrabold text-gray-900">{roomAvailabilityCount} available</p>
+                   </div>
+                   <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                     <p className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-1">Stay length</p>
+                     <p className="text-base font-extrabold text-gray-900">{roomNights} night{roomNights !== 1 ? "s" : ""}</p>
+                   </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                height: "240px",
-                background: "#f9fafb",
-                borderRadius: "20px",
-                border: "2px dashed rgba(0,0,0,0.08)",
-                fontSize: "14px",
-                color: "#6b7280",
-              }}
-            >
-              Select a room from the list above to view photos and details.
-            </div>
+            </motion.div>
           )}
         </div>
 
-        {/* ── Right: Booking sidebar ── */}
-        <aside style={{ position: "sticky", top: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
-          <div
-            style={{
-              background: "#ffffff",
-              border: "1px solid rgba(0,0,0,0.07)",
-              borderRadius: "20px",
-              overflow: "hidden",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
-            }}
-          >
-            {/* Sidebar header */}
-            <div style={{ background: "linear-gradient(135deg, #0f1117 0%, #1a1f2e 100%)", padding: "24px" }}>
-              <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.2em", color: "rgba(201,169,110,0.8)", marginBottom: "8px" }}>
-                Reserve your stay
-              </p>
-              <h2 className="font-display" style={{ fontSize: "28px", color: "#ffffff", margin: 0 }}>
-                {selectedRoom ? `Room ${selectedRoom.room_number}` : "Select a room"}
-              </h2>
-              {selectedRoom && ss && (
-                <span
-                  style={{
-                    display: "inline-block",
-                    marginTop: "8px",
-                    fontSize: "10px",
-                    fontWeight: "700",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.12em",
-                    padding: "4px 10px",
-                    borderRadius: "100px",
-                    background: ss.bg,
-                    color: ss.color,
-                  }}
-                >
-                  {selectedRoom.status}
-                </span>
-              )}
-            </div>
-
-            {/* Selected room mini card */}
-            {selectedRoom && (
-              <div style={{ padding: "16px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                <div
-                  style={{
-                    borderRadius: "14px",
-                    overflow: "hidden",
-                    background: "#f3f4f6",
-                    height: "120px",
-                    marginBottom: "12px",
-                  }}
-                >
-                  {selectedRoomImages[0] ? (
-                    <img
-                      src={selectedRoomImages[0]}
-                      alt={`Room ${selectedRoom.room_number}`}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", gap: "8px" }}>
-                      <BedDouble style={{ width: "28px", height: "28px", color: "#9ca3af" }} />
-                    </div>
-                  )}
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <p style={{ fontSize: "14px", fontWeight: "700", color: "#111827", marginBottom: "2px" }}>
-                      Room {selectedRoom.room_number}
-                    </p>
-                    <p style={{ fontSize: "12px", color: "#6b7280" }}>{selectedRoom.type} · {selectedRoomMode}</p>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>Nightly</p>
-                    <p style={{ fontSize: "15px", fontWeight: "700", color: "#111827" }}>
-                      {selectedRoomPrice != null ? formatCurrency(selectedRoomPrice) : "—"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Booking form */}
-            <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                <FormField label="Check-in" icon={CalendarDays}>
-                  <input
-                    type="date"
-                    value={stay.checkIn}
-                    onChange={(e) => setStay((c) => ({ ...c, checkIn: e.target.value }))}
-                    style={inputStyle}
-                  />
-                </FormField>
-                <FormField label="Check-out" icon={Clock3}>
-                  <input
-                    type="date"
-                    value={stay.checkOut}
-                    onChange={(e) => setStay((c) => ({ ...c, checkOut: e.target.value }))}
-                    style={inputStyle}
-                  />
-                </FormField>
-              </div>
-
-              <FormField label="Guests" icon={Users}>
-                <input
-                  type="number"
-                  min="1"
-                  max="8"
-                  value={stay.guests}
-                  onChange={(e) => setStay((c) => ({ ...c, guests: clampGuests(e.target.value) }))}
-                  style={inputStyle}
-                />
-              </FormField>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                <FormField label="Lead guest" icon={ShieldCheck}>
-                  <input
-                    type="text"
-                    value={guestProfile.guestName}
-                    onChange={(e) => setGuestProfile((c) => ({ ...c, guestName: e.target.value }))}
-                    placeholder="Full name"
-                    style={inputStyle}
-                  />
-                </FormField>
-                <FormField label="Contact" icon={Phone}>
-                  <input
-                    type="tel"
-                    value={guestProfile.phone}
-                    onChange={(e) => setGuestProfile((c) => ({ ...c, phone: e.target.value }))}
-                    placeholder="Mobile"
-                    style={inputStyle}
-                  />
-                </FormField>
-              </div>
-
-              <FormField label="Special request" icon={Mail}>
-                <textarea
-                  rows="2"
-                  value={specialRequest}
-                  onChange={(e) => setSpecialRequest(e.target.value)}
-                  placeholder="Quiet room, late check-in…"
-                  style={{ ...inputStyle, resize: "vertical" }}
-                />
-              </FormField>
-            </div>
-
-            {/* Price summary */}
-            <div
-              style={{
-                margin: "0 16px 16px",
-                background: "#0f1117",
-                borderRadius: "14px",
-                padding: "16px",
-              }}
-            >
-              <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.18em", color: "rgba(255,255,255,0.4)", marginBottom: "8px" }}>
-                Payment summary
-              </p>
-              <p style={{ fontSize: "28px", fontWeight: "700", color: "#ffffff", marginBottom: "6px" }}>
-                {effectiveDisplayTotal != null ? formatCurrency(effectiveDisplayTotal) : "—"}
-              </p>
-              <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", margin: 0 }}>
-                {selectedRoom && effectiveDisplayTotal != null
-                  ? `${formatDateRange(stay.checkIn, stay.checkOut)} · ${roomNights} night${roomNights !== 1 ? "s" : ""}`
-                  : selectedRoom
-                  ? "Price will be confirmed on booking"
-                  : "Select a room to see total"}
-              </p>
-            </div>
-
-            {/* CTA buttons */}
-            <div style={{ padding: "0 16px 20px", display: "flex", flexDirection: "column", gap: "10px" }}>
-              <button
-                type="button"
-                onClick={startInstantBooking}
-                disabled={payingNow || !selectedRoom || !selectedRoom?.is_available}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                  background: "#2e7d67",
-                  color: "#ffffff",
-                  border: "none",
-                  borderRadius: "12px",
-                  padding: "14px",
-                  fontSize: "14px",
-                  fontWeight: "700",
-                  cursor: (payingNow || !selectedRoom || !selectedRoom?.is_available) ? "not-allowed" : "pointer",
-                  opacity: (payingNow || !selectedRoom || !selectedRoom?.is_available) ? 0.6 : 1,
-                  transition: "opacity 0.2s ease",
-                }}
-              >
-                <Wallet style={{ width: "16px", height: "16px" }} />
-                {payingNow
-                  ? "Opening Razorpay…"
-                  : !isAuthenticated
-                  ? "Sign in to book"
-                  : !selectedRoom
-                  ? "Select a room first"
-                  : !selectedRoom?.is_available
-                  ? "Room unavailable"
-                  : effectiveDisplayTotal != null
-                  ? `Pay ${formatCurrency(effectiveDisplayTotal)} · Confirm booking`
-                  : "Confirm booking"}
-              </button>
-
-              <a
-                href={buildWhatsAppLink(whatsappMessage)}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                  background: "transparent",
-                  color: "#374151",
-                  border: "1.5px solid rgba(0,0,0,0.12)",
-                  borderRadius: "12px",
-                  padding: "12px",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  textDecoration: "none",
-                  transition: "background 0.2s ease",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "#f9fafb"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-              >
-                <Zap style={{ width: "14px", height: "14px", color: "#25d366" }} />
-                Ask on WhatsApp
-              </a>
-            </div>
-          </div>
-
-          {/* Quick contact card */}
-          <div
-            style={{
-              background: "#ffffff",
-              border: "1px solid rgba(0,0,0,0.07)",
-              borderRadius: "18px",
-              padding: "18px",
-            }}
-          >
-            <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.2em", color: "#2e7d67", fontWeight: "700", marginBottom: "12px" }}>
-              Quick contact
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", background: "#f9fafb", borderRadius: "12px" }}>
-                <Phone style={{ width: "14px", height: "14px", color: "#2e7d67", flexShrink: 0 }} />
-                <span style={{ fontSize: "13px", fontWeight: "600", color: "#111827" }}>
-                  {hotel.settings?.phone || hotel.tenant?.phone || "—"}
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", background: "#f9fafb", borderRadius: "12px" }}>
-                <Mail style={{ width: "14px", height: "14px", color: "#2e7d67", flexShrink: 0 }} />
-                <span style={{ fontSize: "13px", fontWeight: "600", color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {hotel.settings?.email || hotel.tenant?.email || "—"}
-                </span>
-              </div>
-              {hotel.settings?.map_link && (
-                <a
-                  href={hotel.settings.map_link}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "10px",
-                    padding: "10px 12px",
-                    background: "#f0fdf9",
-                    borderRadius: "12px",
-                    textDecoration: "none",
-                  }}
-                >
-                  <span style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "600", color: "#111827" }}>
-                    <MapPin style={{ width: "14px", height: "14px", color: "#2e7d67" }} />
-                    Open in maps
+        {/* Right Sidebar - Sticky Checkout */}
+        <aside className="w-full lg:w-[400px] shrink-0 sticky top-24 flex flex-col gap-6">
+          <div className="bg-white border border-gray-100 rounded-[32px] overflow-hidden shadow-xl shadow-indigo-900/5">
+             
+             <div className="bg-gray-900 p-8 relative overflow-hidden">
+                <div className="absolute -top-12 -right-12 w-32 h-32 bg-indigo-500 rounded-full blur-3xl opacity-20"></div>
+                
+                <p className="text-[10px] text-indigo-300 font-extrabold tracking-[0.2em] uppercase mb-2">Reserve Stay</p>
+                <h2 className="text-3xl font-extrabold text-white mb-2">
+                  {selectedRoom ? `Room ${selectedRoom.room_number}` : "Select a room"}
+                </h2>
+                {selectedRoom && (
+                  <span className={`inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${selectedRoom.is_available ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
+                    {selectedRoom.status}
                   </span>
-                  <ExternalLink style={{ width: "13px", height: "13px", color: "#2e7d67" }} />
-                </a>
-              )}
-            </div>
+                )}
+             </div>
+
+             <div className="p-8 flex flex-col gap-5">
+               <div className="flex gap-4 border-b border-gray-100 pb-6">
+                  <div className="w-20 h-20 bg-gray-100 rounded-2xl overflow-hidden shrink-0">
+                    {selectedRoomImages[0] ? (
+                      <img src={selectedRoomImages[0]} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-50"><MdOutlineBed className="text-2xl text-gray-300" /></div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-extrabold text-gray-900 text-lg mb-0.5">Room {selectedRoom?.room_number || "—"}</p>
+                    <p className="text-xs text-indigo-600 font-bold mb-2">{selectedRoomMode}</p>
+                    <p className="text-sm font-extrabold">{selectedRoomPrice != null ? formatCurrency(selectedRoomPrice) : "—"} <span className="text-[10px] font-normal text-gray-400 uppercase">/ night</span></p>
+                  </div>
+               </div>
+
+               <div className="grid grid-cols-2 gap-3">
+                 <FormField label="Check In" icon={FiCalendar}>
+                    <input type="date" value={stay.checkIn} onChange={e => setStay(c=>({...c, checkIn: e.target.value}))} className={inputStyle} />
+                 </FormField>
+                 <FormField label="Check Out" icon={FiCalendar}>
+                    <input type="date" value={stay.checkOut} onChange={e => setStay(c=>({...c, checkOut: e.target.value}))} className={inputStyle} />
+                 </FormField>
+               </div>
+
+               <div className="grid grid-cols-2 gap-3">
+                 <FormField label="Guests" icon={FiUsers}>
+                    <input type="number" min="1" max="8" value={stay.guests} onChange={e => setStay(c=>({...c, guests: clampGuests(e.target.value)}))} className={inputStyle} />
+                 </FormField>
+                 <FormField label="Contact" icon={FiPhone}>
+                    <input type="tel" value={guestProfile.phone} onChange={e => setGuestProfile(c=>({...c, phone: e.target.value}))} className={inputStyle} placeholder="Mobile" />
+                 </FormField>
+               </div>
+               
+               <FormField label="Lead Guest" icon={FiShield}>
+                  <input type="text" value={guestProfile.guestName} onChange={e => setGuestProfile(c=>({...c, guestName: e.target.value}))} className={inputStyle} placeholder="Full Name" />
+               </FormField>
+               
+               <FormField label="Special Request" icon={FiMail}>
+                  <textarea rows="2" value={specialRequest} onChange={e => setSpecialRequest(e.target.value)} className={`${inputStyle} resize-none`} placeholder="Quiet room..." />
+               </FormField>
+
+               <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 mt-2 flex flex-col items-center text-center">
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-400 mb-1">Total Payment</p>
+                  <p className="text-3xl font-extrabold text-indigo-900 mb-1">{effectiveDisplayTotal != null ? formatCurrency(effectiveDisplayTotal) : "—"}</p>
+                  <p className="text-xs text-indigo-600 font-bold">
+                    {selectedRoom ? `${roomNights} night${roomNights !== 1 ? "s" : ""} · ${formatDateRange(stay.checkIn, stay.checkOut)}` : "Select room"}
+                  </p>
+               </div>
+
+               <button
+                 onClick={startInstantBooking}
+                 disabled={payingNow || !selectedRoom || !selectedRoom?.is_available}
+                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-600/20 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 disabled:cursor-not-allowed flex justify-center items-center gap-2 mt-2"
+               >
+                 {payingNow ? "Processing..." : (
+                   <>
+                     <FaCreditCard />
+                     {effectiveDisplayTotal != null ? `Pay ${formatCurrency(effectiveDisplayTotal)} Now` : "Confirm Booking"}
+                   </>
+                 )}
+               </button>
+             </div>
           </div>
         </aside>
       </div>
-
-      {/* Responsive style helpers */}
-      <style>{`
-        @media (max-width: 900px) {
-          .hotel-hero-grid { grid-template-columns: 1fr !important; }
-          .rooms-grid { grid-template-columns: 1fr !important; }
-          .contact-grid { grid-template-columns: 1fr 1fr !important; }
-        }
-        @media (max-width: 600px) {
-          .contact-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </div>
   );
 };

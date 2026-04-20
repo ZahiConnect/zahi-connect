@@ -1,17 +1,9 @@
 import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
-import {
-  ArrowRight,
-  CarFront,
-  Hotel,
-  LogOut,
-  MapPin,
-  Menu,
-  Plane,
-  Store,
-  UserRound,
-  X,
-} from "lucide-react";
 import { useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { FiMenu, FiX, FiLogOut, FiUser, FiMapPin, FiArrowRight } from "react-icons/fi";
+import { MdOutlineHotel, MdOutlineRestaurant, MdOutlineLocalTaxi, MdOutlineFlight } from "react-icons/md";
+import { BiRestaurant } from "react-icons/bi";
 
 import { useAuth } from "./context/AuthContext";
 import AccountPage from "./pages/AccountPage";
@@ -30,10 +22,10 @@ import RestaurantDetailPage from "./pages/RestaurantDetailPage";
 import RestaurantsPage from "./pages/RestaurantsPage";
 
 const navItems = [
-  { to: "/hotels", label: "Hotels", icon: Hotel },
-  { to: "/restaurants", label: "Food", icon: Store },
-  { to: "/cabs", label: "Cabs", icon: CarFront },
-  { to: "/flights", label: "Flights", icon: Plane },
+  { to: "/hotels", label: "Hotels", icon: MdOutlineHotel },
+  { to: "/restaurants", label: "Food", icon: MdOutlineRestaurant },
+  { to: "/cabs", label: "Cabs", icon: MdOutlineLocalTaxi },
+  { to: "/flights", label: "Flights", icon: MdOutlineFlight },
 ];
 
 const LoadingSplash = () => (
@@ -82,42 +74,29 @@ const LocationBadge = () => {
 
   if (status === "loading") {
     return (
-      <p className="mt-1 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.24em] text-[#9c7f64]">
-        <MapPin className="h-3.5 w-3.5" />
-        Detecting location
-      </p>
+      <span className="inline-flex items-center gap-1.5 text-xs text-gray-400 font-medium tracking-wide">
+        <FiMapPin className="animate-pulse" /> Locating...
+      </span>
     );
   }
 
   if (status === "ready" && locationLabel) {
     return (
-      <p
-        title={locationLabel}
-        className="mt-1 inline-flex max-w-[220px] items-center gap-1 rounded-full bg-[#f5e4d2] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-[#8e4a1d]"
-      >
-        <MapPin className="h-3.5 w-3.5 shrink-0" />
+      <span title={locationLabel} className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-semibold max-w-[200px] truncate border border-gray-200">
+        <FiMapPin className="text-orange-500 shrink-0" />
         <span className="truncate">{locationLabel}</span>
-      </p>
+      </span>
     );
   }
 
-  if (status === "unsupported") {
-    return (
-      <p className="mt-1 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.24em] text-[#9c7f64]">
-        <MapPin className="h-3.5 w-3.5" />
-        Location unavailable
-      </p>
-    );
-  }
+  if (status === "unsupported") return null;
 
   return (
     <button
-      type="button"
       onClick={requestLocation}
-      className="mt-1 inline-flex items-center gap-1 rounded-full border border-[rgba(198,99,44,0.22)] bg-white px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-[#8e4a1d] transition hover:bg-[#fff8f1]"
+      className="inline-flex items-center gap-1.5 hover:bg-gray-100 text-gray-500 hover:text-gray-900 px-3 py-1 rounded-full text-xs font-semibold transition-colors"
     >
-      <MapPin className="h-3.5 w-3.5" />
-      Enable location
+      <FiMapPin /> Enable location
     </button>
   );
 };
@@ -125,193 +104,142 @@ const LocationBadge = () => {
 const Header = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const initials = useMemo(
-    () => (user?.username || user?.email || "Z").slice(0, 2).toUpperCase(),
-    [user]
-  );
+  const initials = useMemo(() => (user?.username || user?.email || "Z").slice(0, 2).toUpperCase(), [user]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[rgba(87,62,39,0.08)] bg-[rgba(255,248,239,0.86)] backdrop-blur-xl">
-      <div className="border-b border-[rgba(87,62,39,0.06)] bg-[#231a12] text-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <p className="py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-white/72 md:hidden">
-            Hotels · Restaurants · Cabs · Flights
-          </p>
-          <div className="hidden grid-cols-[minmax(0,1.7fr)_auto_auto_auto] items-center gap-6 py-2.5 md:grid">
-            <p className="whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.16em] text-white/72 lg:text-xs">
-              Discover hotels, dining, cabs, and flights in one place
-            </p>
-            <span className="whitespace-nowrap text-[11px] font-medium text-white/92 lg:text-xs">
-              Verified properties
-            </span>
-            <span className="whitespace-nowrap text-[11px] font-medium text-white/92 lg:text-xs">
-              Instant booking
-            </span>
-            <span className="whitespace-nowrap text-[11px] font-medium text-white/92 lg:text-xs">
-              24 / 7 support
-            </span>
+    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-20">
+          
+          {/* Logo & Location */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
+            <Link to="/" className="flex items-center gap-3 group">
+              <div className="w-10 h-10 bg-gray-900 text-white rounded-xl flex items-center justify-center font-bold text-xl shadow-md group-hover:scale-105 transition-transform">
+                Z
+              </div>
+              <span className="font-extrabold text-2xl tracking-tight text-gray-900">Zahi</span>
+            </Link>
+            <div className="hidden sm:block w-px h-6 bg-gray-200"></div>
+            <div className="hidden sm:block"><LocationBadge /></div>
           </div>
-        </div>
-      </div>
 
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1f1812] text-lg font-bold text-white shadow-[0_16px_32px_rgba(31,24,18,0.18)]">
-            Z
-          </div>
-          <div>
-            <p className="font-display text-3xl leading-none text-[#1c1712]">Zahi Trips</p>
-            <LocationBadge />
-          </div>
-        </Link>
-
-        <nav className="hidden items-center gap-2 lg:flex">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end
-                className={({ isActive }) =>
-                  `inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition ${
-                    isActive
-                      ? "border-[rgba(214,106,47,0.24)] bg-[#f5e4d2] text-[#1f1812] shadow-sm"
-                      : "border-transparent text-[#5c4a3d] hover:border-[rgba(87,62,39,0.08)] hover:bg-white hover:text-[#1f1812]"
-                  }`
-                }
-                style={({ isActive }) => ({
-                  color: isActive ? "#1f1812" : "#5c4a3d",
-                })}
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </NavLink>
-            );
-          })}
-        </nav>
-
-        <div className="hidden items-center gap-3 lg:flex">
-          {isAuthenticated ? (
-            <>
-              <Link
-                to="/account"
-                className="inline-flex items-center gap-3 rounded-full bg-white px-3 py-2 text-sm font-medium text-[#1f1812] shadow-sm"
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f3dfca] text-xs font-bold">
-                  {initials}
-                </span>
-                <span>{user?.username || user?.email}</span>
-              </Link>
-              <button
-                type="button"
-                onClick={logout}
-                className="inline-flex items-center gap-2 rounded-full border border-[rgba(87,62,39,0.14)] px-4 py-2.5 text-sm font-medium text-[#5c4a3d] hover:bg-white"
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link
-                to="/login"
-                className="rounded-full border border-[rgba(87,62,39,0.14)] px-4 py-2.5 text-sm font-medium text-[#5c4a3d] hover:bg-white"
-              >
-                Sign in
-              </Link>
-              <Link
-                to="/register"
-                className="inline-flex items-center gap-2 rounded-full border border-[rgba(198,99,44,0.22)] bg-[#c8632c] px-4 py-2.5 text-sm font-medium text-[#fffaf4] shadow-[0_16px_32px_rgba(104,47,18,0.16)] transition hover:bg-[#b95825]"
-                style={{ color: "#fffaf4" }}
-              >
-                Create account
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setMobileOpen((current) => !current)}
-          className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[rgba(87,62,39,0.14)] text-[#1f1812] lg:hidden"
-        >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
-      </div>
-
-      {mobileOpen ? (
-        <div className="border-t border-[rgba(87,62,39,0.08)] bg-[rgba(255,248,239,0.96)] px-4 py-4 lg:hidden">
-          <div className="flex flex-col gap-2">
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center gap-1 bg-gray-50/80 p-1 rounded-full border border-gray-100">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end
-                  onClick={() => setMobileOpen(false)}
                   className={({ isActive }) =>
-                    `inline-flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium ${
+                    `flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${
                       isActive
-                        ? "border-[rgba(214,106,47,0.24)] bg-[#f5e4d2] text-[#1f1812]"
-                        : "border-[rgba(87,62,39,0.08)] bg-white text-[#1f1812]"
+                        ? "bg-white text-orange-600 shadow-sm ring-1 ring-gray-200"
+                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-100/50"
                     }`
                   }
-                  style={({ isActive }) => ({
-                    color: isActive ? "#1f1812" : "#1f1812",
-                  })}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="text-lg" />
                   {item.label}
                 </NavLink>
               );
             })}
+          </nav>
+
+          {/* Desktop Auth */}
+          <div className="hidden md:flex items-center gap-3">
             {isAuthenticated ? (
-              <>
-                <Link
-                  to="/account"
-                  onClick={() => setMobileOpen(false)}
-                  className="inline-flex items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-[#1f1812]"
-                >
-                  <UserRound className="h-4 w-4" />
-                  Account
+              <div className="flex items-center gap-3 bg-gray-50 p-1 pr-4 rounded-full border border-gray-100">
+                <Link to="/account" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                  <div className="w-9 h-9 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center font-bold text-xs">
+                    {initials}
+                  </div>
+                  <span className="text-sm font-bold text-gray-700 max-w-[100px] truncate">
+                    {user?.username?.split(" ")[0] || "Account"}
+                  </span>
                 </Link>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setMobileOpen(false);
-                    await logout();
-                  }}
-                  className="inline-flex items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-[#1f1812]"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Logout
+                <div className="w-px h-4 bg-gray-300 mx-1"></div>
+                <button onClick={logout} className="text-gray-400 hover:text-red-500 transition-colors p-1" title="Logout">
+                  <FiLogOut className="text-lg" />
                 </button>
-              </>
+              </div>
             ) : (
-              <>
-                <Link
-                  to="/login"
-                  onClick={() => setMobileOpen(false)}
-                  className="rounded-2xl bg-white px-4 py-3 text-sm font-medium text-[#1f1812]"
-                >
-                  Sign in
+              <div className="flex items-center gap-2">
+                <Link to="/login" className="px-5 py-2.5 font-bold text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                  Log in
                 </Link>
-                <Link
-                  to="/register"
-                  onClick={() => setMobileOpen(false)}
-                  className="rounded-2xl border border-[rgba(198,99,44,0.22)] bg-[#c8632c] px-4 py-3 text-sm font-medium text-[#fffaf4]"
-                  style={{ color: "#fffaf4" }}
-                >
-                  Create account
+                <Link to="/register" className="px-6 py-2.5 bg-gray-900 text-white hover:bg-black font-bold text-sm rounded-full shadow-lg shadow-gray-900/20 transition-all active:scale-95">
+                  Sign up
                 </Link>
-              </>
+              </div>
             )}
           </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            {mobileOpen ? <FiX className="text-2xl" /> : <FiMenu className="text-2xl" />}
+          </button>
         </div>
-      ) : null}
+      </div>
+
+      {/* Mobile Nav Dropdown */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden border-t border-gray-100 bg-white overflow-hidden"
+          >
+            <div className="p-4 space-y-2">
+              <div className="pb-4 mb-2 border-b border-gray-100"><LocationBadge /></div>
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setMobileOpen(false)}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 p-4 rounded-2xl font-bold transition-colors ${
+                        isActive ? "bg-orange-50 text-orange-600" : "text-gray-600 hover:bg-gray-50"
+                      }`
+                    }
+                  >
+                    <Icon className="text-xl" />
+                    {item.label}
+                  </NavLink>
+                );
+              })}
+              
+              <div className="pt-4 mt-2 border-t border-gray-100 grid gap-3">
+                {isAuthenticated ? (
+                  <>
+                    <Link to="/account" onClick={() => setMobileOpen(false)} className="flex items-center justify-center gap-2 p-4 bg-gray-50 rounded-2xl font-bold text-gray-900">
+                      <FiUser /> My Account
+                    </Link>
+                    <button onClick={async () => { setMobileOpen(false); await logout(); }} className="flex items-center justify-center gap-2 p-4 text-red-500 font-bold hover:bg-red-50 rounded-2xl transition-colors">
+                      <FiLogOut /> Log out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/register" onClick={() => setMobileOpen(false)} className="flex items-center justify-center gap-2 p-4 bg-gray-900 text-white rounded-2xl font-bold shadow-md">
+                      Get Started <FiArrowRight />
+                    </Link>
+                    <Link to="/login" onClick={() => setMobileOpen(false)} className="flex items-center justify-center gap-2 p-4 bg-gray-50 text-gray-600 rounded-2xl font-bold">
+                      Log in
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 };

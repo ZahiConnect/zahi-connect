@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { BedDouble, CalendarDays, Hotel, Search, SlidersHorizontal, Users } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { FiSearch, FiCalendar, FiUsers, FiFilter, FiMapPin } from "react-icons/fi";
+import { MdOutlineHotel, MdOutlineBed } from "react-icons/md";
 
 import marketplaceService from "../services/marketplaceService";
 import { formatAddress, formatCurrency, formatDateRange } from "../lib/format";
@@ -19,6 +21,7 @@ const HotelsPage = () => {
   useEffect(() => {
     let active = true;
     const load = async () => {
+      setLoading(true);
       try {
         const data = await marketplaceService.getHotels();
         if (active) setHotels(Array.isArray(data) ? data : []);
@@ -55,480 +58,258 @@ const HotelsPage = () => {
     setSearchParams(next);
   };
 
+  const updateParam = (key, value) => {
+    const next = new URLSearchParams(searchParams);
+    if (value || value === 0) next.set(key, String(value));
+    else next.delete(key);
+    setSearchParams(next);
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100 } }
+  };
+
   return (
-    <div style={{ minHeight: "100vh" }}>
-      {/* ── Hero Banner ── */}
-      <div
-        style={{
-          background: "linear-gradient(135deg, #0f1117 0%, #1a1f2e 50%, #0f1117 100%)",
-          borderRadius: "24px",
-          padding: "60px 48px",
-          marginBottom: "32px",
-          position: "relative",
-          overflow: "hidden",
-        }}
+    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] flex flex-col pt-6 pb-20 shadow-sm border border-gray-100 overflow-hidden mb-12">
+      
+      {/* Hero Header */}
+      <motion.section 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12"
       >
-        {/* Decorative orb */}
-        <div
-          style={{
-            position: "absolute",
-            top: "-80px",
-            right: "-80px",
-            width: "320px",
-            height: "320px",
-            background: "radial-gradient(circle, rgba(201,169,110,0.15) 0%, transparent 70%)",
-            borderRadius: "50%",
-            pointerEvents: "none",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            bottom: "-60px",
-            left: "20%",
-            width: "240px",
-            height: "240px",
-            background: "radial-gradient(circle, rgba(46,125,103,0.12) 0%, transparent 70%)",
-            borderRadius: "50%",
-            pointerEvents: "none",
-          }}
-        />
-
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "8px",
-            background: "rgba(201,169,110,0.15)",
-            border: "1px solid rgba(201,169,110,0.3)",
-            borderRadius: "100px",
-            padding: "6px 16px",
-            marginBottom: "20px",
-          }}
-        >
-          <Hotel style={{ width: "14px", height: "14px", color: "#c9a96e" }} />
-          <span
-            style={{
-              fontSize: "11px",
-              fontWeight: "600",
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              color: "#c9a96e",
-            }}
-          >
-            Hotels &amp; Stays
-          </span>
-        </div>
-
-        <h1
-          className="font-display"
-          style={{ fontSize: "clamp(40px, 5vw, 68px)", color: "#ffffff", lineHeight: 1.05, margin: "0 0 16px" }}
-        >
-          Find your perfect stay
-        </h1>
-        <p style={{ fontSize: "15px", color: "rgba(255,255,255,0.55)", lineHeight: 1.8, maxWidth: "520px", margin: "0 0 40px" }}>
-          Handpicked hotels with real-time availability, room-level detail, and instant booking — all in one place.
-        </p>
-
-        {/* Stats row */}
-        <div style={{ display: "flex", gap: "24px", flexWrap: "wrap" }}>
-          {[
-            { label: "Dates", value: formatDateRange(checkIn, checkOut) || "Any dates" },
-            { label: "Guests", value: `${guests} traveller${guests !== 1 ? "s" : ""}` },
-            { label: "Properties", value: `${filteredHotels.length} available` },
-          ].map(({ label, value }) => (
-            <div
-              key={label}
-              style={{
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "14px",
-                padding: "12px 20px",
-                minWidth: "130px",
-              }}
-            >
-              <p style={{ fontSize: "10px", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)", marginBottom: "6px" }}>
-                {label}
-              </p>
-              <p style={{ fontSize: "14px", fontWeight: "600", color: "#ffffff" }}>{value}</p>
+        <div className="bg-white rounded-[32px] p-8 md:p-10 lg:p-12 shadow-sm border border-gray-100 flex flex-col lg:flex-row justify-between gap-10 relative overflow-hidden">
+          <div className="absolute -bottom-32 -right-32 w-[30rem] h-[30rem] bg-indigo-50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
+          
+          <div className="z-10 w-full lg:w-3/5 flex flex-col justify-center">
+            <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase mb-5 w-fit flex items-center gap-1.5">
+              <MdOutlineHotel /> Hotels & Stays
+            </span>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-sans font-extrabold text-gray-900 tracking-tight leading-[1.1] mb-8">
+              Find your perfect stay
+            </h1>
+            
+            <div className="flex flex-col sm:flex-row max-w-2xl bg-gray-50 p-2 rounded-2xl border border-gray-200 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all">
+              <div className="flex-1 flex items-center px-4">
+                <FiSearch className="text-gray-400 text-xl" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => updateQuery(e.target.value)}
+                  placeholder="Search by name, location, or room type..."
+                  className="w-full bg-transparent border-none focus:ring-0 text-gray-800 placeholder-gray-400 py-3 ml-3 outline-none"
+                />
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
+            
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              {(checkIn || checkOut) && (
+                <div className="flex items-center gap-2 bg-gray-100 px-4 py-2.5 rounded-full text-sm font-semibold text-gray-700 max-w-[220px] truncate">
+                  <FiCalendar className="text-indigo-500 shrink-0" />
+                  <span className="truncate">{formatDateRange(checkIn, checkOut)}</span>
+                </div>
+              )}
 
-      {/* ── Search & Filter Bar ── */}
-      <div
-        style={{
-          display: "flex",
-          gap: "12px",
-          marginBottom: "32px",
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
-        <label
-          style={{
-            flex: "1 1 280px",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            background: "#ffffff",
-            border: "1.5px solid rgba(15,17,23,0.1)",
-            borderRadius: "14px",
-            padding: "0 16px",
-            height: "50px",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-          }}
-        >
-          <Search style={{ width: "16px", height: "16px", color: "#9ca3af", flexShrink: 0 }} />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => updateQuery(e.target.value)}
-            placeholder="Search by name, location, or room type…"
-            style={{ flex: 1, border: "none", outline: "none", fontSize: "14px", color: "#111827", background: "transparent" }}
-          />
-        </label>
+              <label className="flex items-center gap-2 bg-gray-100 px-4 py-2.5 rounded-full text-sm font-semibold text-gray-700">
+                <FiUsers className="text-gray-500" />
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={guests}
+                  onChange={(event) => updateParam("guests", Number(event.target.value) || 1)}
+                  className="w-10 bg-transparent outline-none text-center"
+                />
+                Guests
+              </label>
 
-        {(checkIn || checkOut) && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              background: "#ffffff",
-              border: "1.5px solid rgba(15,17,23,0.1)",
-              borderRadius: "14px",
-              padding: "0 16px",
-              height: "50px",
-              fontSize: "13px",
-              color: "#374151",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <CalendarDays style={{ width: "15px", height: "15px", color: "#6b7280" }} />
-            {formatDateRange(checkIn, checkOut)}
+              <button
+                onClick={() => setAvailableOnly(!availableOnly)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors border ${
+                  availableOnly 
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow-md" 
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                <FiFilter className={availableOnly ? "text-indigo-200" : "text-gray-400"} />
+                {availableOnly ? "Available ✓" : "Available Only"}
+              </button>
+            </div>
           </div>
+
+          {/* Right Side Stats Panel */}
+          <div className="z-10 w-full lg:w-2/5 flex flex-col justify-end lg:items-end">
+             <div className="w-full max-w-sm bg-gray-900 rounded-[28px] p-6 text-white shadow-xl shadow-gray-900/10">
+               <div className="w-12 h-12 bg-gray-800 rounded-2xl flex items-center justify-center text-indigo-400 mb-6">
+                 <MdOutlineHotel className="text-2xl" />
+               </div>
+               
+               <div className="grid grid-cols-2 gap-6 relative">
+                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-px h-12 bg-gray-800"></div>
+                 <div>
+                   <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Total Properties</p>
+                   <p className="text-3xl font-extrabold">{hotels.length}</p>
+                 </div>
+                 <div className="pl-2">
+                   <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Matches Found</p>
+                   <p className="text-3xl font-extrabold">{filteredHotels.length}</p>
+                 </div>
+               </div>
+             </div>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Results Grid */}
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex-1">
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="bg-white rounded-[24px] h-[360px] animate-pulse border border-gray-100 shadow-sm" />
+            ))}
+          </div>
+        ) : filteredHotels.length === 0 ? (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl p-16 text-center border border-gray-100 shadow-sm flex flex-col items-center max-w-3xl mx-auto mt-10"
+          >
+            <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-6">
+               <MdOutlineBed className="text-6xl text-gray-300" />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">No hotels found</h2>
+            <p className="text-gray-500 mb-8 max-w-md">Try a different location, property type, or remove the availability check to see all properties.</p>
+            <button onClick={() => { setAvailableOnly(false); updateQuery("") }} className="bg-gray-900 text-white px-8 py-3 rounded-full font-semibold hover:bg-black transition-colors">
+              Clear filters
+            </button>
+          </motion.div>
+        ) : (
+          <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+          >
+            {filteredHotels.map((hotel) => (
+              <HotelCard 
+                key={hotel.id} 
+                hotel={hotel} 
+                guests={guests} 
+                checkIn={checkIn}
+                checkOut={checkOut}
+              />
+            ))}
+          </motion.div>
         )}
-
-        <button
-          type="button"
-          onClick={() => setAvailableOnly((v) => !v)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            height: "50px",
-            padding: "0 20px",
-            borderRadius: "14px",
-            border: availableOnly ? "1.5px solid #2e7d67" : "1.5px solid rgba(15,17,23,0.1)",
-            background: availableOnly ? "#2e7d67" : "#ffffff",
-            color: availableOnly ? "#ffffff" : "#374151",
-            fontSize: "13px",
-            fontWeight: "600",
-            cursor: "pointer",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-            transition: "all 0.2s ease",
-            whiteSpace: "nowrap",
-          }}
-        >
-          <SlidersHorizontal style={{ width: "14px", height: "14px" }} />
-          {availableOnly ? "Available only ✓" : "Available rooms only"}
-        </button>
-      </div>
-
-      {/* ── Hotel Grid ── */}
-      {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "20px" }}>
-          {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              style={{
-                height: "360px",
-                borderRadius: "20px",
-                background: "linear-gradient(135deg, #f3f4f6, #e5e7eb)",
-                animation: "pulse 1.5s ease-in-out infinite",
-              }}
-            />
-          ))}
-        </div>
-      ) : filteredHotels.length === 0 ? (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "80px 40px",
-            background: "#ffffff",
-            borderRadius: "20px",
-            border: "1px solid rgba(0,0,0,0.06)",
-          }}
-        >
-          <div
-            style={{
-              width: "64px",
-              height: "64px",
-              borderRadius: "50%",
-              background: "#f0fdf9",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 20px",
-            }}
-          >
-            <BedDouble style={{ width: "28px", height: "28px", color: "#2e7d67" }} />
-          </div>
-          <h2 className="font-display" style={{ fontSize: "36px", color: "#111827", marginBottom: "12px" }}>
-            No hotels found
-          </h2>
-          <p style={{ fontSize: "14px", color: "#6b7280", lineHeight: 1.7, maxWidth: "360px", margin: "0 auto" }}>
-            Try a different location, room type, or amenity — or remove the availability filter to see all properties.
-          </p>
-        </div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "20px" }}>
-          {filteredHotels.map((hotel) => (
-            <HotelCard
-              key={hotel.id}
-              hotel={hotel}
-              checkIn={checkIn}
-              checkOut={checkOut}
-              guests={guests}
-            />
-          ))}
-        </div>
-      )}
+      </main>
     </div>
   );
 };
 
-const HotelCard = ({ hotel, checkIn, checkOut, guests }) => {
-  const [hovered, setHovered] = useState(false);
-  const hasImage = !!(hotel.cover_image || hotel.logo);
+const HotelCard = ({ hotel, guests, checkIn, checkOut }) => {
   const isAvailable = Number(hotel.available_rooms || 0) > 0;
 
   return (
-    <Link
-      to={`/hotels/${hotel.slug}?checkIn=${encodeURIComponent(checkIn)}&checkOut=${encodeURIComponent(checkOut)}&guests=${guests}`}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: "block",
-        borderRadius: "20px",
-        overflow: "hidden",
-        background: "#ffffff",
-        border: "1px solid rgba(0,0,0,0.07)",
-        boxShadow: hovered
-          ? "0 24px 56px rgba(0,0,0,0.14)"
-          : "0 4px 16px rgba(0,0,0,0.06)",
-        transform: hovered ? "translateY(-4px)" : "translateY(0)",
-        transition: "all 0.28s cubic-bezier(0.4,0,0.2,1)",
-        textDecoration: "none",
-        color: "inherit",
-      }}
+    <motion.article 
+      variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+      className="group bg-white rounded-3xl overflow-hidden border border-gray-100 hover:border-indigo-200 hover:shadow-xl transition-all duration-300 flex flex-col hover:-translate-y-1 relative"
     >
-      {/* Image */}
-      <div
-        style={{
-          position: "relative",
-          height: "220px",
-          background: "linear-gradient(135deg, #1a1f2e 0%, #0f1117 100%)",
-          overflow: "hidden",
-        }}
+      <Link 
+        to={`/hotels/${hotel.slug}?checkIn=${encodeURIComponent(checkIn)}&checkOut=${encodeURIComponent(checkOut)}&guests=${guests}`} 
+        className="block relative h-56 overflow-hidden bg-gray-100"
       >
-        {hasImage ? (
-          <img
-            src={hotel.cover_image || hotel.logo}
-            alt={hotel.name}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              transform: hovered ? "scale(1.06)" : "scale(1)",
-              transition: "transform 0.5s ease",
-            }}
-          />
+        {hotel.cover_image || hotel.logo ? (
+          <img src={hotel.cover_image || hotel.logo} alt={hotel.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
         ) : (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              height: "100%",
-            }}
-          >
-            <Hotel style={{ width: "48px", height: "48px", color: "rgba(255,255,255,0.2)" }} />
+          <div className="w-full h-full flex items-center justify-center">
+            <MdOutlineHotel className="text-4xl text-gray-300" />
           </div>
         )}
 
-        {/* Gradient overlay */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.6) 100%)",
-          }}
-        />
-
-        {/* Badges */}
-        <div
-          style={{
-            position: "absolute",
-            top: "14px",
-            left: "14px",
-            display: "flex",
-            gap: "8px",
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              background: isAvailable ? "rgba(46,125,103,0.95)" : "rgba(0,0,0,0.6)",
-              backdropFilter: "blur(8px)",
-              color: "#ffffff",
-              fontSize: "10px",
-              fontWeight: "700",
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              padding: "5px 10px",
-              borderRadius: "100px",
-            }}
-          >
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-900/60 to-transparent"></div>
+        
+        {/* Availability Badge */}
+        <div className="absolute top-4 left-4 flex gap-2 flex-wrap">
+          <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md shadow-sm ${
+            isAvailable ? "bg-green-500/90 text-white" : "bg-black/60 text-white"
+          }`}>
             {isAvailable ? `${hotel.available_rooms} rooms open` : "Fully booked"}
           </span>
         </div>
-
+        
+        {/* Property Type Badge */}
         {hotel.property_type && (
-          <span
-            style={{
-              position: "absolute",
-              bottom: "14px",
-              left: "14px",
-              background: "rgba(255,255,255,0.15)",
-              backdropFilter: "blur(10px)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              color: "#ffffff",
-              fontSize: "10px",
-              fontWeight: "600",
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              padding: "5px 10px",
-              borderRadius: "100px",
-            }}
-          >
+          <span className="absolute bottom-4 left-4 bg-white/20 backdrop-blur-md border border-white/20 text-white px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider">
             {hotel.property_type}
           </span>
         )}
-      </div>
+      </Link>
 
-      {/* Body */}
-      <div style={{ padding: "20px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", marginBottom: "8px" }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h2
-              className="font-display"
-              style={{
-                fontSize: "22px",
-                color: "#111827",
-                lineHeight: 1.2,
-                margin: "0 0 4px",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
+      <div className="p-5 flex-1 flex flex-col">
+        <div className="flex justify-between items-start mb-2 gap-2">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-xl text-gray-900 leading-tight truncate">
               {hotel.name}
-            </h2>
+            </h3>
             {hotel.tagline && (
-              <p style={{ fontSize: "12px", color: "#c9a96e", fontWeight: "600", margin: "0 0 4px" }}>
+              <p className="text-indigo-600 text-[10px] font-bold uppercase tracking-wide mt-1 truncate">
                 {hotel.tagline}
               </p>
             )}
-            <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>{formatAddress(hotel.address)}</p>
           </div>
-          <div
-            style={{
-              background: "#f0fdf9",
-              borderRadius: "12px",
-              padding: "8px 12px",
-              textAlign: "right",
-              flexShrink: 0,
-            }}
-          >
-            <p style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.14em", color: "#2e7d67", marginBottom: "2px" }}>From</p>
-            <p style={{ fontSize: "14px", fontWeight: "700", color: "#111827" }}>
-              {hotel.starting_price ? formatCurrency(hotel.starting_price) : "—"}
-            </p>
+          <div className="bg-indigo-50 border border-indigo-100 text-indigo-900 rounded-xl px-2 py-1 flex flex-col items-end shrink-0">
+            <span className="text-[9px] uppercase tracking-wider font-bold text-indigo-500">From</span>
+            <span className="font-extrabold text-sm leading-none pt-0.5">
+               {hotel.starting_price ? formatCurrency(hotel.starting_price) : "NA"}
+            </span>
           </div>
         </div>
 
-        {/* Meta row */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "8px",
-            margin: "14px 0",
-            padding: "12px",
-            background: "#f9fafb",
-            borderRadius: "12px",
-          }}
-        >
-          <div>
-            <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.14em", color: "#9ca3af", marginBottom: "3px" }}>
-              Total rooms
-            </p>
-            <p style={{ fontSize: "13px", fontWeight: "600", color: "#111827" }}>{hotel.total_rooms || 0}</p>
-          </div>
-          <div>
-            <p style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.14em", color: "#9ca3af", marginBottom: "3px" }}>
-              Guests
-            </p>
-            <p style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "13px", fontWeight: "600", color: "#111827" }}>
-              <Users style={{ width: "12px", height: "12px" }} />
-              {guests}
-            </p>
-          </div>
-        </div>
+        <p className="text-gray-500 text-xs flex items-start gap-1 mt-1 mb-4">
+           <FiMapPin className="mt-0.5 shrink-0" />
+           <span className="line-clamp-1">{formatAddress(hotel.address)}</span>
+        </p>
 
-        {/* Amenity tags */}
-        {((hotel.featured_amenities || []).length > 0 || (hotel.room_type_labels || []).length > 0) && (
-          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-            {(hotel.featured_amenities || []).slice(0, 2).map((tag) => (
-              <span
-                key={tag}
-                style={{
-                  fontSize: "11px",
-                  fontWeight: "500",
-                  color: "#2e7d67",
-                  background: "#f0fdf9",
-                  border: "1px solid rgba(46,125,103,0.18)",
-                  borderRadius: "100px",
-                  padding: "3px 10px",
-                }}
-              >
-                {tag}
-              </span>
-            ))}
-            {(hotel.room_type_labels || []).slice(0, 2).map((tag) => (
-              <span
-                key={tag}
-                style={{
-                  fontSize: "11px",
-                  fontWeight: "500",
-                  color: "#6b5842",
-                  background: "#fdf5ec",
-                  border: "1px solid rgba(107,88,66,0.15)",
-                  borderRadius: "100px",
-                  padding: "3px 10px",
-                }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
+        <div className="mt-auto pt-4 border-t border-gray-100 flex flex-col gap-3">
+           <div className="flex items-center justify-between bg-gray-50 rounded-xl p-2.5">
+             <div className="text-center flex-1 border-r border-gray-200">
+               <p className="text-[10px] uppercase text-gray-400 font-bold mb-0.5 tracking-wider">Rooms</p>
+               <p className="text-xs font-bold text-gray-900">{hotel.total_rooms || 0}</p>
+             </div>
+             <div className="text-center flex-1">
+               <p className="text-[10px] uppercase text-gray-400 font-bold mb-0.5 tracking-wider">Guests</p>
+               <p className="text-xs font-bold text-gray-900 flex items-center justify-center gap-1">
+                 <FiUsers /> {guests}
+               </p>
+             </div>
+           </div>
+           
+           {((hotel.featured_amenities || []).length > 0 || (hotel.room_type_labels || []).length > 0) && (
+             <div className="flex gap-1.5 flex-wrap">
+               {(hotel.featured_amenities || []).slice(0, 2).map((tag) => (
+                 <span key={tag} className="text-[10px] font-bold text-green-700 bg-green-50 border border-green-100 rounded-full px-2 py-1.5 truncate max-w-[120px]">
+                   {tag}
+                 </span>
+               ))}
+               {(hotel.room_type_labels || []).slice(0, 2).map((tag) => (
+                 <span key={tag} className="text-[10px] font-bold text-orange-700 bg-orange-50 border border-orange-100 rounded-full px-2 py-1.5 truncate max-w-[120px]">
+                   {tag}
+                 </span>
+               ))}
+             </div>
+           )}
+        </div>
       </div>
-    </Link>
+    </motion.article>
   );
 };
 

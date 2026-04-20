@@ -1,21 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowRight, ChefHat, Clock3, MapPin, Search, Store, Users } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { FiSearch, FiMapPin, FiClock, FiArrowRight, FiUsers } from "react-icons/fi";
+import { BiRestaurant } from "react-icons/bi";
+import { MdOutlineFoodBank } from "react-icons/md";
 
 import useCustomerLocation from "../hooks/useCustomerLocation";
 import marketplaceService from "../services/marketplaceService";
-import {
-  formatAddress,
-  formatCurrency,
-  formatDistance,
-  shortText,
-} from "../lib/format";
+import { formatAddress, formatCurrency, formatDistance, shortText } from "../lib/format";
 
 const RestaurantsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [foodItems, setFoodItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTag, setActiveTag] = useState("all");
+  
   const { coordinates, locationLabel, requestLocation } = useCustomerLocation(true);
   const coordinateKey = coordinates
     ? `${coordinates.latitude.toFixed(5)}:${coordinates.longitude.toFixed(5)}`
@@ -26,34 +25,22 @@ const RestaurantsPage = () => {
 
   useEffect(() => {
     let active = true;
-
     const loadNearest = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
         const data = await marketplaceService.getFoodItems(
-          coordinates
-            ? {
-                latitude: coordinates.latitude,
-                longitude: coordinates.longitude,
-              }
-            : undefined
+          coordinates ? { latitude: coordinates.latitude, longitude: coordinates.longitude } : undefined
         );
-        if (active) {
-          setFoodItems(Array.isArray(data) ? data : []);
-        }
+        if (active) setFoodItems(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Failed to load food catalog", error);
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     };
 
     loadNearest();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [coordinateKey]);
 
   const allTags = useMemo(() => {
@@ -66,27 +53,17 @@ const RestaurantsPage = () => {
 
   const filteredItems = useMemo(() => {
     return foodItems.filter((item) => {
-      const haystack = [
-        item.name,
-        item.description,
-        item.category_name,
-        item.restaurant_name,
-        item.restaurant_address,
-      ]
-        .join(" ")
-        .toLowerCase();
-
+      const haystack = [item.name, item.description, item.category_name, item.restaurant_name, item.restaurant_address]
+        .join(" ").toLowerCase();
       const matchesSearch = haystack.includes(query.toLowerCase());
       const matchesTag = activeTag === "all" || item.category_name === activeTag;
       return matchesSearch && matchesTag;
     });
   }, [activeTag, foodItems, query]);
 
-  const rankedItems = useMemo(() => filteredItems, [filteredItems]);
-
   const representedRestaurants = useMemo(
-    () => new Set(rankedItems.map((item) => item.restaurant?.id || item.restaurant_slug)).size,
-    [rankedItems]
+    () => new Set(filteredItems.map((item) => item.restaurant?.id || item.restaurant_slug)).size,
+    [filteredItems]
   );
 
   const updateParam = (key, value) => {
@@ -96,217 +73,223 @@ const RestaurantsPage = () => {
     setSearchParams(next);
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100 } }
+  };
+
   return (
-    <div className="space-y-10">
-      <section className="glass-panel rounded-[36px] px-6 py-8 sm:px-8">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Food lane</p>
-            <h1 className="font-display mt-3 text-6xl leading-none text-[#1f1812]">
-              Browse live dishes across every restaurant
+    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] flex flex-col pt-6 pb-20 shadow-sm border border-gray-100 overflow-hidden mb-12">
+      
+      {/* Hero Header */}
+      <motion.section 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12"
+      >
+        <div className="bg-white rounded-[32px] p-8 md:p-10 lg:p-12 shadow-sm border border-gray-100 flex flex-col lg:flex-row justify-between gap-10 relative overflow-hidden">
+          <div className="absolute -top-32 -right-32 w-[30rem] h-[30rem] bg-orange-50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
+          
+          <div className="z-10 w-full lg:w-3/5 flex flex-col justify-center">
+            <span className="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase mb-5 w-fit">
+              Food Delivery
+            </span>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-sans font-extrabold text-gray-900 tracking-tight leading-[1.1] mb-8">
+              Craving something?
             </h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-[#68584b]">
-              This page works as one shared menu feed. Search by dish, cuisine, or restaurant, and
-              keep the restaurant name as supporting context instead of the main result. When your
-              location is enabled, dishes are ranked from the nearest restaurant first.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
+            
+            <div className="flex flex-col sm:flex-row max-w-2xl bg-gray-50 p-2 rounded-2xl border border-gray-200 focus-within:border-orange-500 focus-within:ring-4 focus-within:ring-orange-500/10 transition-all">
+              <div className="flex-1 flex items-center px-4">
+                <FiSearch className="text-gray-400 text-xl" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => updateParam("query", e.target.value)}
+                  placeholder="Search sushi, burgers, or Joe's Cafe..."
+                  className="w-full bg-transparent border-none focus:ring-0 text-gray-800 placeholder-gray-400 py-3 ml-3 outline-none"
+                />
+              </div>
+            </div>
+            
+            <div className="mt-6 flex flex-wrap items-center gap-4">
               {coordinates && locationLabel ? (
-                <span className="inline-flex items-center gap-2 rounded-full bg-[#f5e4d2] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8e4a1d]">
-                  <MapPin className="h-3.5 w-3.5" />
-                  Sorted near {locationLabel}
-                </span>
+                <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-4 py-2.5 rounded-full font-medium">
+                  <FiMapPin className="text-orange-500" />
+                  Near <span className="font-bold text-gray-900 max-w-[200px] truncate">{locationLabel}</span>
+                </div>
               ) : (
                 <button
-                  type="button"
                   onClick={requestLocation}
-                  className="inline-flex items-center gap-2 rounded-full border border-[rgba(198,99,44,0.22)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8e4a1d] transition hover:bg-[#fff8f1]"
+                  className="flex items-center gap-2 text-sm text-orange-600 bg-orange-50 hover:bg-orange-100 px-4 py-2.5 rounded-full transition-colors font-semibold border border-orange-100"
                 >
-                  <MapPin className="h-3.5 w-3.5" />
+                  <FiMapPin />
                   Enable nearby sorting
                 </button>
               )}
+
+              <label className="flex items-center gap-2 bg-gray-100 px-4 py-2.5 rounded-full text-sm font-semibold text-gray-700">
+                <FiUsers className="text-gray-500" />
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={diners}
+                  onChange={(event) => updateParam("diners", Number(event.target.value) || 1)}
+                  className="w-10 bg-transparent outline-none text-center"
+                />
+                Diners
+              </label>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="soft-card rounded-[24px] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Dishes</p>
-              <p className="mt-2 text-sm font-semibold text-[#1f1812]">{filteredItems.length} results</p>
-            </div>
-            <div className="soft-card rounded-[24px] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Restaurants</p>
-              <p className="mt-2 text-sm font-semibold text-[#1f1812]">{representedRestaurants} outlets</p>
-            </div>
+          {/* Right Side Stats Panel */}
+          <div className="z-10 w-full lg:w-2/5 flex flex-col justify-end lg:items-end">
+             <div className="w-full max-w-sm bg-gray-900 rounded-[28px] p-6 text-white shadow-xl shadow-gray-900/10">
+               <div className="w-12 h-12 bg-gray-800 rounded-2xl flex items-center justify-center text-orange-400 mb-6">
+                 <BiRestaurant className="text-2xl" />
+               </div>
+               
+               <div className="grid grid-cols-2 gap-6 relative">
+                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-px h-12 bg-gray-800"></div>
+                 <div>
+                   <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Live Dishes</p>
+                   <p className="text-3xl font-extrabold">{filteredItems.length}</p>
+                 </div>
+                 <div className="pl-2">
+                   <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Restaurants</p>
+                   <p className="text-3xl font-extrabold">{representedRestaurants}</p>
+                 </div>
+               </div>
+             </div>
           </div>
         </div>
+      </motion.section>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-[1.35fr_220px]">
-          <label className="soft-card flex items-center gap-3 rounded-full px-4 py-3">
-            <Search className="h-4 w-4 text-[#8c7a6c]" />
-            <input
-              type="text"
-              value={query}
-              onChange={(event) => updateParam("query", event.target.value)}
-              placeholder="Search dishes, cuisines, or restaurants"
-              className="w-full bg-transparent text-sm outline-none placeholder:text-[#a89788]"
-            />
-          </label>
-          <label className="soft-card inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm text-[#5d4d40]">
-            <Users className="h-4 w-4" />
-            <input
-              type="number"
-              min="1"
-              max="20"
-              value={diners}
-              onChange={(event) => updateParam("diners", Number(event.target.value) || 1)}
-              className="w-16 bg-transparent outline-none"
-            />
-            diners
-          </label>
-        </div>
-
-        <div className="mt-6 flex flex-wrap gap-2">
+      {/* Category Tabs */}
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8 sticky top-24 z-30">
+        <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide py-2">
           {allTags.map((tag) => (
             <button
               key={tag}
-              type="button"
               onClick={() => setActiveTag(tag)}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+              className={`whitespace-nowrap px-6 py-2.5 rounded-full text-sm font-semibold transition-all shadow-sm ${
                 activeTag === tag
-                  ? "bg-[#1f1812] text-white"
-                  : "bg-white text-[#5d4d40] shadow-sm"
+                  ? "bg-gray-900 text-white shadow-md scale-105"
+                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200 hover:border-gray-300"
               }`}
             >
-              {tag === "all" ? "All dishes" : tag}
+              {tag === "all" ? "All categories" : tag}
             </button>
           ))}
         </div>
-      </section>
+      </div>
 
-      {loading ? (
-        <div className="space-y-4">
-          {[...Array(5)].map((_, index) => (
-            <div key={index} className="soft-card h-56 animate-pulse rounded-[32px]" />
-          ))}
-        </div>
-      ) : rankedItems.length === 0 ? (
-        <div className="soft-card rounded-[34px] px-6 py-14 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f3e6d5] text-[#8e3f11]">
-            <ChefHat className="h-6 w-6" />
+      {/* Results Grid */}
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex-1">
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-white rounded-3xl h-80 animate-pulse border border-gray-100 shadow-sm" />
+            ))}
           </div>
-          <h2 className="font-display mt-5 text-5xl text-[#1f1812]">No dishes match that search.</h2>
-          <p className="mt-3 text-sm leading-7 text-[#68584b]">
-            Try a dish name, cuisine, or restaurant keyword to bring live menu results back.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {rankedItems.map((item) => (
-            <article key={`${item.restaurant_slug}-${item.id}`} className="soft-card rounded-[32px] p-4 sm:p-5">
-              <div className="grid gap-5 lg:grid-cols-[170px_minmax(0,1fr)_250px]">
-                <div className="overflow-hidden rounded-[26px] bg-[#f1e3d4]">
+        ) : filteredItems.length === 0 ? (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl p-16 text-center border border-gray-100 shadow-sm flex flex-col items-center max-w-3xl mx-auto mt-10"
+          >
+            <MdOutlineFoodBank className="text-8xl text-gray-200 mb-6" />
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">No bites found</h2>
+            <p className="text-gray-500 mb-8 max-w-md">We couldn't find anything matching your search. Try adjusting your filters or search term.</p>
+            <button onClick={() => { setActiveTag("all"); updateParam("query", "") }} className="bg-gray-900 text-white px-8 py-3 rounded-full font-semibold hover:bg-black transition-colors">
+              Clear filters
+            </button>
+          </motion.div>
+        ) : (
+          <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+          >
+            {filteredItems.map((item) => (
+              <motion.article 
+                variants={itemVariants}
+                key={item.id} 
+                className="group bg-white rounded-3xl overflow-hidden border border-gray-100 hover:border-orange-200 hover:shadow-xl transition-all duration-300 flex flex-col hover:-translate-y-1 relative"
+              >
+                <Link to={`/restaurants/${item.restaurant_slug}?diners=${diners}&focus=${item.id}`} className="block relative h-56 overflow-hidden">
                   {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="h-full min-h-40 w-full object-cover" />
+                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
-                    <div className="flex min-h-40 items-center justify-center text-[#b88c6e]">
-                      <ChefHat className="h-9 w-9" />
+                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                      <BiRestaurant className="text-4xl text-gray-300" />
                     </div>
                   )}
-                </div>
+                  {/* Floating Price Badge */}
+                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full shadow-lg font-bold text-gray-900 text-sm">
+                    {formatCurrency(item.display_price)}
+                  </div>
+                  {/* Food Type Icon */}
+                  <div className={`absolute top-4 left-4 w-6 h-6 rounded-full flex items-center justify-center border-2 bg-white/90 backdrop-blur-md shadow-md ${item.food_type === 'veg' ? 'border-green-500 text-green-500' : 'border-red-500 text-red-500'}`}>
+                    <div className="w-2.5 h-2.5 rounded-full bg-current"></div>
+                  </div>
+                </Link>
 
-                <div className="min-w-0 space-y-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {item.category_name ? (
-                      <span className="rounded-full bg-[#f4e6d8] px-3 py-1 text-xs font-medium text-[#5d4d40]">
-                        {item.category_name}
-                      </span>
-                    ) : null}
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        item.food_type === "veg"
-                          ? "bg-[#eaf5f1] text-[#2e7d67]"
-                          : "bg-[#fbefe4] text-[#a54d16]"
-                      }`}
-                    >
-                      {item.food_type === "veg" ? "Veg" : "Non-veg"}
-                    </span>
+                <div className="p-5 flex-1 flex flex-col">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-bold text-xl text-gray-900 leading-tight pr-4">
+                      {item.name}
+                    </h3>
                   </div>
 
-                  <div>
-                    <h2 className="font-display text-5xl leading-none text-[#1f1812]">{item.name}</h2>
-                    <p className="mt-3 max-w-3xl text-sm leading-7 text-[#68584b]">
-                      {shortText(item.description, 180) || "Freshly prepared and currently available to order."}
-                    </p>
-                  </div>
+                  <p className="text-gray-500 text-sm line-clamp-2 mb-4 flex-1">
+                    {item.description || "Freshly prepared locally."}
+                  </p>
 
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-[#6a5f56]">
-                    <span className="inline-flex items-center gap-1">
-                      <Clock3 className="h-4 w-4" />
-                      {item.prep_time_minutes} mins
-                    </span>
-                    {item.distance_km !== null && item.distance_km !== undefined ? (
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
+                  <div className="flex items-center gap-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mt-auto pt-4 border-t border-gray-100">
+                    <div className="flex items-center gap-1.5">
+                      <FiClock className="text-orange-500 text-sm" />
+                      {item.prep_time_minutes} min
+                    </div>
+                    {item.distance_km != null && (
+                      <div className="flex items-center gap-1.5">
+                        <FiMapPin className="text-orange-500 text-sm" />
                         {formatDistance(item.distance_km)}
-                      </span>
-                    ) : null}
-                    <Link
-                      to={`/restaurants/${item.restaurant_slug}?diners=${diners}&focus=${item.id}`}
-                      className="inline-flex items-center gap-1 rounded-full bg-[#fff4e9] px-3 py-1 text-sm font-medium text-[#8e3f11] transition hover:bg-[#f7e4d1]"
-                    >
-                      <Store className="h-4 w-4" />
-                      {item.restaurant_name}
-                    </Link>
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      {formatAddress(item.restaurant_address)}
-                    </span>
+                      </div>
+                    )}
                   </div>
-                </div>
-
-                <div className="flex flex-col justify-between gap-4 rounded-[28px] bg-[#fff9f2] p-4">
-                  <Link
-                    to={`/restaurants/${item.restaurant_slug}?diners=${diners}&focus=${item.id}`}
-                    className="block rounded-[22px] border border-[rgba(214,106,47,0.16)] bg-white px-4 py-4 transition hover:border-[rgba(214,106,47,0.3)] hover:bg-[#fff6ee]"
+                  
+                  <Link 
+                    to={`/restaurants/${item.restaurant_slug}`}
+                    className="mt-4 bg-gray-50 rounded-xl p-3 flex items-center justify-between group-hover:bg-orange-50 transition-colors"
                   >
-                    <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Price</p>
-                    <p className="mt-2 font-display text-5xl leading-none text-[#1f1812]">
-                      {formatCurrency(item.display_price)}
-                    </p>
-                    <p className="mt-4 text-xs uppercase tracking-[0.18em] text-[#a2856b]">
-                      Shop
-                    </p>
-                    <p className="mt-2 text-base font-semibold text-[#1f1812]">{item.restaurant_name}</p>
-                    <p className="mt-2 text-sm leading-6 text-[#68584b]">
-                      {formatAddress(item.restaurant_address)}
-                    </p>
-                    {item.distance_km !== null && item.distance_km !== undefined ? (
-                      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
-                        {formatDistance(item.distance_km)}
-                      </p>
-                    ) : null}
-                    <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#8e3f11]">
-                      Open shop details
-                      <ArrowRight className="h-4 w-4" />
-                    </p>
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <div className="w-6 h-6 rounded bg-orange-100 text-orange-600 flex items-center justify-center flex-shrink-0">
+                        <BiRestaurant size={14} />
+                      </div>
+                      <span className="text-sm font-semibold text-gray-700 truncate">{item.restaurant_name}</span>
+                    </div>
+                    <FiArrowRight className="text-gray-400 group-hover:text-orange-500" />
                   </Link>
 
-                  <Link
-                    to={`/restaurants/${item.restaurant_slug}?diners=${diners}&focus=${item.id}`}
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#d66a2f] px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_30px_rgba(214,106,47,0.2)] transition hover:bg-[#be5620]"
-                  >
-                    View menu
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
                 </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
+              </motion.article>
+            ))}
+          </motion.div>
+        )}
+      </main>
     </div>
   );
 };
 
 export default RestaurantsPage;
+

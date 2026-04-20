@@ -1,19 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import {
-  ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
-  ExternalLink,
-  MapPin,
-  Minus,
-  Phone,
-  Plus,
-  ShoppingBag,
-  Store,
-  Users,
-} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  FiArrowLeft, FiMapPin, FiPhone, FiMail, FiExternalLink, 
+  FiClock, FiMinus, FiPlus, FiShoppingBag, FiInfo
+} from "react-icons/fi";
+import { BiRestaurant, BiChevronLeft, BiChevronRight } from "react-icons/bi";
 import toast from "react-hot-toast";
 
 import { useAuth } from "../context/AuthContext";
@@ -328,19 +320,19 @@ const RestaurantDetailPage = () => {
 
   if (!restaurant) {
     return (
-      <div className="soft-card rounded-[36px] px-6 py-14 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f3e6d5] text-[#8e3f11]">
-          <Store className="h-6 w-6" />
+      <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-center bg-gray-50 rounded-3xl mt-6 mx-4 sm:mx-8">
+        <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center text-orange-500 mb-6">
+          <BiRestaurant className="text-4xl" />
         </div>
-        <h1 className="font-display mt-5 text-5xl text-[#1f1812]">Restaurant not found</h1>
-        <p className="mt-4 text-sm leading-7 text-[#68584b]">
-          The tenant may have been removed or does not have marketplace data yet.
+        <h1 className="text-4xl font-extrabold text-gray-900 mb-4">Location unavailable</h1>
+        <p className="text-gray-500 max-w-md mb-8">
+          The restaurant may have been removed or does not have marketplace data yet.
         </p>
         <Link
           to="/restaurants"
-          className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#1f1812] px-5 py-3 text-sm font-semibold text-white"
+          className="flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-full font-semibold hover:bg-black transition-colors"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <FiArrowLeft />
           Back to restaurants
         </Link>
       </div>
@@ -348,437 +340,290 @@ const RestaurantDetailPage = () => {
   }
 
   return (
-    <div className="space-y-8">
-      <Link to="/restaurants" className="inline-flex items-center gap-2 text-sm font-medium text-[#8e3f11]">
-        <ArrowLeft className="h-4 w-4" />
-        Back to restaurants
-      </Link>
+    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden mb-12 pb-24 pt-4">
+      {/* Navigation Bar */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+        <Link to="/restaurants" className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100 w-fit">
+          <FiArrowLeft />
+          Back to food
+        </Link>
+      </div>
 
-      <section className="glass-panel overflow-hidden rounded-[40px]">
-        <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="flex flex-col bg-[#f2dfcd]">
-            <div className="relative min-h-[24rem]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-8 lg:grid-cols-[1fr_380px]">
+        {/* Left Column: Details & Menu */}
+        <div className="space-y-8">
+          
+          {/* Hero Section */}
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-gray-100 flex flex-col relative"
+          >
+            {/* Gallery Image */}
+            <div className="relative h-64 md:h-[400px] bg-gray-100 w-full group">
               {currentGalleryImage ? (
-                <img
-                  src={currentGalleryImage}
-                  alt={restaurant.tenant?.name}
-                  className="h-full w-full object-cover"
-                />
+                <img src={currentGalleryImage} alt={restaurant.tenant?.name} className="w-full h-full object-cover" />
               ) : (
-                <div className="flex h-full items-center justify-center text-[#b88c6e]">
-                  <Store className="h-12 w-12" />
+                <div className="flex h-full items-center justify-center text-gray-300">
+                  <BiRestaurant className="text-6xl" />
                 </div>
               )}
-              <div className="absolute left-6 top-6 rounded-full bg-white/92 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
-                {restaurant.summary?.available_item_count || 0} dishes live
+              
+              <div className="absolute top-6 left-6 bg-white/90 backdrop-blur-md px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider text-orange-600 shadow-sm">
+                {restaurant.summary?.available_item_count || 0} dishes Live
               </div>
-              {shopGalleryImages.length > 1 ? (
+              
+              {shopGalleryImages.length > 1 && (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => browseGallery(-1)}
-                    className="absolute left-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/88 text-[#1f1812] shadow-[0_12px_28px_rgba(31,24,18,0.12)] transition hover:bg-white"
-                    aria-label="Previous restaurant image"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
+                  <button onClick={() => browseGallery(-1)} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/50 hover:bg-white backdrop-blur-md rounded-full flex items-center justify-center text-gray-800 shadow-lg transition-all opacity-0 group-hover:opacity-100">
+                    <BiChevronLeft className="text-2xl" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => browseGallery(1)}
-                    className="absolute right-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/88 text-[#1f1812] shadow-[0_12px_28px_rgba(31,24,18,0.12)] transition hover:bg-white"
-                    aria-label="Next restaurant image"
-                  >
-                    <ChevronRight className="h-5 w-5" />
+                  <button onClick={() => browseGallery(1)} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/50 hover:bg-white backdrop-blur-md rounded-full flex items-center justify-center text-gray-800 shadow-lg transition-all opacity-0 group-hover:opacity-100">
+                    <BiChevronRight className="text-2xl" />
                   </button>
-                  <div className="absolute bottom-5 right-5 rounded-full bg-[#1f1812]/72 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                  <div className="absolute bottom-6 right-6 bg-black/50 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-white">
                     {activeGalleryIndex + 1} / {shopGalleryImages.length}
                   </div>
                 </>
-              ) : null}
+              )}
             </div>
 
-            {shopGalleryImages.length > 1 ? (
-              <div className="flex gap-3 overflow-x-auto px-4 py-4">
-                {shopGalleryImages.map((imageUrl, index) => (
-                  <button
-                    key={`${imageUrl}-${index}`}
-                    type="button"
-                    onClick={() => setActiveGalleryIndex(index)}
-                    className={`h-20 w-24 shrink-0 overflow-hidden rounded-[20px] border-2 transition ${
-                      index === activeGalleryIndex
-                        ? "border-[#1f1812] shadow-[0_12px_24px_rgba(31,24,18,0.14)]"
-                        : "border-white/50 opacity-80"
-                    }`}
-                    aria-label={`Show restaurant image ${index + 1}`}
-                  >
-                    <img
-                      src={imageUrl}
-                      alt={`${restaurant.tenant?.name} thumbnail ${index + 1}`}
-                      className="h-full w-full object-cover"
-                    />
-                  </button>
-                ))}
+            {/* Info Block */}
+            <div className="p-8 md:p-10 relative">
+              {/* Floating avatar/icon */}
+              <div className="absolute -top-12 left-8 md:left-10 w-24 h-24 bg-white rounded-2xl shadow-xl flex items-center justify-center p-2 border border-gray-50 overflow-hidden">
+                 <div className="w-full h-full bg-orange-100 rounded-xl flex items-center justify-center text-orange-500">
+                   <BiRestaurant className="text-4xl" />
+                 </div>
               </div>
-            ) : null}
-          </div>
-          <div className="space-y-6 px-6 py-7 sm:px-8">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Restaurant detail</p>
-              <h1 className="font-display mt-4 text-6xl leading-none text-[#1f1812]">
-                {restaurant.tenant?.name}
-              </h1>
-              {restaurant.profile?.tagline ? (
-                <p className="mt-4 text-base font-medium text-[#8e3f11]">{restaurant.profile.tagline}</p>
-              ) : null}
-              <p className="mt-5 text-sm leading-7 text-[#68584b]">
-                {formatAddress(restaurant.tenant?.address)}
-              </p>
-              {restaurant.summary?.distance_km !== null &&
-              restaurant.summary?.distance_km !== undefined ? (
-                <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
-                  {formatDistance(restaurant.summary.distance_km)}
+              
+              <div className="mt-14">
+                <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight leading-none mb-2">
+                  {restaurant.tenant?.name}
+                </h1>
+                
+                {restaurant.profile?.tagline && (
+                  <p className="text-lg font-medium text-orange-600 mb-4">{restaurant.profile.tagline}</p>
+                )}
+                
+                <p className="flex items-start gap-2 text-gray-500 text-sm max-w-2xl mt-4">
+                  <FiMapPin className="mt-0.5 flex-shrink-0 text-orange-500" />
+                  {formatAddress(restaurant.tenant?.address)}
+                  {restaurant.summary?.distance_km != null && (
+                    <span className="ml-2 px-2 py-0.5 bg-orange-50 text-orange-600 rounded text-xs font-semibold">
+                      {formatDistance(restaurant.summary.distance_km)}
+                    </span>
+                  )}
                 </p>
-              ) : null}
-              {restaurant.profile?.description ? (
-                <p className="mt-5 max-w-3xl text-sm leading-7 text-[#68584b]">
-                  {restaurant.profile.description}
-                </p>
-              ) : null}
-            </div>
+                
+                {restaurant.profile?.description && (
+                  <p className="mt-6 text-gray-600 leading-relaxed text-sm max-w-3xl">
+                    {restaurant.profile.description}
+                  </p>
+                )}
 
-            <div className="grid gap-3 sm:grid-cols-4">
-              <div className="rounded-[26px] bg-white p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Starting price</p>
-                <p className="mt-2 font-semibold text-[#1f1812]">
-                  {restaurant.summary?.starting_price ? formatCurrency(restaurant.summary.starting_price) : "NA"}
-                </p>
-              </div>
-              <div className="rounded-[26px] bg-white p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Categories</p>
-                <p className="mt-2 font-semibold text-[#1f1812]">{restaurant.categories?.length || 0}</p>
-              </div>
-              <div className="rounded-[26px] bg-white p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Party size</p>
-                <p className="mt-2 inline-flex items-center gap-1 font-semibold text-[#1f1812]">
-                  <Users className="h-4 w-4" />
-                  {diners}
-                </p>
-              </div>
-              <div className="rounded-[26px] bg-white p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Hours</p>
-                <p className="mt-2 inline-flex items-center gap-1 font-semibold text-[#1f1812]">
-                  <Clock3 className="h-4 w-4" />
-                  {(restaurant.profile?.opening_time || "09:00") +
-                    " - " +
-                    (restaurant.profile?.closing_time || "22:00")}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {(restaurant.summary?.category_labels || []).map((label) => (
-                <span key={label} className="rounded-full bg-[#f4e6d8] px-3 py-1 text-xs font-medium text-[#5d4d40]">
-                  {label}
-                </span>
-              ))}
-              {serviceModeLabels.map((label) => (
-                <span key={label} className="rounded-full bg-[#eef7f3] px-3 py-1 text-xs font-medium capitalize text-[#2e7d67]">
-                  {label}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-        <div className="soft-card rounded-[34px] p-5 sm:p-6">
-          <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Shop details</p>
-          <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">
-            About this restaurant
-          </h2>
-
-          <div className="mt-6 space-y-3">
-            <div className="rounded-[24px] bg-[#fff9f2] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Location</p>
-              <p className="mt-2 inline-flex items-start gap-2 text-sm font-medium leading-6 text-[#1f1812]">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#8e3f11]" />
-                <span>{shopLocationLine}</span>
-              </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[24px] bg-[#fff9f2] px-4 py-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Reservation line</p>
-                <p className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-[#1f1812]">
-                  <Phone className="h-4 w-4 text-[#8e3f11]" />
-                  {restaurant.profile?.reservation_phone ||
-                    restaurant.profile?.whatsapp_number ||
-                    restaurant.tenant?.phone ||
-                    "Not added"}
-                </p>
-              </div>
-              <div className="rounded-[24px] bg-[#fff9f2] px-4 py-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Customer email</p>
-                <p className="mt-2 text-sm font-medium text-[#1f1812]">
-                  {restaurant.profile?.contact_email || restaurant.tenant?.email || "Not added"}
-                </p>
-              </div>
-            </div>
-
-            {restaurant.profile?.map_link ? (
-              <a
-                href={restaurant.profile.map_link}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full border border-[rgba(96,73,53,0.14)] bg-white px-4 py-3 text-sm font-semibold text-[#1f1812] transition hover:bg-[#fff7ef]"
-              >
-                Open location on map
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="soft-card rounded-[34px] p-5 sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Shop gallery</p>
-              <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">
-                Restaurant images
-              </h2>
-            </div>
-            <span className="rounded-full bg-[#fbefe4] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
-              {shopGalleryImages.length} photos
-            </span>
-          </div>
-
-          {shopGalleryImages.length > 0 ? (
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              {shopGalleryImages.slice(0, 6).map((imageUrl, index) => (
-                <button
-                  key={`${imageUrl}-${index}`}
-                  type="button"
-                  onClick={() => setActiveGalleryIndex(index)}
-                  className={`overflow-hidden rounded-[28px] bg-[#f2dfcd] text-left transition ${
-                    index === 0 ? "sm:col-span-2" : ""
-                  } ${
-                    index === activeGalleryIndex
-                      ? "ring-2 ring-[#1f1812] ring-offset-2 ring-offset-[#fff9f2]"
-                      : ""
-                  }`}
-                >
-                  <img
-                    src={imageUrl}
-                    alt={`${restaurant.tenant?.name} ${index + 1}`}
-                    className={`w-full object-cover ${index === 0 ? "h-64" : "h-40"}`}
-                  />
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-6 rounded-[28px] bg-[#fff9f2] px-5 py-12 text-center text-sm leading-7 text-[#68584b]">
-              Shop images have not been added yet. The restaurant can upload cover and gallery
-              photos from the workspace settings.
-            </div>
-          )}
-        </div>
-      </section>
-
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] xl:grid-cols-[1.3fr_0.7fr]">
-        <div className="space-y-6">
-          {visibleSections.length === 0 ? (
-            <section className="soft-card rounded-[34px] px-6 py-12 text-center">
-              <h2 className="font-display text-5xl text-[#1f1812]">No live dishes right now</h2>
-              <p className="mt-4 text-sm leading-7 text-[#68584b]">
-                This restaurant is visible in the portal, but it does not currently have any
-                available menu items for customers.
-              </p>
-            </section>
-          ) : (
-            visibleSections.map((section) => (
-              <section key={section.id} className="soft-card rounded-[34px] p-5 sm:p-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Section</p>
-                    <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">
-                      {section.name}
-                    </h2>
-                    {section.description ? (
-                      <p className="mt-3 text-sm leading-7 text-[#68584b]">{section.description}</p>
-                    ) : null}
-                  </div>
-                  <span className="rounded-full bg-[#fbefe4] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#a54d16]">
-                    {section.items.length} items
-                  </span>
+                <div className="flex flex-wrap gap-2 mt-6">
+                  {serviceModeLabels.map((label) => (
+                    <span key={label} className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider">
+                      {label}
+                    </span>
+                  ))}
+                  {(restaurant.summary?.category_labels || []).map((label) => (
+                    <span key={label} className="bg-orange-50 text-orange-600 border border-orange-100 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider">
+                      {label}
+                    </span>
+                  ))}
                 </div>
+              </div>
+            </div>
+          </motion.section>
 
-                <div className="mt-6 grid gap-4 xl:grid-cols-2">
-                  {(section.items || []).map((item) => {
-                    const quantity = cart[item.id] || 0;
-                    return (
-                      <article
-                        id={`dish-${item.id}`}
-                        key={item.id}
-                        className={`rounded-[28px] border p-4 transition ${
-                          focusedItemId === item.id
-                            ? "border-[rgba(214,106,47,0.34)] bg-[#fff7ef] shadow-[0_18px_44px_rgba(140,63,17,0.08)]"
-                            : "border-[rgba(96,73,53,0.12)] bg-[#fffdf9]"
-                        }`}
-                      >
-                        <div className="flex gap-4">
-                          <div className="h-28 w-28 shrink-0 overflow-hidden rounded-[22px] bg-[#f2dfcd]">
+          {/* Menu Sections */}
+          <div className="space-y-12">
+            {visibleSections.length === 0 ? (
+              <div className="bg-white rounded-[32px] p-12 text-center border border-gray-100">
+                 <FiInfo className="text-4xl text-gray-300 mx-auto mb-4" />
+                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Menu is empty</h2>
+                 <p className="text-gray-500">This location has not added any live menu items yet.</p>
+              </div>
+            ) : (
+              visibleSections.map((section, idx) => (
+                <motion.section 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.1 }}
+                  key={section.id} 
+                  className="pt-4"
+                >
+                  <div className="mb-6 px-2">
+                    <h2 className="text-3xl font-extrabold text-gray-900">{section.name}</h2>
+                    {section.description && <p className="text-gray-500 mt-2">{section.description}</p>}
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                    {section.items.map((item) => {
+                      const quantity = cart[item.id] || 0;
+                      return (
+                        <div 
+                          id={`dish-${item.id}`}
+                          key={item.id}
+                          className={`bg-white rounded-3xl p-4 flex gap-4 transition-all duration-300 border ${
+                            focusedItemId === item.id 
+                              ? "border-orange-300 shadow-md ring-4 ring-orange-50" 
+                              : "border-gray-100 hover:border-gray-200 shadow-sm hover:shadow-md"
+                          }`}
+                        >
+                          <div className="w-28 h-28 shrink-0 rounded-2xl bg-gray-50 overflow-hidden relative border border-gray-100">
                             {item.image_url ? (
-                              <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
+                              <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                             ) : (
-                              <div className="flex h-full items-center justify-center text-[#b88c6e]">
-                                <Store className="h-6 w-6" />
+                              <div className="w-full h-full flex items-center justify-center text-gray-200">
+                                <BiRestaurant className="text-3xl" />
                               </div>
                             )}
-                          </div>
-                          <div className="flex flex-1 flex-col">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <h3 className="text-lg font-semibold text-[#1f1812]">{item.name}</h3>
-                                <p className="mt-2 text-sm leading-6 text-[#68584b]">
-                                  {shortText(item.description, 96) || "Freshly prepared and ready to serve."}
-                                </p>
-                              </div>
-                              <span className="rounded-full bg-[#eef7f3] px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2e7d67]">
-                                {item.food_type === "veg" ? "Veg" : "Non-veg"}
-                              </span>
+                            {/* Food type dot */}
+                            <div className={`absolute bottom-2 left-2 w-5 h-5 rounded flex items-center justify-center border-2 bg-white/90 backdrop-blur-md shadow-sm ${item.food_type === 'veg' ? 'border-green-500' : 'border-red-500'}`}>
+                              <div className={`w-2 h-2 rounded-full ${item.food_type === 'veg' ? 'bg-green-500' : 'bg-red-500'}`}></div>
                             </div>
+                          </div>
 
-                            <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-4">
-                              <div>
-                                <p className="text-lg font-semibold text-[#1f1812]">{formatCurrency(item.display_price)}</p>
-                                <p className="mt-1 inline-flex items-center gap-1 text-xs uppercase tracking-[0.18em] text-[#8a7869]">
-                                  <Clock3 className="h-3.5 w-3.5" />
-                                  {item.prep_time_minutes} mins
-                                </p>
-                              </div>
+                          <div className="flex-1 flex flex-col pt-1">
+                            <h3 className="font-bold text-gray-900 text-lg leading-tight mb-1">{item.name}</h3>
+                            <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed flex-1">
+                              {item.description || "Freshly made standard portion."}
+                            </p>
+                            
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
+                              <span className="font-bold text-gray-900 text-lg">
+                                {formatCurrency(item.display_price)}
+                              </span>
 
                               {quantity > 0 ? (
-                                <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(96,73,53,0.14)] bg-white px-2 py-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateQuantity(item.id, quantity - 1)}
-                                    className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f5ebdf]"
-                                  >
-                                    <Minus className="h-4 w-4" />
+                                <div className="flex items-center bg-gray-100 rounded-full p-1 shadow-inner">
+                                  <button onClick={() => updateQuantity(item.id, quantity - 1)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm text-gray-700 hover:text-red-500 transition-colors">
+                                    <FiMinus />
                                   </button>
-                                  <span className="min-w-6 text-center text-sm font-semibold text-[#1f1812]">{quantity}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateQuantity(item.id, quantity + 1)}
-                                    className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1f1812] text-white"
-                                  >
-                                    <Plus className="h-4 w-4" />
+                                  <span className="w-8 text-center font-bold text-sm text-gray-900">{quantity}</span>
+                                  <button onClick={() => updateQuantity(item.id, quantity + 1)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-900 text-white shadow-sm hover:bg-black transition-colors">
+                                    <FiPlus />
                                   </button>
                                 </div>
                               ) : (
-                                <button
-                                  type="button"
+                                <button 
                                   onClick={() => updateQuantity(item.id, 1)}
-                                  className="rounded-full bg-[#1f1812] px-4 py-2 text-sm font-semibold text-white"
+                                  className="bg-orange-50 hover:bg-orange-100 border border-orange-100 text-orange-600 px-4 py-2 rounded-full text-sm font-bold transition-colors"
                                 >
-                                  Add to cart
+                                  ADD
                                 </button>
                               )}
                             </div>
                           </div>
                         </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            ))
-          )}
+                      );
+                    })}
+                  </div>
+                </motion.section>
+              ))
+            )}
+          </div>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <div className="soft-card rounded-[34px] p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1f1812] text-white">
-                <ShoppingBag className="h-5 w-5" />
+        {/* Right Column: Cart Sticky */}
+        <div className="relative">
+          <div className="sticky top-24 bg-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-gray-200/40 border border-gray-100">
+             
+            <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-6">
+              <div className="w-12 h-12 bg-gray-900 text-white rounded-2xl flex items-center justify-center">
+                <FiShoppingBag className="text-xl" />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Cart</p>
-                <h2 className="font-display text-4xl leading-none text-[#1f1812]">Save this request</h2>
+                <h2 className="text-2xl font-extrabold text-gray-900 leading-none">Your Cart</h2>
+                <p className="text-gray-500 text-sm mt-1">{restaurant.tenant?.name}</p>
               </div>
             </div>
 
             {cartLines.length === 0 ? (
-              <div className="mt-5 rounded-[24px] bg-[#fcf5ec] px-4 py-6 text-sm leading-7 text-[#68584b]">
-                Build a cart here, then save it into your account or hand it to WhatsApp for final confirmation.
-              </div>
+               <div className="py-8 flex flex-col items-center justify-center text-center">
+                 <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 mb-4">
+                   <FiShoppingBag className="text-3xl" />
+                 </div>
+                 <p className="text-gray-500 font-medium">Your cart is empty</p>
+                 <p className="text-gray-400 text-sm mt-1">Add items from the menu to start</p>
+               </div>
             ) : (
-              <div className="mt-5 space-y-3">
-                {cartLines.map((line) => (
-                  <div key={line.id} className="rounded-[24px] bg-[#fcf5ec] px-4 py-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-[#1f1812]">{line.name}</p>
-                        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-[#8a7869]">
-                          Qty {line.quantity}
+              <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+                <AnimatePresence>
+                  {cartLines.map((line) => (
+                    <motion.div 
+                      key={line.id}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="flex items-start justify-between gap-3 bg-gray-50 p-3 rounded-2xl"
+                    >
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-900 text-sm pr-2">{line.name}</p>
+                        <p className="text-gray-500 text-xs mt-1">
+                          {formatCurrency(line.display_price)} × {line.quantity}
                         </p>
                       </div>
-                      <p className="font-semibold text-[#8e3f11]">{formatCurrency(line.total)}</p>
-                    </div>
-                  </div>
-                ))}
-
-                <div className="flex items-center justify-between rounded-[24px] border border-[rgba(96,73,53,0.12)] bg-white px-4 py-4">
-                  <span className="text-sm font-medium text-[#68584b]">Grand total</span>
-                  <span className="text-lg font-semibold text-[#1f1812]">{formatCurrency(grandTotal)}</span>
-                </div>
+                      <div className="font-bold text-gray-900 text-sm">
+                        {formatCurrency(line.total)}
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
             )}
 
-            <label className="mt-4 block">
-              <span className="mb-2 block text-sm font-medium text-[#3f342a]">Notes for the restaurant</span>
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                rows={3}
-                placeholder="Spice level, delivery note, dine-in preference..."
-                className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-4 py-3 outline-none focus:border-[#8e3f11]"
-              />
-            </label>
+            {cartLines.length > 0 && (
+              <div className="mt-6 border-t border-gray-100 pt-6">
+                <div className="flex justify-between items-center mb-6">
+                  <span className="font-bold text-gray-500">Total amount</span>
+                  <span className="text-2xl font-extrabold text-gray-900">{formatCurrency(grandTotal)}</span>
+                </div>
 
-            <button
-              type="button"
-              onClick={submitOrderRequest}
-              disabled={submitting || payingNow}
-              className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-[#1f1812] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {submitting ? "Saving request..." : isAuthenticated ? "Save food request" : "Sign in to save"}
-            </button>
+                <div className="mb-6">
+                  <span className="block text-sm font-bold text-gray-700 mb-2">Cooking Instructions</span>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                    placeholder="E.g. Less spicy, send cutlery..."
+                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 outline-none resize-none transition-all placeholder-gray-400"
+                  />
+                </div>
 
-            <button
-              type="button"
-              onClick={startRazorpayPayment}
-              disabled={submitting || payingNow}
-              className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-[#c8632c] px-5 py-3 text-sm font-semibold text-[#fffaf4] shadow-[0_16px_32px_rgba(104,47,18,0.16)] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {payingNow
-                ? "Opening payment..."
-                : isAuthenticated
-                  ? `Pay ${formatCurrency(grandTotal)} with Razorpay`
-                  : "Sign in to pay"}
-            </button>
-
-            <a
-              href={buildWhatsAppLink(whatsappMessage)}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-flex w-full items-center justify-center rounded-full border border-[rgba(96,73,53,0.14)] bg-white px-5 py-3 text-sm font-semibold text-[#1f1812]"
-            >
-              Send to WhatsApp
-            </a>
+                <div className="space-y-3">
+                  <button
+                    onClick={startRazorpayPayment}
+                    disabled={submitting || payingNow}
+                    className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-full shadow-lg shadow-orange-600/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                  >
+                    {payingNow ? "Processing..." : `Pay ${formatCurrency(grandTotal)} Now`}
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Quick Contact Info */}
+            <div className="mt-8 pt-6 border-t border-gray-100 grid grid-cols-2 gap-4">
+               <div className="bg-gray-50 rounded-2xl p-4 text-center">
+                 <FiPhone className="text-gray-400 mx-auto mb-2" />
+                 <p className="text-xs text-gray-900 font-semibold break-all">
+                   {restaurant.profile?.reservation_phone || restaurant.tenant?.phone || "No phone"}
+                 </p>
+               </div>
+               <div className="bg-gray-50 rounded-2xl p-4 text-center">
+                 <FiMail className="text-gray-400 mx-auto mb-2" />
+                 <p className="text-xs text-gray-900 font-semibold break-all">
+                   {restaurant.profile?.contact_email || restaurant.tenant?.email || "No email"}
+                 </p>
+               </div>
+            </div>
+            
           </div>
-        </aside>
+        </div>
       </div>
     </div>
   );

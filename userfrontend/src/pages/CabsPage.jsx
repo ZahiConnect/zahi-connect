@@ -1,18 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import {
-  ArrowRight,
-  CarFront,
-  CheckCircle2,
-  Clock3,
-  Gauge,
-  MapPin,
-  Navigation,
-  Phone,
-  Route,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
+import { useLocation, useNavigate, Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  FiMapPin, 
+  FiClock, 
+  FiArrowRight, 
+  FiUsers, 
+  FiPhone,
+  FiNavigation,
+  FiCheckCircle,
+  FiShield,
+  FiInfo,
+  FiSearch,
+  FiCalendar,
+  FiZap
+} from "react-icons/fi";
+import { 
+  MdOutlineLocalTaxi, 
+  MdOutlineDirectionsCar,
+  MdOutlineSpeed,
+  MdOutlineRoute
+} from "react-icons/md";
+import { FaCarSide, FaMapMarkedAlt } from "react-icons/fa";
 import toast from "react-hot-toast";
 
 import { useAuth } from "../context/AuthContext";
@@ -20,6 +29,20 @@ import useCustomerLocation from "../hooks/useCustomerLocation";
 import { formatCurrency, formatDistance, formatShortDate, todayDate } from "../lib/format";
 import bookingService from "../services/bookingService";
 import mobilityService from "../services/mobilityService";
+
+/* ── Helpers ───────────────────────────────────────────── */
+
+const inputStyle = "w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm outline-none text-gray-900 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 transition-all";
+
+const FormField = ({ label, icon: Icon, children }) => (
+  <label className="block">
+    <span className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 px-1">
+      {Icon && <Icon className="text-orange-500" />}
+      {label}
+    </span>
+    {children}
+  </label>
+);
 
 const CabsPage = () => {
   const navigate = useNavigate();
@@ -31,9 +54,11 @@ const CabsPage = () => {
     status: locationStatus,
     requestLocation,
   } = useCustomerLocation(true);
+  
   const coordinateKey = coordinates
     ? `${coordinates.latitude.toFixed(5)}:${coordinates.longitude.toFixed(5)}`
     : "no-location";
+    
   const driverAppUrl = import.meta.env.VITE_DRIVER_APP_URL || "http://localhost:5175";
 
   const [submitting, setSubmitting] = useState(false);
@@ -60,7 +85,6 @@ const CabsPage = () => {
 
   useEffect(() => {
     let active = true;
-
     const loadNearbyDrivers = async () => {
       setLoadingDrivers(true);
       try {
@@ -70,32 +94,26 @@ const CabsPage = () => {
                 latitude: coordinates.latitude,
                 longitude: coordinates.longitude,
                 radius_km: 30,
-                limit: 6,
+                limit: 10,
               }
-            : { limit: 6 }
+            : { limit: 10 }
         );
 
         if (!active) return;
         const normalized = Array.isArray(data) ? data : [];
         setNearbyDrivers(normalized);
-        setSelectedDriverId((current) =>
-          current && normalized.some((item) => item.driver?.id === current) ? current : null
-        );
       } catch (error) {
-        if (!active) return;
-        console.error("Failed to load nearby drivers", error);
-        setNearbyDrivers([]);
-      } finally {
         if (active) {
-          setLoadingDrivers(false);
+            console.error("Failed to load nearby drivers", error);
+            setNearbyDrivers([]);
         }
+      } finally {
+        if (active) setLoadingDrivers(false);
       }
     };
 
     loadNearbyDrivers();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [coordinateKey]);
 
   const selectedDriver = useMemo(
@@ -105,7 +123,6 @@ const CabsPage = () => {
 
   const fareStartingAt = useMemo(() => {
     if (!nearbyDrivers.length) return null;
-
     return nearbyDrivers.reduce((lowest, item) => {
       const nextValue = Number(item.driver?.vehicle?.base_fare);
       if (!Number.isFinite(nextValue)) return lowest;
@@ -120,8 +137,8 @@ const CabsPage = () => {
 
     await bookingService.createRequest({
       service_type: "cab",
-      title: `Cab ride from ${form.pickup} to ${form.drop}`,
-      summary: `${form.passengers} passenger(s) on ${formatShortDate(form.travelDate)}`,
+      title: `Cab ride: ${form.pickup} → ${form.drop}`,
+      summary: `${form.passengers} passenger(s) · ${formatShortDate(form.travelDate)}`,
       total_amount: rideRequest?.estimated_fare || null,
       metadata: {
         pickup: form.pickup,
@@ -147,7 +164,7 @@ const CabsPage = () => {
       return;
     }
 
-    if (!form.pickup || !form.drop) {
+    if (!form.pickup.trim() || !form.drop.trim()) {
       toast.error("Add both pickup and drop locations.");
       return;
     }
@@ -189,331 +206,342 @@ const CabsPage = () => {
     }
   };
 
-  return (
-    <div className="space-y-10">
-      <section className="glass-panel rounded-[38px] px-6 py-8 sm:px-8">
-        <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Cab lane</p>
-        <h1 className="font-display mt-3 text-6xl leading-none text-[#1f1812]">
-          Nearby cabs, live drivers, direct contact
-        </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-[#68584b]">
-          Zahi Trips now shows online drivers from the new mobility service. Customers can see the
-          nearest available cab, confirm a paid ride, and reach the driver directly, while Zahi
-          keeps only a commission from the customer payment.
-        </p>
-      </section>
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
 
-      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="soft-card rounded-[34px] p-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1f1812] text-white">
-              <CarFront className="h-5 w-5" />
+  const itemVariants = {
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0 }
+  };
+
+  return (
+    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden mb-12 flex flex-col pt-6 pb-20 px-4 md:px-8 max-w-7xl mx-auto">
+      
+      {/* Hero Header */}
+      <motion.section 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-10 bg-gray-900 rounded-[32px] p-8 md:p-12 lg:p-16 text-white relative overflow-hidden shadow-2xl"
+      >
+        <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none">
+          <MdOutlineLocalTaxi className="text-[240px]" />
+        </div>
+        
+        <div className="relative z-10 max-w-3xl">
+          <span className="inline-flex items-center gap-2 bg-orange-500/20 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase mb-6">
+            <FaCarSide className="text-sm" /> Smart Mobility
+          </span>
+          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-[1.1] mb-6">
+            Every route, <span className="text-orange-400">reimagined.</span>
+          </h1>
+          <p className="text-gray-400 text-lg leading-relaxed max-w-xl mb-8">
+            Connect with the nearest verified drivers in real-time. Transparent fares, direct contact, and zero subscription fees.
+          </p>
+
+          <div className="flex flex-wrap gap-4 pt-6 border-t border-white/10">
+            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Online Drivers</p>
+              <p className="text-2xl font-bold">{nearbyDrivers.length}</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Starting From</p>
+              <p className="text-2xl font-bold">{fareStartingAt !== null ? formatCurrency(fareStartingAt) : "Waiting"}</p>
+            </div>
+          </div>
+        </div>
+      </motion.section>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-10 items-start">
+        
+        {/* Left Side: Booking Form */}
+        <section className="bg-gray-50/50 border border-gray-100 rounded-[32px] p-8">
+          <div className="flex items-center gap-3 mb-10">
+            <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 shadow-sm shadow-orange-500/10">
+              <MdOutlineDirectionsCar className="text-2xl" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Customer flow</p>
-              <h2 className="font-display text-4xl leading-none text-[#1f1812]">
-                Book the nearest online cab
-              </h2>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-orange-600 font-bold mb-0.5">Customer Dispatch</p>
+              <h3 className="text-2xl font-extrabold text-gray-900">Request your ride</h3>
             </div>
           </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-[24px] bg-[#fbf2e7] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Online drivers</p>
-              <p className="mt-2 text-3xl font-semibold text-[#1f1812]">{nearbyDrivers.length}</p>
-            </div>
-            <div className="rounded-[24px] bg-[#fbf2e7] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Fare starts at</p>
-              <p className="mt-2 text-3xl font-semibold text-[#1f1812]">
-                {fareStartingAt !== null ? formatCurrency(fareStartingAt) : "Waiting"}
-              </p>
-            </div>
-            <div className="rounded-[24px] bg-[#fbf2e7] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#a2856b]">Platform model</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#1f1812]">
-                No driver subscription. Zahi takes 12% only when riders pay.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            {locationStatus === "ready" && locationLabel ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-[#f5e4d2] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8e4a1d]">
-                <Navigation className="h-3.5 w-3.5" />
-                Ranked around {locationLabel}
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={requestLocation}
-                className="inline-flex items-center gap-2 rounded-full border border-[rgba(198,99,44,0.22)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8e4a1d] transition hover:bg-[#fff8f1]"
-              >
-                <MapPin className="h-3.5 w-3.5" />
-                Enable nearby ranking
-              </button>
-            )}
-
-            <a
-              href={driverAppUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-full border border-[rgba(31,24,18,0.12)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#1f1812]"
-            >
-              Open Zahi Drive
-              <ArrowRight className="h-3.5 w-3.5" />
-            </a>
-          </div>
-
-          <div className="mt-6 grid gap-4">
-            <label className="block">
-              <span className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-[#3f342a]">
-                <MapPin className="h-4 w-4" />
-                Pickup
-              </span>
-              <input
-                type="text"
-                value={form.pickup}
-                onChange={(event) => setField("pickup", event.target.value)}
-                placeholder="Airport, hotel, or landmark"
-                className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-4 py-3 outline-none focus:border-[#d66a2f]"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-[#3f342a]">
-                <Route className="h-4 w-4" />
-                Drop
-              </span>
-              <input
-                type="text"
-                value={form.drop}
-                onChange={(event) => setField("drop", event.target.value)}
-                placeholder="Destination address"
-                className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-4 py-3 outline-none focus:border-[#d66a2f]"
-              />
-            </label>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-[#3f342a]">Travel date</span>
-                <input
-                  type="date"
-                  value={form.travelDate}
-                  onChange={(event) => setField("travelDate", event.target.value)}
-                  className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-4 py-3 outline-none focus:border-[#d66a2f]"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-[#3f342a]">
-                  <Users className="h-4 w-4" />
-                  Passengers
-                </span>
-                <input
-                  type="number"
-                  min="1"
-                  max="12"
-                  value={form.passengers}
-                  onChange={(event) => setField("passengers", Number(event.target.value) || 1)}
-                  className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-4 py-3 outline-none focus:border-[#d66a2f]"
-                />
-              </label>
-            </div>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-medium text-[#3f342a]">
-                Trip note for driver
-              </span>
-              <textarea
-                value={form.notes}
-                onChange={(event) => setField("notes", event.target.value)}
-                placeholder="Airport gate, luggage count, or landmark"
-                rows={3}
-                className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-4 py-3 outline-none focus:border-[#d66a2f]"
-              />
-            </label>
-          </div>
-
-          {!user?.mobile && isAuthenticated ? (
-            <div className="mt-5 rounded-[24px] border border-[rgba(198,99,44,0.16)] bg-[#fff4ea] px-4 py-4 text-sm leading-7 text-[#7a4a28]">
-              Your customer profile does not have a mobile number yet, so the driver may only see
-              your name and email.
-            </div>
-          ) : null}
-
-          {confirmedRide?.assigned_driver ? (
-            <div className="mt-5 rounded-[28px] border border-[rgba(46,125,103,0.16)] bg-[#f3fbf7] p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#2e7d67]">
-                    <CheckCircle2 className="h-4 w-4" />
-                    Ride confirmed
-                  </p>
-                  <h3 className="mt-3 text-2xl font-semibold text-[#1f1812]">
-                    {confirmedRide.assigned_driver.full_name}
-                  </h3>
-                  <p className="mt-2 text-sm leading-7 text-[#5a4d43]">
-                    {confirmedRide.assigned_driver.vehicle?.vehicle_name || "Cab"} ·{" "}
-                    {confirmedRide.assigned_driver.vehicle?.plate_number || "Plate pending"}
-                  </p>
-                  <p className="text-sm leading-7 text-[#5a4d43]">
-                    Estimated fare {formatCurrency(confirmedRide.ride_request?.estimated_fare)}
-                  </p>
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField label="Pickup Location" icon={FiMapPin}>
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    value={form.pickup} 
+                    onChange={e => setField("pickup", e.target.value)} 
+                    placeholder="Search pickup point" 
+                    className={inputStyle} 
+                  />
+                  <FiMapPin className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" />
                 </div>
-                <div className="flex flex-col gap-3 sm:items-end">
-                  <a
-                    href={`tel:${confirmedRide.assigned_driver.phone}`}
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1f1812] px-4 py-2.5 text-sm font-semibold text-white"
-                  >
-                    <Phone className="h-4 w-4" />
-                    Call driver
-                  </a>
-                  <p className="text-xs uppercase tracking-[0.18em] text-[#6b8c82]">
-                    Zahi commission {formatCurrency(confirmedRide.ride_request?.commission_amount)}
-                  </p>
+              </FormField>
+
+              <FormField label="Drop Destination" icon={FiNavigation}>
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    value={form.drop} 
+                    onChange={e => setField("drop", e.target.value)} 
+                    placeholder="Search destination" 
+                    className={inputStyle} 
+                  />
+                  <FiNavigation className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" />
                 </div>
-              </div>
+              </FormField>
             </div>
-          ) : null}
 
-          <button
-            type="button"
-            onClick={submitInterest}
-            disabled={submitting}
-            className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[#1f1812] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {submitting
-              ? "Confirming ride..."
-              : isAuthenticated
-                ? "Confirm paid ride"
-                : "Sign in to request"}
-          </button>
-        </section>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField label="Travel Date" icon={FiCalendar}>
+                <input 
+                  type="date" 
+                  value={form.travelDate} 
+                  onChange={e => setField("travelDate", e.target.value)} 
+                  className={inputStyle} 
+                />
+              </FormField>
+              <FormField label="Passengers" icon={FiUsers}>
+                <input 
+                  type="number" 
+                  min={1} 
+                  max={12} 
+                  value={form.passengers} 
+                  onChange={e => setField("passengers", Number(e.target.value) || 1)} 
+                  className={inputStyle} 
+                />
+              </FormField>
+            </div>
 
-        <section className="soft-card rounded-[34px] p-6">
-          <p className="text-xs uppercase tracking-[0.22em] text-[#c15d1f]">Nearby online drivers</p>
+            <FormField label="Trip Notes" icon={FiInfo}>
+              <textarea 
+                value={form.notes} 
+                onChange={e => setField("notes", e.target.value)} 
+                placeholder="Luggage count, gate number, or special requests..." 
+                rows={3} 
+                className={`${inputStyle} resize-none`} 
+              />
+            </FormField>
 
-          <div className="mt-5 rounded-[24px] border border-[rgba(96,73,53,0.12)] bg-[#fffdf9] p-4">
+            <div className="flex flex-wrap gap-3 py-2">
+              {locationStatus === "ready" && locationLabel ? (
+                <div className="bg-orange-50 text-orange-600 border border-orange-100 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                  <FaMapMarkedAlt /> Near {locationLabel}
+                </div>
+              ) : (
+                <button 
+                  onClick={requestLocation} 
+                  className="bg-white border border-gray-200 hover:border-orange-200 text-gray-600 hover:text-orange-600 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm"
+                >
+                  <FiMapPin /> Enable nearby ranking
+                </button>
+              )}
+            </div>
+
+            <AnimatePresence>
+              {confirmedRide?.assigned_driver && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="bg-green-50 border border-green-100 rounded-3xl p-6 mt-4"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 text-green-600 mb-3">
+                         <FiCheckCircle className="text-lg" />
+                         <span className="text-[10px] font-bold uppercase tracking-widest">Matched with Driver</span>
+                      </div>
+                      <h4 className="text-2xl font-black text-gray-900">{confirmedRide.assigned_driver.full_name}</h4>
+                      <p className="text-sm font-bold text-gray-500 mt-1">
+                        {confirmedRide.assigned_driver.vehicle?.vehicle_name} · <span className="text-indigo-600">{confirmedRide.assigned_driver.vehicle?.plate_number}</span>
+                      </p>
+                      <p className="text-xs font-bold text-green-700 mt-2 bg-green-100 w-fit px-3 py-1 rounded-full">
+                        Estimated Fare: {formatCurrency(confirmedRide.ride_request?.estimated_fare)}
+                      </p>
+                    </div>
+                    <a 
+                      href={`tel:${confirmedRide.assigned_driver.phone}`}
+                      className="bg-gray-900 text-white rounded-2xl px-6 py-4 font-bold flex items-center gap-2 shadow-lg hover:bg-black transition-all"
+                    >
+                      <FiPhone /> Call Driver
+                    </a>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <button
-              type="button"
-              onClick={() => setSelectedDriverId(null)}
-              className={`w-full rounded-[20px] px-4 py-4 text-left transition ${
-                selectedDriverId === null
-                  ? "bg-[#1f1812] text-white"
-                  : "bg-[#fbf2e7] text-[#1f1812]"
+              onClick={submitInterest}
+              disabled={submitting}
+              className={`w-full h-16 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-3 shadow-xl ${
+                submitting 
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
+                  : "bg-gray-900 text-white hover:bg-black shadow-gray-900/10 active:scale-95"
               }`}
             >
-              <p
-                className={`text-xs uppercase tracking-[0.18em] ${
-                  selectedDriverId === null ? "text-white/70" : "text-[#7a6453]"
-                }`}
-              >
-                Auto assignment
-              </p>
-              <p className="mt-2 text-lg font-semibold">Let Zahi pick the nearest online cab</p>
-              <p
-                className={`mt-2 text-sm leading-7 ${
-                  selectedDriverId === null ? "text-white/80" : "text-[#5f4d41]"
-                }`}
-              >
-                Best if you just want the fastest available match around your pickup point.
-              </p>
+              {submitting ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                  Confirming ride...
+                </>
+              ) : (
+                <>
+                  {isAuthenticated ? "Book Your Ride" : "Sign in to request"}
+                  <FiArrowRight className="text-xl" />
+                </>
+              )}
             </button>
           </div>
+        </section>
 
-          <div className="mt-4 space-y-3 text-sm leading-7 text-[#68584b]">
+        {/* Right Side: Online Drivers */}
+        <section className="bg-white border border-gray-100 rounded-[32px] p-8 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-orange-600 font-bold mb-0.5">Nearby Online</p>
+              <h3 className="text-2xl font-extrabold text-gray-900">Choose your driver</h3>
+            </div>
+            <div className="bg-green-50 text-green-600 border border-green-100 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest animate-pulse">
+              Live Network
+            </div>
+          </div>
+
+          <div className="space-y-4 max-h-[700px] overflow-y-auto pr-2 custom-scrollbar">
+            {/* Auto Assignment Card */}
+            <button
+               onClick={() => setSelectedDriverId(null)}
+               className={`w-full rounded-3xl p-5 text-left border-2 transition-all duration-300 relative group overflow-hidden ${
+                 selectedDriverId === null ? "bg-gray-900 border-gray-900 text-white shadow-xl scale-[1.02]" : "bg-gray-50 border-transparent hover:border-gray-200"
+               }`}
+            >
+               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <FiZap className="text-[60px]" />
+               </div>
+               <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${selectedDriverId === null ? "text-orange-400" : "text-gray-400"}`}>
+                 Instant Match
+               </p>
+               <p className="text-lg font-black leading-tight mb-2">Automated Assignment</p>
+               <p className={`text-xs font-medium leading-relaxed ${selectedDriverId === null ? "text-gray-400" : "text-gray-500"}`}>
+                 Let Zahi pick the nearest high-rated driver instantly.
+               </p>
+            </button>
+
             {loadingDrivers ? (
-              [...Array(3)].map((_, index) => (
-                <div key={index} className="h-36 animate-pulse rounded-[24px] bg-[#fbf2e7]" />
+              [...Array(4)].map((_, i) => (
+                <div key={i} className="h-40 bg-gray-50 rounded-3xl animate-pulse border border-gray-100" />
               ))
             ) : nearbyDrivers.length === 0 ? (
-              <div className="rounded-[24px] bg-[#fbf2e7] px-4 py-4">
-                No drivers are online right now. Your ride request can still be saved and assigned
-                when the next driver goes online.
+              <div className="py-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200 text-center px-6">
+                <FiInfo className="text-3xl text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No active drivers found</p>
+                <p className="text-gray-500 text-sm mt-1">We'll save your request and notify the next driver who goes online.</p>
               </div>
             ) : (
-              nearbyDrivers.map((item) => {
-                const driver = item.driver || {};
-                const vehicle = driver.vehicle || {};
-                const isSelected = selectedDriverId === driver.id;
+                <motion.div 
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="show"
+                  className="space-y-4"
+                >
+                  {nearbyDrivers.map((item) => {
+                    const driver = item.driver || {};
+                    const vehicle = driver.vehicle || {};
+                    const isSelected = selectedDriverId === driver.id;
 
-                return (
-                  <button
-                    key={driver.id}
-                    type="button"
-                    onClick={() => setSelectedDriverId(driver.id)}
-                    className={`w-full rounded-[26px] border p-4 text-left transition ${
-                      isSelected
-                        ? "border-[rgba(214,106,47,0.26)] bg-[#fff2e8]"
-                        : "border-[rgba(96,73,53,0.12)] bg-[#fffdf9]"
-                    }`}
-                  >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-lg font-semibold text-[#1f1812]">{driver.full_name}</p>
-                          <span className="rounded-full bg-[#eef7f2] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2e7d67]">
-                            Online
-                          </span>
-                          {item.distance_km !== null && item.distance_km !== undefined ? (
-                            <span className="rounded-full bg-[#f5e4d2] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8e4a1d]">
-                              {formatDistance(item.distance_km)}
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-2 text-sm leading-7 text-[#5a4d43]">
-                          {vehicle.vehicle_name || "Cab"} · {vehicle.plate_number || "Plate pending"}
-                        </p>
-                        <p className="text-sm leading-7 text-[#5a4d43]">
-                          {driver.current_area_label || "Current area updating"}
-                        </p>
-                      </div>
+                    return (
+                      <motion.button
+                        key={driver.id}
+                        variants={itemVariants}
+                        onClick={() => setSelectedDriverId(driver.id)}
+                        className={`w-full rounded-3xl p-6 text-left border-2 transition-all duration-300 group relative ${
+                          isSelected 
+                            ? "bg-orange-50 border-orange-600 shadow-lg scale-[1.01]" 
+                            : "bg-white border-gray-100 hover:border-orange-200 hover:shadow-md"
+                        }`}
+                      >
+                         <div className="flex flex-col gap-4">
+                           <div className="flex justify-between items-start gap-4">
+                             <div className="flex-1">
+                               <div className="flex flex-wrap items-center gap-2 mb-2">
+                                  <h4 className={`text-lg font-black transition-colors ${isSelected ? "text-orange-950" : "text-gray-900 group-hover:text-orange-600"}`}>
+                                    {driver.full_name}
+                                  </h4>
+                                  <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest border border-green-100">
+                                    Online
+                                  </span>
+                               </div>
+                               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                                 <MdOutlineDirectionsCar className="text-orange-500" /> 
+                                 {vehicle.vehicle_name} · <span className={isSelected ? "text-orange-600" : "text-indigo-600"}>{vehicle.plate_number}</span>
+                               </p>
+                             </div>
+                             
+                             <div className="text-right">
+                               <p className="text-lg font-black text-gray-900">{formatCurrency(vehicle.base_fare || 0)}</p>
+                               <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Base Fare</p>
+                             </div>
+                           </div>
+                           
+                           <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-gray-100/50">
+                             <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                               <MdOutlineSpeed className="text-orange-400 text-sm" /> {formatCurrency(vehicle.per_km_rate || 0)} / km
+                             </div>
+                             {item.distance_km != null && (
+                               <div className="flex items-center gap-2 text-[10px] font-bold text-orange-600 uppercase tracking-widest">
+                                 <FiNavigation className="text-sm" /> {formatDistance(item.distance_km)} away
+                               </div>
+                             )}
+                           </div>
 
-                      <div className="space-y-2 text-sm text-[#5a4d43] sm:text-right">
-                        <p className="inline-flex items-center gap-2 sm:justify-end">
-                          <Gauge className="h-4 w-4" />
-                          Starts at {formatCurrency(vehicle.base_fare || 0)}
-                        </p>
-                        <p className="inline-flex items-center gap-2 sm:justify-end">
-                          <Clock3 className="h-4 w-4" />
-                          {formatCurrency(vehicle.per_km_rate || 0)} / km
-                        </p>
-                        <p className="inline-flex items-center gap-2 sm:justify-end">
-                          <Phone className="h-4 w-4" />
-                          {item.contact_phone || "Phone pending"}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })
+                           <div className="flex items-center gap-2 text-[9px] font-black text-gray-300 group-hover:text-orange-200 transition-colors uppercase tracking-[0.2em] mt-1">
+                             <FiMapPin /> {driver.current_area_label || "Last known location..."}
+                           </div>
+                         </div>
+                      </motion.button>
+                    );
+                  })}
+                </motion.div>
             )}
           </div>
-
-          <div className="mt-5 rounded-[24px] bg-[#fbf2e7] px-4 py-4 text-sm leading-7 text-[#68584b]">
-            Only drivers who are online in Zahi Drive are shown here. Driver subscriptions are not
-            charged; the platform earns only from customer-side commission on paid rides.
+          
+          <div className="mt-8 bg-gray-50 rounded-2xl p-5 border border-gray-100">
+            <p className="text-[10px] font-bold text-gray-400 leading-relaxed uppercase tracking-widest text-center">
+              Zahi Mobility operates on a zero-subscription model. We only grow when our partners grow.
+            </p>
           </div>
 
-          {selectedDriver ? (
-            <div className="mt-5 rounded-[24px] border border-[rgba(46,125,103,0.14)] bg-[#f3fbf7] px-4 py-4">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#2e7d67]">
-                <ShieldCheck className="h-4 w-4" />
-                Selected driver
-              </p>
-              <p className="mt-2 text-lg font-semibold text-[#1f1812]">{selectedDriver.driver.full_name}</p>
-              <p className="mt-1 text-sm leading-7 text-[#5a4d43]">
-                {selectedDriver.driver.vehicle?.vehicle_name || "Cab"} ·{" "}
-                {selectedDriver.driver.vehicle?.plate_number || "Plate pending"}
-              </p>
-              <a
-                href={`tel:${selectedDriver.contact_phone}`}
-                className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#1f1812] shadow-sm"
+          <AnimatePresence>
+            {selectedDriver && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-6 p-6 bg-gray-900 rounded-[28px] text-white shadow-xl shadow-gray-900/10 border border-gray-800"
               >
-                <Phone className="h-4 w-4" />
-                Call this driver
-              </a>
-            </div>
-          ) : null}
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-orange-400">
+                     <FiShield />
+                  </div>
+                  <div>
+                    <h5 className="font-extrabold text-white text-lg leading-tight">{selectedDriver.driver.full_name}</h5>
+                    <p className="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Driver Confirmed</p>
+                  </div>
+                </div>
+                <a 
+                  href={`tel:${selectedDriver.contact_phone}`}
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-xl py-3.5 px-4 font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+                >
+                  <FiPhone /> Call This Driver
+                </a>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </section>
       </div>
     </div>
