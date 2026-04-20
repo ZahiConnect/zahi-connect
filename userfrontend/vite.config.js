@@ -18,7 +18,7 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
-      "/hotel": {
+      "^/hotel(/|$)": {
         target: "http://localhost:8080",
         changeOrigin: true,
       },
