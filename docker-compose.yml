@@ -179,20 +179,21 @@ services:
   #     db:
   #       condition: service_healthy
 
-  # --- Travel Service (Flights / Tours) — Week 5 ---
-  # travel_service:
-  #   build: ./services/travel_service
-  #   container_name: zahi_travel_service
-  #   volumes:
-  #     - ./services/travel_service:/app
-  #   command: uvicorn app.main:app --host 0.0.0.0 --port 8005 --reload
-  #   ports:
-  #     - "8005:8005"
-  #   env_file:
-  #     - ./services/travel_service/.env
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
+  # --- Flight Service (Airline Management) ---
+  flight:
+    build: ./services/flight
+    container_name: zahi_flight
+    volumes:
+      - ./services/flight:/app
+    command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8005 --reload --reload-dir /app"
+    restart: always
+    ports:
+      - "8005:8005"
+    env_file:
+      - ./services/flight/.env
+    depends_on:
+      db:
+        condition: service_healthy
 
   # --- AI / WaaS Service (WhatsApp Bot Engine) — Week 2+ ---
   ai_service:
@@ -245,6 +246,7 @@ services:
       - accounts
       - hotel
       - restaurant
+      - flight
       - ai_service
       - booking
 

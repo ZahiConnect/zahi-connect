@@ -40,6 +40,12 @@ import HotelConfig from "./hotel/pages/Config";
 import HotelCalender from "./hotel/pages/Calender";
 import HotelCustomers from "./hotel/pages/Customers";
 import HotelSettings from "./hotel/pages/Settings";
+import FlightBookings from "./flight/pages/Bookings";
+import FlightConfig from "./flight/pages/Config";
+import FlightCalender from "./flight/pages/Calender";
+import FlightCustomers from "./flight/pages/Customers";
+import FlightReports from "./flight/pages/Reports";
+import FlightSettings from "./flight/pages/Settings";
 
 const DelayedLoader = ({ isLoading }) => {
   const [show, setShow] = useState(false);
@@ -116,6 +122,10 @@ const ReportsPage = () => {
     return <RestaurantReports />;
   }
 
+  if (user?.business_type === "flight") {
+    return <FlightReports />;
+  }
+
   return (
     <WorkspaceModulePage
       eyebrow="Insight layer"
@@ -127,12 +137,12 @@ const ReportsPage = () => {
         {
           kicker: "Owner snapshot",
           title: "Daily business pulse",
-          body: "Summaries for orders, bookings, or ride volumes can sit here depending on the business type.",
+          body: "Summaries for orders, bookings, or flight volumes can sit here depending on the business type.",
         },
         {
           kicker: "Team lens",
           title: "Operational accountability",
-          body: "Staff efficiency, driver response time, or kitchen throughput can plug into the same report shell later.",
+          body: "Staff efficiency, driver response time, or booking throughput can plug into the same report shell later.",
         },
         {
           kicker: "Growth layer",
@@ -153,6 +163,10 @@ const WorkspaceSettingsPage = () => {
 
   if (user?.business_type === "hotel") {
     return <HotelSettings />;
+  }
+
+  if (user?.business_type === "flight") {
+    return <FlightSettings />;
   }
 
   return (
@@ -204,6 +218,16 @@ const HotelWorkspaceRoute = () => {
   const { user } = useSelector((state) => state.auth);
 
   if (user?.business_type !== "hotel") {
+    return <Navigate to={getActiveWorkspaceRoute(user)} replace />;
+  }
+
+  return <Outlet />;
+};
+
+const FlightWorkspaceRoute = () => {
+  const { user } = useSelector((state) => state.auth);
+
+  if (user?.business_type !== "flight") {
     return <Navigate to={getActiveWorkspaceRoute(user)} replace />;
   }
 
@@ -286,6 +310,12 @@ function App() {
               <Route path="/dashboard/rooms" element={<HotelConfig />} />
               <Route path="/dashboard/pricing" element={<HotelCalender />} />
               <Route path="/dashboard/guests" element={<HotelCustomers />} />
+            </Route>
+            <Route element={<FlightWorkspaceRoute />}>
+              <Route path="/dashboard/flight-bookings" element={<FlightBookings />} />
+              <Route path="/dashboard/flight-schedule" element={<FlightConfig />} />
+              <Route path="/dashboard/flight-pricing" element={<FlightCalender />} />
+              <Route path="/dashboard/flight-passengers" element={<FlightCustomers />} />
             </Route>
             <Route
               path="/dashboard/rides"

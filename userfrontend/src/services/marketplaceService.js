@@ -11,6 +11,8 @@ export const marketplaceService = {
   getRestaurant: (slug, params) => getPayload(`/auth/marketplace/restaurants/${slug}`, params),
   getHotels: () => getPayload("/auth/marketplace/hotels"),
   getHotel: (slug) => getPayload(`/auth/marketplace/hotels/${slug}`),
+  getFlights: () => getPayload("/auth/marketplace/flights"),
+  getFlight: (slug) => getPayload(`/auth/marketplace/flights/${slug}`),
 };
 
 export default marketplaceService;

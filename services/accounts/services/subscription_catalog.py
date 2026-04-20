@@ -82,6 +82,34 @@ PLAN_CATALOG = {
             "Reports",
         ],
     },
+    "flight-pro": {
+        "code": "flight-pro",
+        "name": "Flight Command Pack",
+        "business_type": "flight",
+        "amount": 449900,
+        "display_price": "Rs. 4,499 / month",
+        "badge": "Best for airlines, charter operators, and regional carriers",
+        "headline": "Schedule flights, manage bookings, and sell seats directly through Zahi.",
+        "description": (
+            "A full airline operations workspace — publish your flight schedule, "
+            "set fares by class, and let passengers book directly on the Zahi platform."
+        ),
+        "featured": False,
+        "features": [
+            "Flight schedule management (routes, times, days)",
+            "Economy, Business, and First class seat configuration",
+            "Real-time seat availability and booking",
+            "Passenger management and ID verification",
+            "Revenue tracking and booking reports",
+        ],
+        "dashboard_modules": [
+            "Bookings",
+            "Schedule",
+            "Pricing",
+            "Passengers",
+            "Reports",
+        ],
+    },
 }
 
 

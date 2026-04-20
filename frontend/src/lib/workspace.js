@@ -13,6 +13,8 @@ export const getDashboardRouteForBusinessType = (businessType) => {
   switch (businessType) {
     case "hotel":
       return "/dashboard/bookings";
+    case "flight":
+      return "/dashboard/flight-bookings";
     case "mobility":
       return "/dashboard/rides";
     default:
@@ -86,6 +88,8 @@ export const getWorkspaceLabel = (businessType) => {
   switch (businessType) {
     case "hotel":
       return "Hotel Workspace";
+    case "flight":
+      return "Flight Workspace";
     case "mobility":
       return "Mobility Workspace";
     case "restaurant":

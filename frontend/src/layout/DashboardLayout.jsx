@@ -63,6 +63,15 @@ const menuItemsByType = {
     { name: "Fleet", path: "/dashboard/fleet", icon: HiOutlineArchive },
     { name: "Reports", path: "/dashboard/reports", icon: HiOutlineChartPie },
   ],
+  flight: [
+    { name: "Dashboard", path: "/dashboard", icon: HiOutlineHome },
+    { name: "Front Desk", path: "/dashboard/flight-bookings", icon: HiOutlineClipboardList },
+    { name: "Schedule", path: "/dashboard/flight-schedule", icon: HiOutlineViewGrid },
+    { name: "Pricing", path: "/dashboard/flight-pricing", icon: HiOutlineArchive },
+    { name: "Passengers", path: "/dashboard/flight-passengers", icon: HiOutlineUsers },
+    { name: "Reports", path: "/dashboard/reports", icon: HiOutlineChartPie },
+    { name: "Settings", path: "/dashboard/settings", icon: HiOutlineCog },
+  ],
 };
 
 const extraPageTitles = {
@@ -84,7 +93,7 @@ const DashboardLayout = () => {
   const profileMenuRef = useRef(null);
 
   const businessType = user?.business_type || "restaurant";
-  const isHotelWorkspace = businessType === "hotel";
+  const isFullWidthWorkspace = businessType === "hotel" || businessType === "flight";
   const menuItems = menuItemsByType[businessType] || menuItemsByType.restaurant;
   const flatMenuItems = flattenMenuItems(menuItems);
   const activeTitle =
@@ -312,7 +321,7 @@ const DashboardLayout = () => {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:px-10 lg:py-8 layout-content">
-          <div className={`${isHotelWorkspace ? "h-full w-full" : "max-w-6xl mx-auto h-full"} text-[#333333]`}>
+          <div className={`${isFullWidthWorkspace ? "h-full w-full" : "max-w-6xl mx-auto h-full"} text-[#333333]`}>
             <Outlet />
           </div>
         </main>

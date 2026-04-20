@@ -15,6 +15,7 @@ from models.user import Tenant
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 
 HOTEL_COLLECTIONS = ("settings", "room_types", "rooms", "pricing_defaults")
+FLIGHT_COLLECTIONS = ("settings", "flights", "flight_types")
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 NOMINATIM_HEADERS = {
     "User-Agent": "ZahiConnectMarketplace/1.0 (customer distance enrichment)",
@@ -986,3 +987,217 @@ async def get_hotel_detail(slug: str, db: AsyncSession = Depends(get_db)):
 
     hotel_docs = await fetch_hotel_documents(db, [tenant.id])
     return build_hotel_detail(tenant, hotel_docs.get(tenant.id, {}))
+
+
+# ══════════════════════════════════════════════════════════════════════
+# FLIGHT MARKETPLACE
+# ══════════════════════════════════════════════════════════════════════
+
+
+async def fetch_flight_documents(
+    db: AsyncSession,
+    tenant_ids: list[Any],
+) -> dict[Any, dict[str, list[dict[str, Any]]]]:
+    """Read flight_documents rows for the given tenant IDs (mirrors fetch_hotel_documents)."""
+    grouped: dict[Any, dict[str, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
+
+    if not tenant_ids:
+        return grouped
+
+    # Safeguard: table may not exist yet if flight service hasn't been started
+    table_exists = (
+        await db.execute(text("SELECT to_regclass('public.flight_documents')"))
+    ).scalar_one_or_none()
+    if not table_exists:
+        return grouped
+
+    docs_stmt = text(
+        """
+        SELECT tenant_id, collection, doc_id, payload
+        FROM flight_documents
+        WHERE tenant_id IN :tenant_ids
+          AND collection IN :collections
+        ORDER BY tenant_id, collection, updated_at DESC
+        """
+    ).bindparams(
+        bindparam("tenant_ids", expanding=True),
+        bindparam("collections", expanding=True),
+    )
+
+    rows = (
+        await db.execute(
+            docs_stmt,
+            {"tenant_ids": tenant_ids, "collections": list(FLIGHT_COLLECTIONS)},
+        )
+    ).mappings().all()
+
+    for row in rows:
+        payload = dict(row.get("payload") or {})
+        payload["id"] = row.get("doc_id")
+        grouped[row["tenant_id"]][row["collection"]].append(payload)
+
+    return grouped
+
+
+def normalize_flight_settings(payload: dict[str, Any] | None, tenant: "Tenant") -> dict[str, Any]:
+    """Normalize the airline settings document (stored under collection='settings', doc_id='flight')."""
+    payload = payload or {}
+    gallery = normalize_image_urls(payload.get("galleryImages") or [])
+    cover = clean_text(payload.get("coverImage")) or (gallery[0] if gallery else None)
+    if cover and cover not in gallery:
+        gallery = [cover, *gallery]
+
+    return {
+        "display_name": clean_text(payload.get("name")) or tenant.name,
+        "iata_code": clean_text(payload.get("iataCode")),
+        "hub_airport": clean_text(payload.get("hubAirport")),
+        "address": clean_text(payload.get("addr")) or clean_text(tenant.address),
+        "phone": clean_text(payload.get("phone")) or clean_text(tenant.phone),
+        "email": clean_text(payload.get("email")) or clean_text(tenant.email),
+        "website": clean_text(payload.get("website")),
+        "tagline": clean_text(payload.get("tagline")),
+        "description": clean_text(payload.get("description")),
+        "logo": clean_text(payload.get("logo")),
+        "cover_image": cover or clean_text(payload.get("logo")),
+        "gallery_image_urls": gallery or ([cover] if cover else []),
+    }
+
+
+def normalize_scheduled_flight(doc: dict[str, Any]) -> dict[str, Any]:
+    """Normalise a single scheduled-flight document from the 'flights' collection."""
+    days_raw = doc.get("daysOfWeek") or doc.get("days_of_week") or []
+    days = days_raw if isinstance(days_raw, list) else []
+
+    economy_price = to_float(doc.get("economyPrice") or doc.get("economy_price"))
+    business_price = to_float(doc.get("businessPrice") or doc.get("business_price"))
+    first_price = to_float(doc.get("firstPrice") or doc.get("first_price"))
+    visible_prices = [p for p in [economy_price, business_price, first_price] if p is not None and p > 0]
+
+    return {
+        "id": clean_text(doc.get("id")) or "",
+        "flight_number": clean_text(doc.get("flightNumber") or doc.get("flight_number")) or "-",
+        "from_city": clean_text(doc.get("from") or doc.get("fromCity") or doc.get("from_city")) or "-",
+        "to_city": clean_text(doc.get("to") or doc.get("toCity") or doc.get("to_city")) or "-",
+        "depart_time": clean_text(doc.get("departTime") or doc.get("depart_time")) or "",
+        "arrive_time": clean_text(doc.get("arriveTime") or doc.get("arrive_time")) or "",
+        "duration_min": int(doc.get("durationMin") or doc.get("duration_min") or 0),
+        "days_of_week": days,
+        "total_seats": int(doc.get("totalSeats") or doc.get("total_seats") or 0),
+        "economy_seats": int(doc.get("economySeats") or doc.get("economy_seats") or 0),
+        "business_seats": int(doc.get("businessSeats") or doc.get("business_seats") or 0),
+        "first_seats": int(doc.get("firstSeats") or doc.get("first_seats") or 0),
+        "economy_price": economy_price,
+        "business_price": business_price,
+        "first_price": first_price,
+        "starting_price": min(visible_prices) if visible_prices else None,
+        "aircraft_type": clean_text(doc.get("aircraftType") or doc.get("aircraft_type")),
+        "status": clean_text(doc.get("status")) or "Active",
+        "image_url": clean_text(doc.get("imageUrl") or doc.get("image_url")),
+        "is_active": (clean_text(doc.get("status")) or "Active").lower() == "active",
+    }
+
+
+def build_flight_summary(tenant: "Tenant", docs: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    """Build the list-level summary for a flight operator tenant."""
+    settings_doc = next(
+        (doc for doc in docs.get("settings", []) if doc.get("id") == "flight"), None
+    )
+    settings = normalize_flight_settings(settings_doc, tenant)
+    flights = [
+        normalize_scheduled_flight(doc)
+        for doc in docs.get("flights", [])
+        if (clean_text(doc.get("status")) or "Active").lower() == "active"
+    ]
+
+    visible_prices = [
+        f["starting_price"] for f in flights if f.get("starting_price") is not None
+    ]
+    routes = sorted(
+        {f"{f['from_city']} → {f['to_city']}" for f in flights if f["from_city"] and f["to_city"]}
+    )
+
+    payload = build_public_tenant_payload(tenant)
+    payload.update(
+        {
+            "name": settings["display_name"],
+            "display_name": settings["display_name"],
+            "iata_code": settings["iata_code"],
+            "hub_airport": settings["hub_airport"],
+            "logo": settings["logo"],
+            "cover_image": settings["cover_image"],
+            "gallery_image_urls": settings["gallery_image_urls"],
+            "tagline": settings["tagline"],
+            "description": settings["description"],
+            "total_flights": len(flights),
+            "routes": routes[:5],
+            "starting_price": min(visible_prices) if visible_prices else None,
+        }
+    )
+    return payload
+
+
+def build_flight_detail(tenant: "Tenant", docs: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    """Build the full detail payload for a single flight operator."""
+    settings_doc = next(
+        (doc for doc in docs.get("settings", []) if doc.get("id") == "flight"), None
+    )
+    settings = normalize_flight_settings(settings_doc, tenant)
+    all_flights = [
+        normalize_scheduled_flight(doc) for doc in docs.get("flights", [])
+    ]
+    active_flights = [f for f in all_flights if f["is_active"]]
+
+    fare_classes = [
+        {
+            "id": doc.get("id") or doc.get("name", "").lower(),
+            "name": clean_text(doc.get("name")) or "",
+            "description": clean_text(doc.get("description")),
+        }
+        for doc in docs.get("flight_types", [])
+    ]
+
+    summary = build_flight_summary(tenant, docs)
+    return {
+        "tenant": build_public_tenant_payload(tenant),
+        "summary": summary,
+        "settings": settings,
+        "flights": active_flights,
+        "all_flights": all_flights,
+        "fare_classes": fare_classes,
+    }
+
+
+@router.get("/flights")
+async def list_flights(db: AsyncSession = Depends(get_db)):
+    """List all active flight operator tenants (subscribed to a flight plan)."""
+    tenants = (
+        await db.execute(
+            select(Tenant)
+            .where(Tenant.is_active.is_(True), Tenant.business_type == "flight")
+            .order_by(Tenant.created_at.desc())
+        )
+    ).scalars().all()
+
+    flight_docs = await fetch_flight_documents(db, [t.id for t in tenants])
+    return [build_flight_summary(t, flight_docs.get(t.id, {})) for t in tenants]
+
+
+@router.get("/flights/{slug}")
+async def get_flight_detail(slug: str, db: AsyncSession = Depends(get_db)):
+    """Get full flight operator detail including all scheduled flights."""
+    tenant = (
+        await db.execute(
+            select(Tenant).where(
+                Tenant.slug == slug,
+                Tenant.is_active.is_(True),
+                Tenant.business_type == "flight",
+            )
+        )
+    ).scalar_one_or_none()
+
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Airline not found.")
+
+    flight_docs = await fetch_flight_documents(db, [tenant.id])
+    return build_flight_detail(tenant, flight_docs.get(tenant.id, {}))
+
