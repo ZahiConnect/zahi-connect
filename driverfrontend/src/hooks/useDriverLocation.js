@@ -112,54 +112,63 @@ export const useDriverLocation = (enabled = true) => {
   }, [locationLabel]);
 
   const requestLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setStatus("unsupported");
-      return;
-    }
-    if (requestingRef.current) return;
-
-    requestingRef.current = true;
-    setStatus("loading");
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const nextCoordinates = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          };
-          const label = await reverseGeocode(
-            nextCoordinates.latitude,
-            nextCoordinates.longitude
-          );
-          window.localStorage.setItem(STORAGE_KEY, label);
-          window.localStorage.setItem(COORDINATES_STORAGE_KEY, JSON.stringify(nextCoordinates));
-          if (label !== locationLabelRef.current) {
-            setLocationLabel(label);
-          }
-          if (!coordinatesMatch(coordinatesRef.current, nextCoordinates)) {
-            setCoordinates(nextCoordinates);
-          }
-          setStatus("ready");
-        } catch {
-          setStatus("error");
-        } finally {
-          requestingRef.current = false;
-        }
-      },
-      (error) => {
-        requestingRef.current = false;
-        if (error.code === error.PERMISSION_DENIED) {
-          setStatus("denied");
-          return;
-        }
-        setStatus("error");
-      },
-      {
-        enableHighAccuracy: false,
-        timeout: 10000,
-        maximumAge: 300000,
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        setStatus("unsupported");
+        resolve(false);
+        return;
       }
-    );
+      if (requestingRef.current) {
+        resolve(false);
+        return;
+      }
+
+      requestingRef.current = true;
+      setStatus("loading");
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const nextCoordinates = {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            };
+            const label = await reverseGeocode(
+              nextCoordinates.latitude,
+              nextCoordinates.longitude
+            );
+            window.localStorage.setItem(STORAGE_KEY, label);
+            window.localStorage.setItem(COORDINATES_STORAGE_KEY, JSON.stringify(nextCoordinates));
+            if (label !== locationLabelRef.current) {
+              setLocationLabel(label);
+            }
+            if (!coordinatesMatch(coordinatesRef.current, nextCoordinates)) {
+              setCoordinates(nextCoordinates);
+            }
+            setStatus("ready");
+            resolve(true);
+          } catch {
+            setStatus("error");
+            resolve(false);
+          } finally {
+            requestingRef.current = false;
+          }
+        },
+        (error) => {
+          requestingRef.current = false;
+          if (error.code === error.PERMISSION_DENIED) {
+            setStatus("denied");
+          } else {
+            setStatus("error");
+          }
+          resolve(false);
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 300000,
+        }
+      );
+    });
   }, []);
 
   useEffect(() => {

@@ -12,7 +12,12 @@ import {
 import { CarFront, LogOut, Menu, X } from "lucide-react";
 
 import { useAuth } from "./context/AuthContext";
-import DriverDashboardPage from "./pages/dashboard/DriverDashboardPage";
+import DashboardShell from "./pages/dashboard/DashboardShell";
+import OverviewPage from "./pages/dashboard/OverviewPage";
+import ProfilePage from "./pages/dashboard/ProfilePage";
+import VehiclePage from "./pages/dashboard/VehiclePage";
+import RidesPage from "./pages/dashboard/RidesPage";
+import SettingsPage from "./pages/dashboard/SettingsPage";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
@@ -249,22 +254,32 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public shell with navbar + footer */}
         <Route element={<AppShell />}>
           <Route path="/" element={
             <PublicOnlyRoute>
               <LandingPage />
             </PublicOnlyRoute>
           } />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DriverDashboardPage />
-              </ProtectedRoute>
-            }
-          />
         </Route>
 
+        {/* Dashboard — fullscreen sidebar layout, no navbar */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardShell />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<OverviewPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="vehicle" element={<VehiclePage />} />
+          <Route path="rides" element={<RidesPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
+
+        {/* Auth pages */}
         <Route
           path="/login"
           element={

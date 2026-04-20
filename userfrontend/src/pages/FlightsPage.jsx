@@ -86,36 +86,72 @@ const FlightsPage = () => {
 
   const handleBook = async (flight, price) => {
     if (!isAuthenticated) {
-      navigate("/login", { state: { from: "/flights" } });
+      navigate("/account", { state: { from: "/flights" } });
       return;
     }
     setBookingFlight(flight.id);
     setSubmitting(true);
     
     try {
-      const order = await bookingService.createRequest({
+      // 1. Create Checkout Order on the Backend
+      const { payment_order_id, checkout } = await bookingService.createPaymentCheckout({
         service_type: "flight",
-        title: `Flight ${flight.flight_number} - ${flight.from_city} to ${flight.to_city}`,
-        summary: `${form.travellers}x ${form.flightClass} ticket(s) on ${flight.airline.name}`,
+        title: `Flight Search: ${flight.flight_number} trip`,
+        summary: `${form.travellers} tickets, ${flight.from_city} to ${flight.to_city}`,
         total_amount: price * form.travellers,
+        currency: "INR",
+        tenant_id: flight.airline.id,
         metadata: {
           flight_number: flight.flight_number,
           airline: flight.airline.name,
-          from: flight.from_city,
-          to: flight.to_city,
-          depart_time: flight.depart_time,
-          arrive_time: flight.arrive_time,
+          origin: flight.from_city,
+          destination: flight.to_city,
+          departure_time: flight.depart_time,
+          arrival_time: flight.arrive_time,
+          passengers: form.travellers,
+          class: form.flightClass,
           date: form.departDate,
-          travellers: form.travellers,
-          class: form.flightClass
-        }
+        },
       });
-      navigate(`/booking/pay/${order.id}`);
+
+      // 2. Open Razorpay Modal
+      const options = {
+        ...checkout,
+        handler: async (response) => {
+          try {
+            setSubmitting(true);
+            toast.loading("Verifying your payment...", { id: "payment-verify" });
+
+            // 3. Verify Payment on Backend
+            await bookingService.verifyPayment({
+              payment_order_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+
+            toast.success("Flight booked successfully!", { id: "payment-verify" });
+            navigate("/account"); // Redirect to My Activity
+          } catch (err) {
+            toast.error("Payment verification failed.", { id: "payment-verify" });
+          } finally {
+            setSubmitting(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setSubmitting(false);
+            setBookingFlight(null);
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Could not create flight booking.");
-    } finally {
-      setBookingFlight(null);
+      toast.error(e.response?.data?.detail || "Could not initialize booking.");
       setSubmitting(false);
+      setBookingFlight(null);
     }
   };
 

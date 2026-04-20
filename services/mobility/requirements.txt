@@ -8,3 +8,6 @@ python-multipart==0.0.20
 bcrypt==4.2.1
 cloudinary==1.42.1
 pydantic[email]==2.10.4
+google-auth==2.38.0
+httpx==0.28.1
+requests==2.32.3

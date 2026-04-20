@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
 from database import Base, get_db, engine
 from dependencies import CustomerContext, get_customer_context
-from models import BookingPaymentOrder, BookingRequest, HotelDocument
+from models import BookingPaymentOrder, BookingRequest, HotelDocument, FlightDocument
 from schemas import (
     BookingPaymentCheckoutCreate,
     BookingPaymentCheckoutResponse,
@@ -367,6 +367,52 @@ async def sync_hotel_booking_documents(
         "check_in": reservation_payload["checkIn"],
         "check_out": reservation_payload["checkOut"],
         "nightly_rate": reservation_payload["pricePerNight"],
+    }
+
+
+async def sync_flight_booking_documents(
+    db: AsyncSession,
+    *,
+    payment_order: BookingPaymentOrder,
+    customer: CustomerContext,
+    razorpay_payment_id: str,
+) -> dict:
+    if not payment_order.tenant_id:
+        raise HTTPException(status_code=400, detail="Flight booking is missing a tenant reference.")
+
+    metadata = dict(payment_order.details or {})
+    now_iso = datetime.utcnow().isoformat()
+
+    booking_doc_id = uuid.uuid4().hex
+    flight_payload = {
+        "customerName": customer.username or customer.email,
+        "customerEmail": customer.email,
+        "passengerCount": int(to_float(metadata.get("passengers")) or 1),
+        "bookingDate": now_iso,
+        "status": "Confirmed",
+        "flightNumber": clean_text(metadata.get("flight_number")),
+        "origin": clean_text(metadata.get("origin")),
+        "destination": clean_text(metadata.get("destination")),
+        "departureTime": clean_text(metadata.get("departure_time")),
+        "arrivalTime": clean_text(metadata.get("arrival_time")),
+        "class": clean_text(metadata.get("class")) or "Economy",
+        "amount": amount_from_paise(payment_order.amount_paise),
+        "razorpayPaymentId": razorpay_payment_id,
+        "source": "customer_portal"
+    }
+
+    # Save to flight_documents collection "bookings"
+    record = FlightDocument(
+        tenant_id=payment_order.tenant_id,
+        collection="bookings",
+        doc_id=booking_doc_id,
+        payload=flight_payload,
+    )
+    db.add(record)
+    return {
+        "booking_id": booking_doc_id,
+        "status": "Confirmed",
+        "flight_number": flight_payload["flightNumber"]
     }
 
 
@@ -741,8 +787,17 @@ async def verify_booking_payment(
         )
 
     hotel_reservation = None
+    flight_booking = None
+
     if payment_order.service_type == "hotel":
         hotel_reservation = await sync_hotel_booking_documents(
+            db,
+            payment_order=payment_order,
+            customer=customer,
+            razorpay_payment_id=payload.razorpay_payment_id,
+        )
+    elif payment_order.service_type == "flight":
+        flight_booking = await sync_flight_booking_documents(
             db,
             payment_order=payment_order,
             customer=customer,
@@ -760,6 +815,8 @@ async def verify_booking_payment(
     )
     if hotel_reservation:
         booking_metadata["hotel_reservation"] = hotel_reservation
+    if flight_booking:
+        booking_metadata["flight_booking"] = flight_booking
 
     paid_payload = BookingRequestCreate(
         service_type=payment_order.service_type,

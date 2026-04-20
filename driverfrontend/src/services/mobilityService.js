@@ -18,6 +18,7 @@ export const mobilityService = {
   registerDriver: (payload) => sendPayload("post", "/mobility/auth/register", payload),
   loginDriver: (payload) => sendPayload("post", "/mobility/auth/login", payload),
   logoutDriver: () => sendPayload("post", "/mobility/auth/logout"),
+  googleAuth: (credential) => sendPayload("post", "/mobility/auth/google", { credential }),
   getMe: () => getPayload("/mobility/auth/me"),
   getDashboard: () => getPayload("/mobility/driver/dashboard"),
   getRideRequests: (limit = 12) => getPayload("/mobility/driver/ride-requests", { params: { limit } }),

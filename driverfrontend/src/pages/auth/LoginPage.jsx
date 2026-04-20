@@ -6,6 +6,7 @@ import { ArrowRight, Eye, EyeOff, KeyRound, UserRound } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import AuthShell from "./AuthShell";
 import mobilityService from "../../services/mobilityService";
+import GoogleAuthButton from "../../components/GoogleAuthButton";
 
 const LoginPage = () => {
   const { applySession } = useAuth();
@@ -115,9 +116,21 @@ const LoginPage = () => {
           disabled={loading}
           className="inline-flex w-full mt-4 items-center justify-center gap-2 rounded-2xl bg-[#09090b] px-6 py-4 text-sm font-bold text-white transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 hover:bg-[#18181b] shadow-xl shadow-black/10"
         >
-          {loading ? "Decrypting..." : "Initialise Interface"}
+          {loading ? "Signing in..." : "Sign In"}
           <ArrowRight className="h-4 w-4" />
         </button>
+
+        {/* Divider */}
+        <div className="relative my-2">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-200" />
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-white px-3 text-xs font-semibold tracking-widest uppercase text-slate-400">or</span>
+          </div>
+        </div>
+
+        <GoogleAuthButton mode="signin" />
       </form>
     </AuthShell>
   );

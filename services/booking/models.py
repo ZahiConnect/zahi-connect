@@ -82,3 +82,23 @@ class HotelDocument(Base):
         onupdate=datetime.utcnow,
         nullable=False,
     )
+
+
+class FlightDocument(Base):
+    __tablename__ = "flight_documents"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "collection", "doc_id", name="uq_flight_document_scope_v2"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    collection: Mapped[str] = mapped_column(String(120), index=True, nullable=False)
+    doc_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )

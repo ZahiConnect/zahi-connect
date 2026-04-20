@@ -11,6 +11,8 @@ import cloudinary.uploader
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -29,6 +31,7 @@ from schemas import (
     DriverProfileUpdateSchema,
     DriverRegisterSchema,
     DriverStatusSchema,
+    GoogleTokenSchema,
     RideRequestCreateSchema,
     VehicleUpsertSchema,
 )
@@ -421,6 +424,93 @@ async def login_driver(
 @app.post("/mobility/auth/logout")
 async def logout_driver(_: MobilityDriver = Depends(get_current_driver)):
     return {"message": "Logout successful."}
+
+
+@app.post("/mobility/auth/google", status_code=status.HTTP_200_OK)
+async def google_auth(
+    payload: GoogleTokenSchema,
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify a Google access_token via userinfo endpoint and sign in or auto-register."""
+    import httpx
+
+    # Fetch user info from Google using the access token
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {payload.credential}"},
+                timeout=10.0,
+            )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Invalid or expired Google token.")
+        id_info = resp.json()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=f"Google verification failed: {exc}")
+
+    google_email: str = id_info.get("email", "").lower().strip()
+    google_name: str = id_info.get("name", "")
+    google_picture: str | None = id_info.get("picture")
+
+    if not google_email:
+        raise HTTPException(status_code=400, detail="Google account has no email.")
+
+    # --- Find existing driver ---
+    result = await db.execute(
+        select(MobilityDriver)
+        .options(selectinload(MobilityDriver.vehicle))
+        .where(MobilityDriver.email == google_email)
+    )
+    driver = result.scalar_one_or_none()
+
+    if driver:
+        # Existing driver — just log in
+        if not driver.is_active or driver.status != "active":
+            raise HTTPException(status_code=403, detail="Driver account is inactive.")
+        driver.last_seen_at = datetime.utcnow()
+        # Update profile picture if they don't have one
+        if not driver.profile_photo_url and google_picture:
+            driver.profile_photo_url = google_picture
+        await db.commit()
+        await db.refresh(driver)
+        result2 = await db.execute(
+            select(MobilityDriver)
+            .options(selectinload(MobilityDriver.vehicle))
+            .where(MobilityDriver.id == driver.id)
+        )
+        driver = result2.scalar_one()
+        access_token = create_access_token(str(driver.id), extra={"role": "driver"})
+        return {
+            "access": access_token,
+            "driver": serialize_driver(driver),
+            "is_new": False,
+        }
+
+    # --- New driver — auto-register a minimal account without vehicle ---
+    import secrets as _secrets
+    random_password = _secrets.token_urlsafe(24)
+    driver = MobilityDriver(
+        full_name=google_name or google_email.split("@")[0],
+        email=google_email,
+        phone="",           # driver must complete profile
+        hashed_password=hash_password(random_password),
+        profile_photo_url=google_picture,
+        is_online=False,
+        is_active=True,
+        status="active",
+        last_seen_at=datetime.utcnow(),
+    )
+    db.add(driver)
+    await db.commit()
+    await db.refresh(driver)
+    access_token = create_access_token(str(driver.id), extra={"role": "driver"})
+    return {
+        "access": access_token,
+        "driver": serialize_driver(driver),
+        "is_new": True,   # frontend can redirect to complete profile
+    }
 
 
 @app.get("/mobility/auth/me")

@@ -23,6 +23,8 @@ class Settings:
     CLOUDINARY_API_KEY: str | None = os.getenv("CLOUDINARY_API_KEY")
     CLOUDINARY_API_SECRET: str | None = os.getenv("CLOUDINARY_API_SECRET")
 
+    GOOGLE_CLIENT_ID: str | None = os.getenv("GOOGLE_CLIENT_ID")
+
     @property
     def DATABASE_URL(self) -> str:
         return (
