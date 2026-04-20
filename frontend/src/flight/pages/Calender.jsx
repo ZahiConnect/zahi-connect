@@ -1,619 +1,194 @@
-import { useEffect, useState } from "react";
-import {
-  BadgeIndianRupee,
-  Layers3,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Sparkles,
-  TrendingUp,
-  Trash2,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { FiRefreshCw, FiDollarSign, FiChevronLeft, FiChevronRight, FiEdit2, FiCheck, FiX } from "react-icons/fi";
+import { MdFlightTakeoff } from "react-icons/md";
 import dbs from "../api/db";
-import {
-  FARE_CLASS_PRESETS,
-  buildClassMix,
-  buildRoutePerformance,
-  createFlightDraft,
-  formatCurrency,
-  formatRouteLabel,
-  getLoadFactor,
-  normalizeBookingRecord,
-  normalizeFlightRecord,
-} from "../lib/workspace";
-import {
-  FlightBadge,
-  FlightButton,
-  FlightEmptyState,
-  FlightField,
-  FlightHero,
-  FlightInput,
-  FlightModal,
-  FlightPanel,
-  FlightSearchField,
-  FlightTextarea,
-  FlightWorkspacePage,
-  ProgressBar,
-} from "../components/WorkspaceChrome";
 
-function FareClassModal({ open, existing, onClose, onSaved }) {
-  const [form, setForm] = useState({ name: "", description: "" });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    setForm(
-      existing
-        ? { name: existing.name || "", description: existing.description || "" }
-        : { name: "", description: "" }
-    );
-    setError("");
-  }, [existing, open]);
-
-  const handleSave = async () => {
-    if (!form.name.trim()) {
-      setError("Fare class name is required.");
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-
-    try {
-      if (existing?.id) {
-        await dbs.editDocument("flight_types", existing.id, form);
-      } else {
-        await dbs.addAutoIdDocument("flight_types", form);
-      }
-      onSaved();
-    } catch (saveError) {
-      setError(saveError?.response?.data?.detail || "The fare class could not be saved.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <FlightModal
-      open={open}
-      onClose={onClose}
-      title={existing ? "Edit fare class" : "Add fare class"}
-      description="Keep your cabin tiers documented for pricing, merchandising, and passenger-facing copy."
-      icon={Layers3}
-      widthClass="max-w-2xl"
-      footer={
-        <div className="flex justify-end gap-3">
-          <FlightButton variant="secondary" onClick={onClose}>
-            Cancel
-          </FlightButton>
-          <FlightButton onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : existing ? "Save class" : "Create class"}
-          </FlightButton>
-        </div>
-      }
-    >
-      <div className="grid gap-5">
-        <FlightField label="Class name" required>
-          <FlightInput
-            value={form.name}
-            onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-            placeholder="Economy"
-          />
-        </FlightField>
-
-        <FlightField label="Description">
-          <FlightTextarea
-            value={form.description}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, description: event.target.value }))
-            }
-            placeholder="Explain the tier, baggage promise, perks, or boarding rules."
-          />
-        </FlightField>
-
-        {error ? (
-          <div className="rounded-2xl border border-[#F3CDD7] bg-[#FFF2F5] px-4 py-3 text-sm text-[#B33863]">
-            {error}
-          </div>
-        ) : null}
-      </div>
-    </FlightModal>
-  );
-}
-
-function RoutePricingModal({ open, flight, onClose, onSaved }) {
-  const [form, setForm] = useState(createFlightDraft());
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!open || !flight) return;
-    setForm({
-      ...flight,
-    });
-    setError("");
-  }, [flight, open]);
-
-  const updateField = (key, value) => {
-    setForm((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  };
-
-  const handleSave = async () => {
-    if (!flight?.id) return;
-
-    setSaving(true);
-    setError("");
-    try {
-      await dbs.editDocument("flights", flight.id, {
-        economyPrice: Number(form.economyPrice || 0),
-        businessPrice: Number(form.businessPrice || 0),
-        firstPrice: Number(form.firstPrice || 0),
-      });
-      onSaved();
-    } catch (saveError) {
-      setError(saveError?.response?.data?.detail || "Route pricing could not be updated.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <FlightModal
-      open={open}
-      onClose={onClose}
-      title={flight ? `Adjust ${flight.flightNumber}` : "Adjust route pricing"}
-      description="Update fare anchors for the selected route without reopening the full schedule form."
-      icon={BadgeIndianRupee}
-      widthClass="max-w-3xl"
-      footer={
-        <div className="flex justify-end gap-3">
-          <FlightButton variant="secondary" onClick={onClose}>
-            Cancel
-          </FlightButton>
-          <FlightButton onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save pricing"}
-          </FlightButton>
-        </div>
-      }
-    >
-      <div className="grid gap-6">
-        <div className="rounded-[24px] border border-[#D9E7F5] bg-[#F8FBFF] p-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <FlightBadge tone="blue">{flight?.flightNumber}</FlightBadge>
-            <FlightBadge tone="slate">
-              {flight ? formatRouteLabel(flight.from, flight.to) : "Route"}
-            </FlightBadge>
-          </div>
-          <p className="mt-4 text-sm leading-6 text-[#617D97]">
-            Adjust the three cabin anchors below. Schedule, manifest, and report screens will all
-            read these route prices afterward.
-          </p>
-        </div>
-
-        <div className="grid gap-5 md:grid-cols-3">
-          <FlightField label="Economy price">
-            <FlightInput
-              type="number"
-              min="0"
-              value={form.economyPrice}
-              onChange={(event) => updateField("economyPrice", event.target.value)}
-            />
-          </FlightField>
-
-          <FlightField label="Business price">
-            <FlightInput
-              type="number"
-              min="0"
-              value={form.businessPrice}
-              onChange={(event) => updateField("businessPrice", event.target.value)}
-            />
-          </FlightField>
-
-          <FlightField label="First price">
-            <FlightInput
-              type="number"
-              min="0"
-              value={form.firstPrice}
-              onChange={(event) => updateField("firstPrice", event.target.value)}
-            />
-          </FlightField>
-        </div>
-
-        {error ? (
-          <div className="rounded-2xl border border-[#F3CDD7] bg-[#FFF2F5] px-4 py-3 text-sm text-[#B33863]">
-            {error}
-          </div>
-        ) : null}
-      </div>
-    </FlightModal>
-  );
-}
-
-export default function FlightPricing() {
-  const [fareClasses, setFareClasses] = useState([]);
+export default function PricingBoard() {
   const [flights, setFlights] = useState([]);
-  const [bookings, setBookings] = useState([]);
+  const [overrides, setOverrides] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [fareModalOpen, setFareModalOpen] = useState(false);
-  const [pricingModalOpen, setPricingModalOpen] = useState(false);
-  const [editingClass, setEditingClass] = useState(null);
-  const [selectedFlight, setSelectedFlight] = useState(null);
+  
+  const [startDate, setStartDate] = useState(new Date());
+  
+  const [editCell, setEditCell] = useState(null); // { flightId, dateStr, classType, value }
+  const [saving, setSaving] = useState(false);
 
-  const fetchPricing = async () => {
+  const fetchAll = async () => {
     setLoading(true);
     try {
-      const [fareResponse, flightResponse, bookingResponse] = await Promise.all([
-        dbs.readCollection("flight_types", 100),
-        dbs.readCollection("flights", 300),
-        dbs.readCollection("bookings", 500),
+      const [fRes, oRes] = await Promise.all([
+        dbs.readCollection("flights", 100),
+        dbs.readCollection("calendar_updates", 500)
       ]);
+      setFlights(fRes?.data || fRes || []);
+      setOverrides(oRes?.data || oRes || []);
+    } catch {}
+    setLoading(false);
+  };
+  useEffect(() => { fetchAll(); }, []);
 
-      const normalizedFlights = (flightResponse || []).map((flight, index) =>
-        normalizeFlightRecord(flight, index)
-      );
-      const normalizedBookings = (bookingResponse || []).map((booking, index) =>
-        normalizeBookingRecord(booking, index, normalizedFlights)
-      );
+  const changeWindow = (days) => {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + days);
+    setStartDate(d);
+  };
 
-      setFareClasses(fareResponse || []);
-      setFlights(normalizedFlights);
-      setBookings(normalizedBookings);
-    } catch {
-      setFareClasses([]);
-      setFlights([]);
-      setBookings([]);
-    } finally {
-      setLoading(false);
+  const getDates = () => {
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(startDate);
+        d.setDate(d.getDate() + i);
+        dates.push({
+            dateObj: d,
+            dayStr: d.toLocaleDateString("en-US", { weekday: "short" }),
+            numStr: d.toLocaleDateString("en-US", { day: "2-digit", month: "short" }),
+            isoStr: d.toISOString().split("T")[0],
+            dayIndex: d.getDay() === 0 ? 7 : d.getDay()
+        });
     }
+    return dates;
   };
 
-  useEffect(() => {
-    fetchPricing();
-  }, []);
+  const dates = getDates();
 
-  const loadPresetClasses = async () => {
-    await Promise.all(
-      FARE_CLASS_PRESETS.map((preset) => dbs.addAutoIdDocument("flight_types", preset))
-    );
-    fetchPricing();
+  const getDayPrice = (flightId, dateStr, basePrice) => {
+    const override = overrides.find(o => o.flightId === flightId && o.date === dateStr);
+    return override ? override.price : basePrice;
   };
 
-  const deleteFareClass = async (classId) => {
-    if (!window.confirm("Delete this fare class?")) {
-      return;
-    }
-
-    await dbs.deleteDocument("flight_types", classId);
-    fetchPricing();
+  const hasOverride = (flightId, dateStr) => {
+    return overrides.some(o => o.flightId === flightId && o.date === dateStr);
   };
 
-  const filteredFlights = flights.filter((flight) => {
-    const value = search.toLowerCase();
-    return (
-      flight.flightNumber.toLowerCase().includes(value) ||
-      flight.from.toLowerCase().includes(value) ||
-      flight.to.toLowerCase().includes(value)
-    );
-  });
+  const handleSave = async () => {
+    if(!editCell) return;
+    setSaving(true);
+    try {
+      const { flightId, dateStr, value } = editCell;
+      const numVal = Number(value);
+      
+      const existing = overrides.find(o => o.flightId === flightId && o.date === dateStr);
+      if (existing) {
+        await dbs.editDocument("calendar_updates", existing.id, { ...existing, price: numVal });
+      } else {
+        await dbs.addAutoIdDocument("calendar_updates", { flightId, date: dateStr, price: numVal });
+      }
+      await fetchAll();
+      setEditCell(null);
+    } catch { alert("Failed to save."); }
+    setSaving(false);
+  };
 
-  const classMix = buildClassMix(bookings);
-  const routePerformance = buildRoutePerformance(flights, bookings);
-  const topYieldRoute = routePerformance[0];
-  const averageBaseFare = flights.length
-    ? Math.round(flights.reduce((total, flight) => total + flight.economyPrice, 0) / flights.length)
-    : 0;
-  const premiumPassengers = classMix
-    .filter((item) => item.label !== "Economy")
-    .reduce((total, item) => total + item.value, 0);
-  const totalPassengers = classMix.reduce((total, item) => total + item.value, 0);
-  const premiumMix = totalPassengers ? Math.round((premiumPassengers / totalPassengers) * 100) : 0;
+  const startEdit = (flightId, dateStr, currentPrice) => {
+    setEditCell({ flightId, dateStr, value: currentPrice });
+  };
 
   return (
-    <FlightWorkspacePage>
-      <FlightHero
-        eyebrow="Pricing engine"
-        title="Shape cabin tiers, route fares, and yield direction from one pricing board."
-        description="The copied flight reference already gave us the cabin language and route structure. This page turns it into a real pricing surface tied directly to your scheduled sectors."
-        actions={
-          <>
-            <FlightButton variant="secondary" onClick={fetchPricing}>
-              <RefreshCw size={16} />
-              Refresh pricing
-            </FlightButton>
-            <FlightButton onClick={() => setFareModalOpen(true)}>
-              <Plus size={16} />
-              Add fare class
-            </FlightButton>
-          </>
-        }
-        stats={[
-          {
-            label: "Fare classes",
-            value: fareClasses.length,
-            detail: "Cabin tiers documented for the workspace pricing model.",
-            icon: Layers3,
-            tone: "blue",
-          },
-          {
-            label: "Average base fare",
-            value: formatCurrency(averageBaseFare),
-            detail: "Current economy starting price across scheduled routes.",
-            icon: BadgeIndianRupee,
-            tone: "amber",
-          },
-          {
-            label: "Premium mix",
-            value: `${premiumMix}%`,
-            detail: "Share of Business and First travelers in current bookings.",
-            icon: Sparkles,
-            tone: "indigo",
-          },
-          {
-            label: "Top yielding route",
-            value: topYieldRoute?.routeLabel || "Awaiting sales",
-            detail: topYieldRoute
-              ? `${formatCurrency(topYieldRoute.revenue)} revenue captured so far.`
-              : "Route ranking begins once bookings arrive.",
-            icon: TrendingUp,
-            tone: "emerald",
-          },
-        ]}
-      />
-
-      <div className="grid gap-6 xl:grid-cols-[0.95fr_1.4fr]">
-        <div className="space-y-6">
-          <FlightPanel
-            title="Fare class library"
-            description="Keep the official cabin descriptions in one place so pricing, marketing, and ops speak the same language."
-            action={
-              fareClasses.length === 0 ? (
-                <FlightButton variant="secondary" onClick={loadPresetClasses}>
-                  Load copied presets
-                </FlightButton>
-              ) : null
-            }
-          >
-            {loading ? (
-              <div className="flex items-center justify-center py-16 text-[#7191AF]">
-                <RefreshCw className="animate-spin" />
-              </div>
-            ) : fareClasses.length === 0 ? (
-              <FlightEmptyState
-                icon={Layers3}
-                title="No fare classes yet"
-                description="You can add them one by one or load the copied Economy, Business, and First presets from the reference pack."
-                action={<FlightButton onClick={loadPresetClasses}>Load copied presets</FlightButton>}
-              />
-            ) : (
-              <div className="space-y-4">
-                {fareClasses.map((fareClass) => (
-                  <article
-                    key={fareClass.id}
-                    className="rounded-[22px] border border-[#E3ECF6] bg-[#F8FBFF] p-5"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-serif text-2xl text-[#173453]">{fareClass.name}</p>
-                        <p className="mt-2 text-sm leading-6 text-[#617D97]">
-                          {fareClass.description || "No descriptive copy added yet."}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <FlightButton
-                          variant="ghost"
-                          className="px-3 py-2"
-                          onClick={() => {
-                            setEditingClass(fareClass);
-                            setFareModalOpen(true);
-                          }}
-                        >
-                          <Pencil size={14} />
-                        </FlightButton>
-                        <FlightButton
-                          variant="danger"
-                          className="px-3 py-2"
-                          onClick={() => deleteFareClass(fareClass.id)}
-                        >
-                          <Trash2 size={14} />
-                        </FlightButton>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </FlightPanel>
-
-          <FlightPanel
-            title="Passenger class mix"
-            description="A quick read on how current bookings are distributed across cabin tiers."
-          >
-            <div className="space-y-4">
-              {classMix.map((item) => (
-                <div key={item.label}>
-                  <div className="mb-2 flex items-center justify-between text-sm text-[#38556F]">
-                    <span>{item.label}</span>
-                    <span className="font-semibold">
-                      {item.value} travelers · {item.percentage}%
-                    </span>
-                  </div>
-                  <ProgressBar
-                    value={item.percentage}
-                    tone={
-                      item.label === "Economy"
-                        ? "blue"
-                        : item.label === "Business"
-                          ? "indigo"
-                          : "amber"
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-          </FlightPanel>
-
-          <FlightPanel
-            title="Copied tier guidance"
-            description="The reference pack already suggests the main cabin structure, so the workspace now exposes it directly."
-          >
-            <div className="space-y-3">
-              {FARE_CLASS_PRESETS.map((preset) => (
-                <div
-                  key={preset.name}
-                  className="rounded-[20px] border border-[#E4EDF7] bg-[#F8FBFF] px-4 py-3"
-                >
-                  <p className="font-semibold text-[#173453]">{preset.name}</p>
-                  <p className="mt-1 text-sm text-[#69839D]">{preset.description}</p>
-                </div>
-              ))}
-            </div>
-          </FlightPanel>
+    <div className="max-w-[1400px] mx-auto py-8 px-4 sm:px-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 border-b border-slate-200 pb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Dynamic Pricing Engine</h1>
+          <p className="text-slate-500">Fast fare adjustments. Set daily overrides to respond to route demand.</p>
         </div>
-
-        <FlightPanel
-          title="Route pricing board"
-          description="Adjust route anchors while seeing demand pressure and yield potential at the same time."
-          action={
-            <FlightSearchField
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search route or flight number"
-            />
-          }
-        >
-          {loading ? (
-            <div className="flex items-center justify-center py-16 text-[#7191AF]">
-              <RefreshCw className="animate-spin" />
-            </div>
-          ) : filteredFlights.length === 0 ? (
-            <FlightEmptyState
-              icon={BadgeIndianRupee}
-              title="No route pricing available yet"
-              description="Add flights on the Schedule page first. Their route fares will then appear here for pricing control."
-            />
-          ) : (
-            <div className="grid gap-4">
-              {filteredFlights.map((flight) => {
-                const loadFactor = getLoadFactor(flight, bookings);
-                const guidance =
-                  loadFactor > 75
-                    ? "High demand: premium fares can support a stronger yield push."
-                    : loadFactor > 45
-                      ? "Balanced demand: keep the current spread and watch conversion."
-                      : "Soft demand: consider promotional economy positioning.";
-
-                return (
-                  <article
-                    key={flight.id}
-                    className="rounded-[26px] border border-[#E2EBF5] bg-white p-5 shadow-sm"
-                  >
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="flex-1">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <p className="font-serif text-3xl text-[#173453]">{flight.flightNumber}</p>
-                          <FlightBadge tone="slate">{formatRouteLabel(flight.from, flight.to)}</FlightBadge>
-                        </div>
-                        <p className="mt-3 text-sm leading-6 text-[#617D97]">{guidance}</p>
-
-                        <div className="mt-4 grid gap-3 md:grid-cols-3">
-                          <div className="rounded-[20px] border border-[#E4EDF7] bg-[#F8FBFF] p-4">
-                            <p className="text-[11px] uppercase tracking-[0.22em] text-[#68839E]">
-                              Economy
-                            </p>
-                            <p className="mt-2 font-serif text-2xl text-[#173453]">
-                              {formatCurrency(flight.economyPrice)}
-                            </p>
-                          </div>
-                          <div className="rounded-[20px] border border-[#E4EDF7] bg-[#F8FBFF] p-4">
-                            <p className="text-[11px] uppercase tracking-[0.22em] text-[#68839E]">
-                              Business
-                            </p>
-                            <p className="mt-2 font-serif text-2xl text-[#173453]">
-                              {formatCurrency(flight.businessPrice)}
-                            </p>
-                          </div>
-                          <div className="rounded-[20px] border border-[#E4EDF7] bg-[#F8FBFF] p-4">
-                            <p className="text-[11px] uppercase tracking-[0.22em] text-[#68839E]">
-                              First
-                            </p>
-                            <p className="mt-2 font-serif text-2xl text-[#173453]">
-                              {formatCurrency(flight.firstPrice)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="lg:w-[260px]">
-                        <div className="rounded-[22px] border border-[#E4EDF7] bg-[#F8FBFF] p-4">
-                          <div className="flex items-center justify-between text-sm text-[#38556F]">
-                            <span>Current demand</span>
-                            <span className="font-semibold">{loadFactor}% load</span>
-                          </div>
-                          <div className="mt-3">
-                            <ProgressBar
-                              value={loadFactor}
-                              tone={loadFactor > 75 ? "emerald" : loadFactor > 45 ? "blue" : "amber"}
-                            />
-                          </div>
-                          <p className="mt-4 text-xs leading-5 text-[#6A839D]">
-                            Premium uplift: {formatCurrency(flight.businessPrice - flight.economyPrice)}
-                            {" · "}
-                            First uplift: {formatCurrency(flight.firstPrice - flight.businessPrice)}
-                          </p>
-                          <div className="mt-4 flex justify-end">
-                            <FlightButton
-                              variant="secondary"
-                              onClick={() => {
-                                setSelectedFlight(flight);
-                                setPricingModalOpen(true);
-                              }}
-                            >
-                              Adjust fares
-                            </FlightButton>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </FlightPanel>
+        
+        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm">
+          <button onClick={() => changeWindow(-7)} className="p-2.5 text-slate-400 hover:bg-slate-50 hover:text-slate-800 rounded-xl"><FiChevronLeft size={18}/></button>
+          <div className="px-6 text-sm font-bold text-slate-700 w-64 text-center">
+            {dates[0].numStr} — {dates[6].numStr}
+          </div>
+          <button onClick={() => changeWindow(7)} className="p-2.5 text-slate-400 hover:bg-slate-50 hover:text-slate-800 rounded-xl"><FiChevronRight size={18}/></button>
+        </div>
       </div>
 
-      <FareClassModal
-        open={fareModalOpen}
-        existing={editingClass}
-        onClose={() => {
-          setFareModalOpen(false);
-          setEditingClass(null);
-        }}
-        onSaved={() => {
-          setFareModalOpen(false);
-          setEditingClass(null);
-          fetchPricing();
-        }}
-      />
+      <div className="animate-in fade-in duration-700">
+        {loading ? (
+           <div className="py-20 text-center"><FiRefreshCw size={24} className="animate-spin text-slate-300 mx-auto" /></div>
+        ) : flights.length === 0 ? (
+          <div className="bg-white rounded-[32px] border border-slate-100 p-20 text-center shadow-sm">
+            <FiDollarSign size={48} className="mx-auto text-slate-200 mb-4" />
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Configure Routing First</h2>
+            <p className="text-sm text-slate-500">Add operational flights in the Network Planning section to enable fast pricing overrides here.</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[1000px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-6 py-5 text-[11px] font-bold text-slate-500 uppercase tracking-widest sticky left-0 z-10 bg-slate-50 border-r border-slate-200 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">Flight / Route</th>
+                  {dates.map(d => (
+                    <th key={d.isoStr} className="px-4 py-3 text-center border-l border-slate-200">
+                      <p className="text-[10px] font-bold uppercase text-slate-400 mb-0.5">{d.dayStr}</p>
+                      <p className="text-sm font-bold text-slate-800">{d.numStr}</p>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {flights.map(f => (
+                  <tr key={f.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4 sticky left-0 z-10 bg-white border-r border-slate-200 shadow-[2px_0_5px_rgba(0,0,0,0.01)] group-hover:bg-slate-50/50">
+                      <div className="flex items-center gap-4">
+                         <div className="w-10 h-10 rounded-xl bg-[#037ffc]/5 border border-[#037ffc]/10 text-[#037ffc] flex items-center justify-center shrink-0">
+                           <MdFlightTakeoff size={18} />
+                         </div>
+                         <div>
+                            <p className="font-bold text-slate-800 text-base">{f.flightNumber}</p>
+                            <p className="text-xs font-bold text-slate-400 mt-0.5">{f.from} → {f.to}</p>
+                         </div>
+                      </div>
+                      <div className="text-[10px] font-bold uppercase text-slate-400 mt-4 tracking-widest">Base Econ fare: ₹{f.economyPrice}</div>
+                    </td>
+                    
+                    {dates.map(date => {
+                      const isOperating = (f.daysOfWeek || []).includes(date.dayIndex);
+                      const isEditing = editCell?.flightId === f.id && editCell?.dateStr === date.isoStr;
+                      const displayPrice = getDayPrice(f.id, date.isoStr, f.economyPrice);
+                      const overridden = hasOverride(f.id, date.isoStr);
 
-      <RoutePricingModal
-        open={pricingModalOpen}
-        flight={selectedFlight}
-        onClose={() => {
-          setPricingModalOpen(false);
-          setSelectedFlight(null);
-        }}
-        onSaved={() => {
-          setPricingModalOpen(false);
-          setSelectedFlight(null);
-          fetchPricing();
-        }}
-      />
-    </FlightWorkspacePage>
+                      return (
+                        <td key={date.isoStr} className={`border-l border-slate-100 p-2 ${!isOperating && "bg-slate-50/50"}`}>
+                          {!isOperating ? (
+                             <div className="h-full w-full py-6 flex items-center justify-center">
+                                <span className="text-[10px] uppercase font-bold text-slate-300 tracking-widest">No Flight</span>
+                             </div>
+                          ) : isEditing ? (
+                             <div className="flex flex-col gap-2 p-2">
+                               <input 
+                                 type="number"
+                                 autoFocus
+                                 className="w-full rounded-xl border border-[#037ffc] bg-white px-3 py-2 text-sm font-bold text-slate-800 outline-none shadow-[0_0_0_3px_rgba(3,127,252,0.1)]"
+                                 value={editCell.value}
+                                 onChange={e => setEditCell({...editCell, value: e.target.value})}
+                               />
+                               <div className="flex items-center gap-2">
+                                 <button onClick={handleSave} disabled={saving} className="flex-1 bg-[#037ffc] hover:bg-[#0269d4] text-white rounded-lg py-1.5 flex justify-center items-center"><FiCheck size={14}/></button>
+                                 <button onClick={() => setEditCell(null)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg py-1.5 flex justify-center items-center"><FiX size={14}/></button>
+                               </div>
+                             </div>
+                          ) : (
+                            <div 
+                              onClick={() => startEdit(f.id, date.isoStr, displayPrice)}
+                              className={`group cursor-pointer rounded-2xl border p-4 text-center transition-all duration-300
+                                ${overridden ? 'border-amber-200 bg-amber-50 hover:border-amber-300' : 'border-slate-100 bg-white hover:border-blue-200 hover:shadow-sm'}`}
+                            >
+                               <p className={`text-lg font-bold ${overridden ? 'text-amber-700' : 'text-slate-800 group-hover:text-[#037ffc]'}`}>
+                                 ₹{displayPrice}
+                               </p>
+                               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                                 <FiEdit2 size={10}/> Edit
+                               </p>
+                            </div>
+                          )}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

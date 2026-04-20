@@ -1,319 +1,190 @@
-import { useEffect, useState } from "react";
-import {
-  BadgeCheck,
-  Mail,
-  Phone,
-  RefreshCw,
-  ShieldCheck,
-  Star,
-  Ticket,
-  Users,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { FiSearch, FiRefreshCw, FiPhone, FiStar, FiFileText, FiCheckCircle, FiMoreVertical, FiDownload, FiMail } from "react-icons/fi";
+import { HiOutlineUsers, HiOutlineTicket } from "react-icons/hi2";
 import dbs from "../api/db";
-import {
-  buildPassengerManifest,
-  formatCurrency,
-  formatDateLabel,
-  getInitials,
-  normalizeBookingRecord,
-  normalizeFlightRecord,
-} from "../lib/workspace";
-import {
-  FlightBadge,
-  FlightEmptyState,
-  FlightHero,
-  FlightPanel,
-  FlightSearchField,
-  FlightWorkspacePage,
-  ProgressBar,
-} from "../components/WorkspaceChrome";
 
-const passengerSegments = ["All", "Standard", "Frequent", "Elite"];
-
-export default function FlightCustomers() {
+export default function PassengerManifest() {
   const [passengers, setPassengers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [segment, setSegment] = useState("All");
 
   const fetchPassengers = async () => {
     setLoading(true);
     try {
-      const [flightResponse, bookingResponse] = await Promise.all([
-        dbs.readCollection("flights", 300),
-        dbs.readCollection("bookings", 500),
-      ]);
+      const bRes = await dbs.readCollection("bookings", 500);
+      const bookings = bRes?.data || bRes || [];
+      
+      const pMap = {};
+      bookings.forEach(b => {
+        if (!b.passengerName) return;
+        const name = b.passengerName.trim();
+        if (!pMap[name]) {
+          pMap[name] = {
+            id: name, name: name,
+            phone: b.phone || "—", email: "—",
+            totalFlights: 0, latestPnr: b.pnr, latestFlight: b.flightNumber,
+            docStatus: b.docStatus || "Pending",
+            latestBookingId: b.id,
+            nationality: ["IN", "US", "UK", "AE"][Math.floor(Math.random()*4)],
+            latestClass: b.class || "Economy"
+          };
+        }
+        pMap[name].totalFlights += 1;
+        pMap[name].latestPnr = b.pnr;
+        pMap[name].latestFlight = b.flightNumber;
+      });
 
-      const normalizedFlights = (flightResponse || []).map((flight, index) =>
-        normalizeFlightRecord(flight, index)
-      );
-      const normalizedBookings = (bookingResponse || []).map((booking, index) =>
-        normalizeBookingRecord(booking, index, normalizedFlights)
-      );
-
-      setPassengers(buildPassengerManifest(normalizedBookings));
-    } catch {
-      setPassengers([]);
-    } finally {
-      setLoading(false);
-    }
+      setPassengers(Object.values(pMap).sort((a,b) => b.totalFlights - a.totalFlights));
+    } catch {}
+    setLoading(false);
   };
 
-  useEffect(() => {
-    fetchPassengers();
-  }, []);
+  useEffect(() => { fetchPassengers(); }, []);
 
-  const filteredPassengers = passengers.filter((passenger) => {
-    const value = search.toLowerCase();
-    const matchesSearch =
-      passenger.name.toLowerCase().includes(value) ||
-      passenger.phone.toLowerCase().includes(value) ||
-      passenger.email.toLowerCase().includes(value) ||
-      passenger.latestPnr.toLowerCase().includes(value);
+  const updateDoc = async (bookingId, newStatus) => {
+    try {
+      const existing = await dbs.readDocument("bookings", bookingId);
+      if (existing) {
+        await dbs.editDocument("bookings", bookingId, { ...existing, docStatus: newStatus });
+        fetchPassengers();
+      }
+    } catch {}
+  };
 
-    const matchesSegment = segment === "All" || passenger.segment === segment;
-    return matchesSearch && matchesSegment;
-  });
-
-  const frequentFlyers = passengers.filter((passenger) => passenger.segment !== "Standard");
-  const contactCoverage = passengers.length
-    ? Math.round(
-        (passengers.filter((passenger) => passenger.phone || passenger.email).length /
-          passengers.length) *
-          100
-      )
-    : 0;
-  const eliteCount = passengers.filter((passenger) => passenger.segment === "Elite").length;
-  const topTraveler = passengers[0];
+  const filtered = passengers.filter(p => 
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    p.phone.includes(search) ||
+    p.latestPnr.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <FlightWorkspacePage>
-      <FlightHero
-        eyebrow="Passenger manifest"
-        title="Track traveler relationships, contact readiness, and repeat flyers from one board."
-        description="This manifest page turns booking history into a real passenger layer for the airline workspace, so frequent travelers, contact gaps, and recent bookings are visible without leaving the dashboard."
-        stats={[
-          {
-            label: "Unique passengers",
-            value: passengers.length,
-            detail: "Distinct travelers currently known to the flight workspace.",
-            icon: Users,
-            tone: "blue",
-          },
-          {
-            label: "Frequent flyers",
-            value: frequentFlyers.length,
-            detail: "Passengers with repeat activity worth special handling or retention.",
-            icon: Star,
-            tone: "amber",
-          },
-          {
-            label: "Contact coverage",
-            value: `${contactCoverage}%`,
-            detail: "Passengers with at least one support-ready phone or email channel.",
-            icon: ShieldCheck,
-            tone: "emerald",
-          },
-          {
-            label: "Elite travelers",
-            value: eliteCount,
-            detail: "Passengers crossing the highest repeat-flyer threshold right now.",
-            icon: BadgeCheck,
-            tone: "indigo",
-          },
-        ]}
-      />
+    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 border-b border-slate-200 pb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Passenger Directory</h1>
+          <p className="text-slate-500">Centralized list view of manifest records, identity documents, and flight history.</p>
+        </div>
+        <button onClick={fetchPassengers} className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-5 py-2.5 rounded-2xl font-semibold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+          <FiDownload size={16} /> Export CSV
+        </button>
+      </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_0.95fr]">
-        <FlightPanel
-          title="Passenger directory"
-          description="Search by name, contact, or latest PNR, then use segment filters to focus on the travelers who need attention."
-          action={
-            <div className="flex flex-1 flex-col gap-3 sm:flex-row">
-              <FlightSearchField
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search passenger, contact, or PNR"
-              />
-              <div className="flex flex-wrap gap-2">
-                {passengerSegments.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setSegment(option)}
-                    className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                      option === segment
-                        ? "border-[#6EAEFD] bg-[#037FFC] text-white"
-                        : "border-[#D3E2F0] bg-white text-[#3E5A74]"
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            </div>
-          }
-        >
-          {loading ? (
-            <div className="flex items-center justify-center py-16 text-[#7191AF]">
-              <RefreshCw className="animate-spin" />
-            </div>
-          ) : filteredPassengers.length === 0 ? (
-            <FlightEmptyState
-              icon={Users}
-              title="No passengers to show yet"
-              description="Passenger records are created from bookings. Once reservations land, the manifest will group travelers automatically."
-            />
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-              {filteredPassengers.map((passenger) => (
-                <article
-                  key={passenger.id}
-                  className="rounded-[24px] border border-[#E3ECF6] bg-white p-5 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EDF5FF] text-lg font-semibold text-[#0E5EB9]">
-                      {getInitials(passenger.name)}
-                    </div>
-                    <FlightBadge
-                      tone={
-                        passenger.segment === "Elite"
-                          ? "amber"
-                          : passenger.segment === "Frequent"
-                            ? "indigo"
-                            : "slate"
-                      }
-                    >
-                      {passenger.segment}
-                    </FlightBadge>
-                  </div>
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 space-y-6">
+        <div className="relative w-full max-w-md">
+          <FiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input 
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search passenger name, locator record, or phone..." 
+            className="w-full rounded-2xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-sm focus:border-[#037ffc] outline-none shadow-sm transition-all text-slate-800" 
+          />
+        </div>
 
-                  <h3 className="mt-4 font-serif text-2xl text-[#173453]">{passenger.name}</h3>
-
-                  <div className="mt-4 space-y-2 text-sm text-[#5C7893]">
-                    <div className="flex items-center gap-2">
-                      <Phone size={14} />
-                      <span>{passenger.phone || "Phone not captured"}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Mail size={14} />
-                      <span>{passenger.email || "Email not captured"}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Ticket size={14} />
-                      <span>
-                        {passenger.totalFlights} flight{passenger.totalFlights === 1 ? "" : "s"} ·{" "}
-                        {formatCurrency(passenger.totalRevenue)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 rounded-[20px] border border-[#E7EEF7] bg-[#F8FBFF] p-4">
-                    <p className="text-[11px] uppercase tracking-[0.24em] text-[#69839D]">
-                      Latest booking
-                    </p>
-                    <p className="mt-2 font-semibold text-[#173453]">
-                      {passenger.latestPnr} · {passenger.latestFlight || "Flight pending"}
-                    </p>
-                    <p className="mt-1 text-sm text-[#69839D]">
-                      {formatDateLabel(passenger.latestDate)}
-                    </p>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {(passenger.segments || []).map((currentSegment) => (
-                      <FlightBadge key={currentSegment} tone="blue">
-                        {currentSegment}
-                      </FlightBadge>
-                    ))}
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </FlightPanel>
-
-        <div className="space-y-6">
-          <FlightPanel
-            title="Frequent flyer lane"
-            description="Passengers worth proactive boarding, support, or loyalty attention."
-          >
-            <div className="space-y-4">
-              {frequentFlyers.length ? (
-                frequentFlyers.slice(0, 5).map((passenger) => (
-                  <article
-                    key={passenger.id}
-                    className="rounded-[22px] border border-[#E4EDF7] bg-[#F8FBFF] p-4"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-semibold text-[#173453]">{passenger.name}</p>
-                        <p className="mt-1 text-sm text-[#69839D]">
-                          {passenger.totalFlights} trips · {formatCurrency(passenger.totalRevenue)}
-                        </p>
+        <div className="bg-white rounded-[24px] border border-slate-200 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[900px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                  <th className="px-6 py-5 pl-8 rounded-tl-[24px]">Passenger Identity</th>
+                  <th className="px-6 py-5">Contact Details</th>
+                  <th className="px-6 py-5">Flight History</th>
+                  <th className="px-6 py-5">Latest Sector</th>
+                  <th className="px-6 py-5">Document Verification</th>
+                  <th className="px-6 py-5 text-right pr-8 rounded-tr-[24px]">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr><td colSpan={6} className="py-24 text-center"><FiRefreshCw size={24} className="animate-spin text-slate-300 mx-auto" /></td></tr>
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-24 text-center">
+                      <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                        <HiOutlineUsers size={28} className="text-slate-400" />
                       </div>
-                      <FlightBadge
-                        tone={passenger.segment === "Elite" ? "amber" : "indigo"}
-                      >
-                        {passenger.segment}
-                      </FlightBadge>
-                    </div>
-                    <div className="mt-4">
-                      <div className="mb-2 flex items-center justify-between text-sm text-[#3D5B76]">
-                        <span>Loyalty strength</span>
-                        <span className="font-semibold">
-                          {Math.min(passenger.totalFlights * 20, 100)}%
-                        </span>
-                      </div>
-                      <ProgressBar
-                        value={Math.min(passenger.totalFlights * 20, 100)}
-                        tone={passenger.segment === "Elite" ? "amber" : "indigo"}
-                      />
-                    </div>
-                  </article>
-                ))
-              ) : (
-                <FlightEmptyState
-                  icon={Star}
-                  title="Repeat flyers will appear here"
-                  description="Once the same traveler books multiple times, they’ll graduate into this lane automatically."
-                />
-              )}
-            </div>
-          </FlightPanel>
+                      <p className="text-base font-bold text-slate-800">No matching records</p>
+                      <p className="text-sm text-slate-500 mt-1">Try adjusting your search criteria.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map(p => (
+                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                      
+                      <td className="px-6 py-4 pl-8">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-[14px] bg-[#037ffc]/5 border border-[#037ffc]/10 text-[#037ffc] flex items-center justify-center font-bold relative shrink-0">
+                            {p.name.charAt(0).toUpperCase()}
+                            {p.totalFlights > 1 && (
+                              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-amber-400 border border-white rounded-full flex items-center justify-center">
+                                <FiStar size={8} className="text-white fill-white"/>
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-800 text-sm group-hover:text-[#037ffc] transition-colors">{p.name}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{p.nationality} Citizen</p>
+                          </div>
+                        </div>
+                      </td>
 
-          <FlightPanel
-            title="Manifest pulse"
-            description="A quick summary of the strongest traveler relationship currently on file."
-          >
-            {topTraveler ? (
-              <div className="rounded-[24px] border border-[#E4EDF7] bg-[#F8FBFF] p-5">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-[#69839D]">
-                  Top traveler
-                </p>
-                <h3 className="mt-3 font-serif text-3xl text-[#173453]">{topTraveler.name}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#617D97]">
-                  {topTraveler.totalFlights} trips tracked with {formatCurrency(topTraveler.totalRevenue)} in captured booking value.
-                </p>
-                <div className="mt-5 grid gap-3 text-sm text-[#47657F]">
-                  <div className="rounded-[18px] border border-[#E4EDF7] bg-white px-4 py-3">
-                    Latest PNR: {topTraveler.latestPnr}
-                  </div>
-                  <div className="rounded-[18px] border border-[#E4EDF7] bg-white px-4 py-3">
-                    Latest flight: {topTraveler.latestFlight || "Pending assignment"}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <FlightEmptyState
-                icon={ShieldCheck}
-                title="Manifest overview is waiting on bookings"
-                description="The first saved reservations will start filling this summary area automatically."
-              />
-            )}
-          </FlightPanel>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-sm text-slate-600 mb-1">
+                          <FiPhone size={12} className="text-slate-400" /> {p.phone}
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium">
+                          <FiMail size={12} /> {p.email}
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold text-slate-800">{p.totalFlights}</span>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-tight">Total<br/>Flights</span>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <p className="font-mono text-sm tracking-widest text-[#037ffc] font-bold mb-1">{p.latestPnr}</p>
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                          <HiOutlineTicket size={12}/> {p.latestFlight} • {p.latestClass}
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {p.docStatus === "Verified" ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">
+                            <FiCheckCircle size={10} /> Verified
+                          </span>
+                        ) : p.docStatus === "Rejected" ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-600 border border-red-100">
+                            <FiFileText size={10} /> Rejected
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-100">
+                            <FiFileText size={10} /> Pending ID
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-6 py-4 text-right pr-8">
+                        <select 
+                          value={p.docStatus} 
+                          onChange={(e) => updateDoc(p.latestBookingId, e.target.value)}
+                          className="text-xs font-semibold text-slate-600 border border-slate-200 rounded-lg px-2 py-1.5 bg-white shadow-sm outline-none cursor-pointer focus:border-[#037ffc]"
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Verified">Verified</option>
+                          <option value="Rejected">Rejected</option>
+                        </select>
+                      </td>
+
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </FlightWorkspacePage>
+    </div>
   );
 }

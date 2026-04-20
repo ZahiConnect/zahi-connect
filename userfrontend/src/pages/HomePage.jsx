@@ -240,17 +240,17 @@ const HomePage = () => {
               {activeTab === "cabs" ? (
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-[#1f1812]">Cab request lane is staged next.</p>
+                    <p className="text-sm font-semibold text-[#1f1812]">Nearby cab lane is live now.</p>
                     <p className="mt-2 max-w-2xl text-sm leading-7 text-[#68584b]">
-                      Capture airport transfer and local ride demand while the dispatch layer is
-                      still being built.
+                      See online drivers, compare nearby vehicles, and confirm a ride directly from
+                      the customer portal.
                     </p>
                   </div>
                   <button
                     type="submit"
                     className="inline-flex items-center justify-center rounded-[22px] bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white"
                   >
-                    Open cab lane
+                    Find nearby cabs
                   </button>
                 </div>
               ) : null}
@@ -439,14 +439,14 @@ const HomePage = () => {
           <p className="text-xs uppercase tracking-[0.28em] text-[#c15d1f]">Cab lane</p>
           <h2 className="font-display mt-3 text-5xl leading-none text-[#1f1812]">Airport transfers and local rides</h2>
           <p className="mt-4 text-sm leading-7 text-[#68584b]">
-            The dispatch engine is still under development, but the customer-facing lane is ready
-            so you can capture demand now.
+            Customers can now see nearby online drivers, compare vehicles, and place a paid ride
+            request that flows into the new Zahi Drive dashboard.
           </p>
           <Link
             to="/cabs"
             className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#1f1812] px-5 py-3 text-sm font-semibold text-white"
           >
-            Open cabs
+            Find nearby cabs
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>

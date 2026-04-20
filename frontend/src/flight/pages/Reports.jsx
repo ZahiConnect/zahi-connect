@@ -1,12 +1,8 @@
 import { useEffect, useState } from "react";
 import {
-  ChartColumn,
-  ClipboardCheck,
-  RefreshCw,
-  Route,
-  TrendingUp,
-  WalletCards,
-} from "lucide-react";
+  FiRefreshCw, FiDollarSign, FiTrendingUp, FiMap, FiXCircle, FiPieChart, FiBarChart2
+} from "react-icons/fi";
+import { MdFlightTakeoff } from "react-icons/md";
 import dbs from "../api/db";
 import {
   BOOKING_STATUSES,
@@ -14,19 +10,49 @@ import {
   buildDayDistribution,
   buildRoutePerformance,
   buildStatusBreakdown,
-  formatCompactNumber,
-  formatCurrency,
   normalizeBookingRecord,
   normalizeFlightRecord,
 } from "../lib/workspace";
-import {
-  FlightBadge,
-  FlightEmptyState,
-  FlightHero,
-  FlightPanel,
-  FlightWorkspacePage,
-  ProgressBar,
-} from "../components/WorkspaceChrome";
+
+const formatCurrency = (val) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(val);
+const formatNum = (val) => new Intl.NumberFormat("en-IN", { compactDisplay: "short", notation: "compact" }).format(val);
+
+const StatCard = ({ label, value, detail, icon: Icon, tone, delay }) => {
+  const tones = {
+    blue: "text-[#037ffc] bg-[#037ffc]/5 border-[#037ffc]/10",
+    emerald: "text-emerald-600 bg-emerald-50 border-emerald-100",
+    amber: "text-amber-600 bg-amber-50 border-amber-100",
+    indigo: "text-indigo-600 bg-indigo-50 border-indigo-100",
+    red: "text-red-600 bg-red-50 border-red-100",
+  };
+
+  return (
+    <article className="bg-white rounded-[24px] border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all duration-300 animate-in zoom-in-95" style={{ animationDelay: `${delay}ms`, animationFillMode: "both" }}>
+      <div className="flex items-start justify-between mb-4">
+        <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center text-xl border ${tones[tone]}`}>
+          <Icon />
+        </div>
+      </div>
+      <div>
+        <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{value}</h3>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1 mb-3">{label}</p>
+        <p className="text-xs text-slate-500 font-medium leading-relaxed border-t border-slate-100 pt-3">{detail}</p>
+      </div>
+    </article>
+  );
+};
+
+const SimpleBar = ({ label, value, percent, toneCode }) => (
+  <div className="space-y-2 mb-4 group cursor-default">
+    <div className="flex items-center justify-between text-sm">
+      <span className="font-semibold text-slate-700">{label}</span>
+      <span className="text-slate-500 text-xs font-bold bg-slate-50 px-2 py-1 rounded-md border border-slate-100">{value} · {percent}%</span>
+    </div>
+    <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+      <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${percent}%`, backgroundColor: toneCode }} />
+    </div>
+  </div>
+);
 
 export default function FlightReports() {
   const [flights, setFlights] = useState([]);
@@ -36,273 +62,164 @@ export default function FlightReports() {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const [flightResponse, bookingResponse] = await Promise.all([
+      const [fRes, bRes] = await Promise.all([
         dbs.readCollection("flights", 300),
         dbs.readCollection("bookings", 500),
       ]);
-
-      const normalizedFlights = (flightResponse || []).map((flight, index) =>
-        normalizeFlightRecord(flight, index)
-      );
-      const normalizedBookings = (bookingResponse || []).map((booking, index) =>
-        normalizeBookingRecord(booking, index, normalizedFlights)
-      );
-
-      setFlights(normalizedFlights);
-      setBookings(normalizedBookings);
+      const normF = (fRes?.data || fRes || []).map((f, i) => normalizeFlightRecord(f, i));
+      const normB = (bRes?.data || bRes || []).map((b, i) => normalizeBookingRecord(b, i, normF));
+      setFlights(normF);
+      setBookings(normB);
     } catch {
-      setFlights([]);
-      setBookings([]);
+      setFlights([]); setBookings([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchReports();
-  }, []);
+  useEffect(() => { fetchReports(); }, []);
 
   const routePerformance = buildRoutePerformance(flights, bookings);
   const statusBreakdown = buildStatusBreakdown(bookings, BOOKING_STATUSES);
   const classMix = buildClassMix(bookings);
   const dayDistribution = buildDayDistribution(flights);
 
-  const activeRevenue = bookings
-    .filter((booking) => booking.status !== "Cancelled")
-    .reduce((total, booking) => total + Number(booking.amount || 0), 0);
-  const soldSeats = bookings
-    .filter((booking) => booking.status !== "Cancelled")
-    .reduce((total, booking) => total + Number(booking.travellers || 1), 0);
-  const availableSeats = flights.reduce((total, flight) => total + Number(flight.totalSeats || 0), 0);
+  const activeRevenue = bookings.filter(b => b.status !== "Cancelled").reduce((sum, b) => sum + Number(b.amount || 0), 0);
+  const soldSeats = bookings.filter(b => b.status !== "Cancelled").reduce((sum, b) => sum + Number(b.travellers || 1), 0);
+  const availableSeats = flights.reduce((sum, f) => sum + Number(f.totalSeats || 0), 0);
+  
   const averageLoad = availableSeats ? Math.round((soldSeats / availableSeats) * 100) : 0;
-  const cancellationRate = bookings.length
-    ? Math.round(
-        (bookings.filter((booking) => booking.status === "Cancelled").length / bookings.length) *
-          100
-      )
-    : 0;
-  const topRoute = routePerformance[0];
-  const busiestDay = [...dayDistribution].sort((left, right) => right.count - left.count)[0];
+  const cxRate = bookings.length ? Math.round((bookings.filter(b => b.status === "Cancelled").length / bookings.length) * 100) : 0;
 
   return (
-    <FlightWorkspacePage>
-      <FlightHero
-        eyebrow="Flight reports"
-        title="See revenue, route strength, cabin mix, and schedule spread in one reporting layer."
-        description="The generic report shell has been replaced with a real aviation dashboard so the flight workspace now has its own reporting surface instead of a placeholder."
-        actions={
-          <button
-            type="button"
-            onClick={fetchReports}
-            className="inline-flex items-center gap-2 rounded-full border border-[#C5DAF3] bg-white px-4 py-2.5 text-sm font-semibold text-[#123D67] transition hover:bg-[#F5FAFF]"
-          >
-            <RefreshCw size={16} />
-            Refresh reports
-          </button>
-        }
-        stats={[
-          {
-            label: "Captured revenue",
-            value: formatCurrency(activeRevenue),
-            detail: "Non-cancelled booking value visible to the current flight tenant.",
-            icon: WalletCards,
-            tone: "blue",
-          },
-          {
-            label: "Seat load",
-            value: `${averageLoad}%`,
-            detail: `${formatCompactNumber(soldSeats)} sold seats across ${formatCompactNumber(
-              availableSeats
-            )} scheduled seats.`,
-            icon: TrendingUp,
-            tone: "emerald",
-          },
-          {
-            label: "Route count",
-            value: routePerformance.length,
-            detail: "Distinct corridors currently represented in the schedule.",
-            icon: Route,
-            tone: "indigo",
-          },
-          {
-            label: "Cancellation rate",
-            value: `${cancellationRate}%`,
-            detail: "Reservation share that has moved into the cancelled state.",
-            icon: ClipboardCheck,
-            tone: "amber",
-          },
-        ]}
-      />
+    <div className="max-w-6xl mx-auto py-8 px-4 sm:px-0">
+      
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Financial & Operations</h1>
+          <p className="text-slate-500">Aviation intelligence, revenue tracking, and capacity utilization.</p>
+        </div>
+        <button onClick={fetchReports} disabled={loading} className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-5 py-2.5 rounded-2xl font-semibold hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50">
+          <FiRefreshCw size={16} className={loading ? "animate-spin" : ""} /> Sync Data
+        </button>
+      </div>
 
       {loading ? (
-        <div className="flex min-h-[40vh] items-center justify-center text-[#7191AF]">
-          <RefreshCw className="animate-spin" />
-        </div>
+        <div className="py-32 flex justify-center"><FiRefreshCw size={32} className="animate-spin text-slate-300" /></div>
       ) : flights.length === 0 && bookings.length === 0 ? (
-        <FlightEmptyState
-          icon={ChartColumn}
-          title="Reports will appear once the flight workspace has data"
-          description="Schedule routes and add bookings first. This reporting page will then summarize revenue, route demand, and operating patterns."
-        />
+        <div className="bg-white rounded-[32px] border border-slate-100 p-20 text-center shadow-sm animate-in fade-in slide-in-from-bottom-5">
+           <div className="w-24 h-24 bg-slate-50 rounded-[24px] flex items-center justify-center mx-auto mb-6 border border-slate-100">
+             <FiBarChart2 size={40} className="text-slate-300" />
+           </div>
+           <h2 className="text-2xl font-bold text-slate-800 mb-2">Reports Awaiting Data</h2>
+           <p className="text-slate-500 max-w-md mx-auto">Schedule routes and accept passenger bookings to generate automated revenue and operational intelligence here.</p>
+        </div>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
-          <div className="space-y-6">
-            <FlightPanel
-              title="Booking status composition"
-              description="How the live reservation book is split across the major operational states."
-            >
-              <div className="grid gap-4 md:grid-cols-2">
-                {statusBreakdown.map((status) => (
-                  <article
-                    key={status.value}
-                    className="rounded-[24px] border border-[#E4EDF7] bg-[#F8FBFF] p-5"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-[#173453]">{status.label}</p>
-                      <FlightBadge tone={status.tone}>{status.count}</FlightBadge>
-                    </div>
-                    <div className="mt-4">
-                      <ProgressBar
-                        value={bookings.length ? Math.round((status.count / bookings.length) * 100) : 0}
-                        tone={status.tone}
-                      />
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </FlightPanel>
-
-            <FlightPanel
-              title="Top routes by revenue"
-              description="The corridors generating the strongest booking value and seat movement so far."
-            >
-              <div className="space-y-4">
-                {routePerformance.slice(0, 5).map((route) => (
-                  <article
-                    key={route.id}
-                    className="rounded-[24px] border border-[#E4EDF7] bg-white p-5 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-serif text-2xl text-[#173453]">{route.routeLabel}</p>
-                        <p className="mt-1 text-sm text-[#69839D]">
-                          {route.soldSeats} sold seats · {route.sectors} sectors scheduled
-                        </p>
-                      </div>
-                      <FlightBadge tone={route.averageLoad > 70 ? "emerald" : "blue"}>
-                        {route.averageLoad}% load
-                      </FlightBadge>
-                    </div>
-                    <div className="mt-4 grid gap-3 text-sm text-[#47657F] md:grid-cols-3">
-                      <div className="rounded-[18px] border border-[#E4EDF7] bg-[#F8FBFF] px-4 py-3">
-                        Revenue: {formatCurrency(route.revenue)}
-                      </div>
-                      <div className="rounded-[18px] border border-[#E4EDF7] bg-[#F8FBFF] px-4 py-3">
-                        Avg fare: {formatCurrency(route.averageFare)}
-                      </div>
-                      <div className="rounded-[18px] border border-[#E4EDF7] bg-[#F8FBFF] px-4 py-3">
-                        Active sectors: {route.activeFlights}
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </FlightPanel>
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-700">
+          
+          {/* Top KPI row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard label="Captured Revenue" value={formatCurrency(activeRevenue)} detail="Cumulative value of all non-cancelled flight reservations." icon={FiDollarSign} tone="emerald" delay={0}/>
+            <StatCard label="Network Seat Load" value={`${averageLoad}%`} detail={`${formatNum(soldSeats)} tickets sold across ${formatNum(availableSeats)} scheduled sector seats.`} icon={FiTrendingUp} tone="indigo" delay={100}/>
+            <StatCard label="Active Routes" value={routePerformance.length} detail="Distinct point-to-point corridors configured in the network." icon={FiMap} tone="blue" delay={200}/>
+            <StatCard label="Cancellation Rate" value={`${cxRate}%`} detail="Percentage of PNRs that have moved into a cancelled state." icon={FiXCircle} tone="red" delay={300}/>
           </div>
 
-          <div className="space-y-6">
-            <FlightPanel
-              title="Cabin mix"
-              description="Passenger distribution across the cabin ladder."
-            >
-              <div className="space-y-4">
-                {classMix.map((item) => (
-                  <div key={item.label}>
-                    <div className="mb-2 flex items-center justify-between text-sm text-[#38556F]">
-                      <span>{item.label}</span>
-                      <span className="font-semibold">
-                        {item.value} travelers · {item.percentage}%
-                      </span>
-                    </div>
-                    <ProgressBar
-                      value={item.percentage}
-                      tone={
-                        item.label === "Economy"
-                          ? "blue"
-                          : item.label === "Business"
-                            ? "indigo"
-                            : "amber"
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-            </FlightPanel>
-
-            <FlightPanel
-              title="Weekly spread"
-              description="Which days currently carry the heaviest route footprint."
-            >
-              <div className="space-y-4">
-                {dayDistribution.map((day) => (
-                  <div key={day.value}>
-                    <div className="mb-2 flex items-center justify-between text-sm text-[#38556F]">
-                      <span>{day.label}</span>
-                      <span className="font-semibold">{day.count} routes</span>
-                    </div>
-                    <ProgressBar
-                      value={
-                        flights.length
-                          ? Math.round(
-                              (day.count / Math.max(...dayDistribution.map((item) => item.count), 1)) *
-                                100
-                            )
-                          : 0
-                      }
-                      tone="indigo"
-                    />
-                  </div>
-                ))}
-              </div>
-            </FlightPanel>
-
-            <FlightPanel
-              title="Report highlights"
-              description="A quick owner summary pulled from the current schedule and booking book."
-            >
-              <div className="space-y-4">
-                <div className="rounded-[22px] border border-[#E4EDF7] bg-[#F8FBFF] p-4">
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-[#69839D]">
-                    Top route
-                  </p>
-                  <p className="mt-2 font-serif text-2xl text-[#173453]">
-                    {topRoute?.routeLabel || "Awaiting data"}
-                  </p>
-                  <p className="mt-2 text-sm text-[#617D97]">
-                    {topRoute
-                      ? `${formatCurrency(topRoute.revenue)} from ${topRoute.soldSeats} sold seats.`
-                      : "Once bookings come in, this card will highlight the best-performing corridor."}
-                  </p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Col (2-span) */}
+            <div className="lg:col-span-2 space-y-6">
+              
+              {/* Route Performance */}
+              <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
+                <div className="flex items-center gap-3 mb-8 border-b border-slate-100 pb-4">
+                  <MdFlightTakeoff size={20} className="text-slate-400" />
+                  <h2 className="text-lg font-bold text-slate-800">Top Routes by Revenue</h2>
                 </div>
+                {routePerformance.length === 0 ? (
+                  <p className="text-sm text-slate-500 py-4 text-center">No route data generated yet.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {routePerformance.slice(0, 5).map((route, idx) => (
+                      <div key={route.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                        <div>
+                          <div className="flex items-center gap-2">
+                             <span className="w-6 h-6 rounded-full bg-[#037ffc] text-white text-[10px] font-bold flex items-center justify-center">{idx + 1}</span>
+                             <h3 className="font-bold text-slate-800 text-lg">{route.routeLabel}</h3>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-2 font-medium ml-8">{route.soldSeats} tickets · {route.sectors} sectors</p>
+                        </div>
+                        
+                        <div className="flex gap-4 sm:ml-auto pl-8 sm:pl-0">
+                          <div className="bg-white px-4 py-2 border border-slate-200 rounded-xl shadow-sm min-w-28 text-center bg-gradient-to-b from-white to-slate-50">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Revenue</p>
+                            <p className="font-bold text-emerald-600">{formatCurrency(route.revenue)}</p>
+                          </div>
+                          <div className="bg-white px-4 py-2 border border-slate-200 rounded-xl shadow-sm min-w-24 text-center">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Load</p>
+                            <p className="font-bold text-slate-800">{route.averageLoad}%</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                <div className="rounded-[22px] border border-[#E4EDF7] bg-[#F8FBFF] p-4">
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-[#69839D]">
-                    Busiest operating day
-                  </p>
-                  <p className="mt-2 font-serif text-2xl text-[#173453]">
-                    {busiestDay?.label || "Awaiting schedule"}
-                  </p>
-                  <p className="mt-2 text-sm text-[#617D97]">
-                    {busiestDay
-                      ? `${busiestDay.count} routes currently run on this day.`
-                      : "Schedule data will surface the busiest day automatically."}
-                  </p>
+            </div>
+
+            {/* Right Col (1-span) */}
+            <div className="space-y-6">
+              
+              {/* Cabin Mix */}
+              <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
+                <div className="flex items-center gap-3 mb-8 border-b border-slate-100 pb-4">
+                  <FiPieChart size={20} className="text-slate-400" />
+                  <h2 className="text-lg font-bold text-slate-800">Cabin Class Mix</h2>
+                </div>
+                {classMix.length === 0 ? <p className="text-sm text-slate-500 text-center">No breakdown available.</p> : (
+                  <div>
+                    {classMix.map((c) => {
+                      let color = "#037ffc";
+                      if (c.label === "Business") color = "#8b5cf6";
+                      if (c.label === "First") color = "#f59e0b";
+                      return <SimpleBar key={c.label} label={c.label} value={c.value} percent={c.percentage} toneCode={color} />
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Status Tracking */}
+              <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
+                <div className="flex items-center gap-3 mb-8 border-b border-slate-100 pb-4">
+                  <FiBarChart2 size={20} className="text-slate-400" />
+                  <h2 className="text-lg font-bold text-slate-800">Boarding Pipeline</h2>
+                </div>
+                <div className="space-y-3">
+                  {statusBreakdown.map(s => {
+                    const percent = bookings.length ? Math.round((s.count / bookings.length) * 100) : 0;
+                    let color = "#94a3b8";
+                    if (s.tone === "emerald") color = "#10b981";
+                    else if (s.tone === "blue") color = "#0ea5e9";
+                    else if (s.tone === "indigo") color = "#8b5cf6";
+                    else if (s.tone === "amber") color = "#f59e0b";
+                    else if (s.tone === "red") color = "#ef4444";
+                    return (
+                      <div key={s.value} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50/50">
+                        <div className="flex items-center gap-2">
+                           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                           <span className="text-sm font-semibold text-slate-700">{s.label}</span>
+                        </div>
+                        <span className="text-sm font-bold text-slate-800">{s.count} <span className="text-xs text-slate-400 font-medium ml-1">({percent}%)</span></span>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
-            </FlightPanel>
+
+            </div>
           </div>
         </div>
       )}
-    </FlightWorkspacePage>
+    </div>
   );
 }

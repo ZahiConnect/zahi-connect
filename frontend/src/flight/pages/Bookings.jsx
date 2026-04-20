@@ -1,711 +1,305 @@
-import { useEffect, useState } from "react";
-import {
-  CalendarDays,
-  ClipboardList,
-  Mail,
-  Pencil,
-  Phone,
-  PlaneTakeoff,
-  Plus,
-  RefreshCw,
-  Ticket,
-  Trash2,
-  WalletCards,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { 
+  FiSearch, FiPlus, FiTrash2, FiEdit3, FiX, FiRefreshCw, FiChevronDown, FiUser
+} from "react-icons/fi";
+import { MdFlightTakeoff } from "react-icons/md";
+import { HiOutlineTicket } from "react-icons/hi2";
 import dbs from "../api/db";
-import {
-  BOOKING_STATUSES,
-  REFERENCE_ROUTE_TEMPLATES,
-  buildRoutePerformance,
-  buildStatusBreakdown,
-  createBookingDraft,
-  formatCurrency,
-  formatDateLabel,
-  formatRouteLabel,
-  formatAirportLabel,
-  getStatusMeta,
-  normalizeBookingRecord,
-  normalizeFlightRecord,
-  toDateInputValue,
-} from "../lib/workspace";
-import {
-  FlightBadge,
-  FlightButton,
-  FlightEmptyState,
-  FlightField,
-  FlightHero,
-  FlightInput,
-  FlightModal,
-  FlightPanel,
-  FlightSearchField,
-  FlightSelect,
-  FlightWorkspacePage,
-  ProgressBar,
-} from "../components/WorkspaceChrome";
 
-const BOOKING_FILTERS = ["All", ...BOOKING_STATUSES.map((status) => status.value)];
+const STATUSES = [
+  { value: "Confirmed", label: "Confirmed", bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+  { value: "Checked-In", label: "Checked-In", bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
+  { value: "Boarded", label: "Boarded", bg: "bg-purple-50", text: "text-purple-700", dot: "bg-purple-500" },
+  { value: "Cancelled", label: "Cancelled", bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
+];
 
-const bookingClassOptions = ["Economy", "Business", "First"];
+const Btn = ({ children, onClick, disabled, variant = "primary" }) => {
+  const base = "inline-flex items-center justify-center rounded-2xl font-medium transition-all duration-300 active:scale-[0.98] disabled:opacity-50 px-5 py-2.5 text-sm gap-2";
+  if (variant === "primary") return <button onClick={onClick} disabled={disabled} className={`${base} bg-slate-900 text-white hover:bg-slate-800 shadow-sm`}>{children}</button>;
+  if (variant === "ghost") return <button onClick={onClick} disabled={disabled} className={`${base} bg-slate-50 text-slate-600 hover:bg-slate-100`}>{children}</button>;
+};
 
-const REFERENCE_FLIGHT_OPTIONS = REFERENCE_ROUTE_TEMPLATES.map((flight, index) =>
-  normalizeFlightRecord(flight, index)
+const Input = ({ label, ...props }) => (
+  <div className="space-y-1.5">
+    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest block">{label}</label>
+    <input className="w-full rounded-2xl border border-slate-200 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-800 transition-all placeholder:text-slate-300" {...props} />
+  </div>
 );
 
-const getFlightOptions = (flights) =>
-  flights.length ? flights : REFERENCE_FLIGHT_OPTIONS;
+const Select = ({ label, options, ...props }) => (
+  <div className="space-y-1.5">
+    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest block">{label}</label>
+    <div className="relative">
+      <select className="appearance-none w-full rounded-2xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-slate-800 transition-all" {...props}>
+        {options.map(o => <option key={o.value||o} value={o.value||o}>{o.label||o}</option>)}
+      </select>
+      <FiChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+    </div>
+  </div>
+);
 
-const findFlightByNumber = (flights, flightNumber) =>
-  flights.find((flight) => flight.flightNumber === flightNumber);
-
-function BookingModal({ open, existing, flights, onClose, onSaved }) {
-  const flightOptions = getFlightOptions(flights);
-  const [form, setForm] = useState(createBookingDraft(flightOptions));
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
+const CabinMap = ({ cabin, travellers, selected = [], onChange }) => {
+  const [layout, setLayout] = useState({ rows: [], cols: [] });
   useEffect(() => {
-    if (!open) return;
+    let numRows = 4, cols = ["A","B"];
+    if (cabin === "Economy") { numRows = 6; cols = ["A","B","C","D","E","F"]; }
+    else if (cabin === "Business") { numRows = 4; cols = ["A","B","C","D"]; }
+    else if (cabin === "First") { numRows = 2; cols = ["A","B"]; }
+    
+    let rs = [];
+    for(let r=1; r<=numRows; r++) rs.push(r);
+    setLayout({ rows: rs, cols });
+  }, [cabin, travellers]);
 
-    const base = existing
-      ? {
-          ...existing,
-        }
-      : createBookingDraft(flightOptions);
-
-    const matchedFlight = findFlightByNumber(flightOptions, base.flightNumber) || flightOptions[0];
-
-    setForm({
-      ...base,
-      flightNumber: base.flightNumber || matchedFlight?.flightNumber || "",
-      date: base.date || toDateInputValue(),
-      amount: base.amount || matchedFlight?.economyPrice || 0,
-    });
-    setError("");
-  }, [existing, flightOptions, open]);
-
-  useEffect(() => {
-    const linkedFlight = findFlightByNumber(flightOptions, form.flightNumber);
-    if (!linkedFlight) return;
-    const nextAmount =
-      linkedFlight[
-        form.class === "Business"
-          ? "businessPrice"
-          : form.class === "First"
-            ? "firstPrice"
-            : "economyPrice"
-      ] * Number(form.travellers || 1);
-
-    setForm((current) => {
-      if (current.amount && existing) {
-        return current;
+  const toggle = s => {
+    if (selected.includes(s)) onChange(selected.filter(x => x !== s));
+    else {
+      if (selected.length < travellers) onChange([...selected, s]);
+      else {
+        const newSel = [...selected];
+        newSel.shift(); newSel.push(s);
+        onChange(newSel);
       }
-
-      if (Number(current.amount || 0) === nextAmount) {
-        return current;
-      }
-
-      return {
-        ...current,
-        amount: nextAmount,
-      };
-    });
-  }, [existing, flightOptions, form.class, form.flightNumber, form.travellers]);
-
-  const linkedFlight = findFlightByNumber(flightOptions, form.flightNumber);
-
-  const updateField = (key, value) => {
-    setForm((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  };
-
-  const handleSave = async () => {
-    if (!form.passengerName.trim()) {
-      setError("Passenger name is required.");
-      return;
-    }
-
-    if (!form.flightNumber) {
-      setError("Choose a scheduled flight first.");
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-
-    try {
-      const payload = {
-        ...form,
-        travellers: Number(form.travellers) || 1,
-        amount: Number(form.amount) || 0,
-      };
-
-      if (existing?.id) {
-        await dbs.editDocument("bookings", existing.id, payload);
-      } else {
-        await dbs.addAutoIdDocument("bookings", payload);
-      }
-      onSaved();
-    } catch (saveError) {
-      setError(saveError?.response?.data?.detail || "The reservation could not be saved.");
-    } finally {
-      setSaving(false);
     }
   };
 
   return (
-    <FlightModal
-      open={open}
-      onClose={onClose}
-      title={existing ? "Edit reservation" : "Create reservation"}
-      description="Manage PNRs, cabin class, contact info, and boarding state from the same desk."
-      icon={Ticket}
-      footer={
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-[#6C8299]">
-            {linkedFlight
-              ? `${linkedFlight.flightNumber} on ${formatRouteLabel(linkedFlight.from, linkedFlight.to)}`
-              : "Route details appear once you choose a flight."}
-          </p>
-          <div className="flex gap-3">
-            <FlightButton variant="secondary" onClick={onClose}>
-              Cancel
-            </FlightButton>
-            <FlightButton onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : existing ? "Save changes" : "Confirm booking"}
-            </FlightButton>
+    <div className="p-5 bg-slate-50/50 border border-slate-100 rounded-[20px] col-span-1 md:col-span-2 mt-2 group">
+       <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest text-center mb-6">Interactive Seat Selector ({cabin})</p>
+       <div className="flex flex-col gap-3 justify-center items-center mx-auto">
+         {layout.rows.map(r => (
+           <div key={r} className="flex items-center gap-2.5">
+             {layout.cols.map(c => {
+               const s = `${r}${c}`;
+               const isSel = selected.includes(s);
+               const isAisle = (cabin==="Economy" && c==="C") || (cabin==="Business" && c==="B") || (cabin==="First" && c==="A");
+               return (
+                 <div key={s} className={`${isAisle ? "mr-6" : ""}`}>
+                   <button 
+                     onClick={() => toggle(s)} 
+                     className={`w-9 h-11 rounded-t-xl rounded-b-md text-[10px] font-bold flex items-center justify-center transition-all ${isSel ? 'bg-[#037ffc] text-white shadow-md shadow-[#037ffc]/20' : 'bg-white border-2 border-slate-200 text-slate-500 hover:border-[#037ffc]/50'}`}
+                   >
+                     {s}
+                   </button>
+                 </div>
+               )
+             })}
+           </div>
+         ))}
+       </div>
+       <p className="text-xs text-center font-bold text-slate-500 mt-6">
+         {selected.length === 0 ? `Required: Select ${travellers} seat(s)` : `Allocated: ${selected.join(", ")}`}
+       </p>
+    </div>
+  )
+};
+
+const BookingModal = ({ open, existing, onClose, onSave, flights }) => {
+  const [b, setB] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setB(existing ? { ...existing } : {
+        pnr: "PNR" + Math.floor(100000 + Math.random() * 900000), 
+        passengerName: "", phone: "", flightNumber: flights[0]?.flightNumber || "", 
+        date: new Date().toISOString().split('T')[0],
+        travellers: 1, class: "Economy", status: "Confirmed", seats: []
+      });
+    }
+  }, [open, existing, flights]);
+
+  if (!open) return null;
+
+  const save = async () => {
+    if (!b.passengerName || !b.flightNumber) return;
+    setSaving(true);
+    try {
+      if (existing) await dbs.editDocument("bookings", existing.id, b);
+      else await dbs.addAutoIdDocument("bookings", b);
+      onSave();
+    } catch {}
+    setSaving(false);
+  };
+
+  const fOpts = [{value: "", label: "Select flight" }, ...flights.map(f => ({ value: f.flightNumber, label: `${f.flightNumber} (${f.from}-${f.to})` }))];
+  const cOpts = ["Economy", "Business", "First"];
+  const sOpts = STATUSES.filter(s => s.value !== "Boarded").map(s => ({ value: s.value, label: s.label }));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl flex flex-col max-h-[95vh] overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-100">
+        
+        <div className="p-8 overflow-y-auto flex-1 space-y-8 custom-scrollbar">
+          <div className="flex items-center justify-between">
+            <h3 className="text-2xl font-bold text-slate-800">{existing ? "Modify Reservation" : "New Reservation"}</h3>
+            <button onClick={onClose} className="w-10 h-10 bg-slate-50 hover:bg-slate-100 flex items-center justify-center rounded-full text-slate-500 transition"><FiX size={20}/></button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Input label="Record Locator (PNR)" value={b.pnr} readOnly />
+            <Select label="Routing Identifier" options={fOpts} value={b.flightNumber} onChange={e => setB({ ...b, flightNumber: e.target.value })} />
+            <Input label="Lead Passenger" value={b.passengerName} onChange={e => setB({ ...b, passengerName: e.target.value })} placeholder="John Doe" />
+            <Input label="Contact Number" value={b.phone} onChange={e => setB({ ...b, phone: e.target.value })} placeholder="+1..." />
+            <Input label="Departure Date" type="date" value={b.date} onChange={e => setB({ ...b, date: e.target.value })} />
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <Input label="Travellers" type="number" min={1} value={b.travellers || 1} onChange={e => setB({ ...b, travellers: e.target.value, seats: [] })} />
+              </div>
+              <div className="flex-[2]">
+                <Select label="Cabin" options={cOpts} value={b.class || "Economy"} onChange={e => setB({ ...b, class: e.target.value, seats: [] })} />
+              </div>
+            </div>
+            
+            <CabinMap cabin={b.class} travellers={b.travellers} selected={b.seats || []} onChange={s => setB({ ...b, seats: s })} />
+          </div>
+          
+          <div className="pt-2">
+            <Select label="Clearance Status" options={sOpts} value={b.status} onChange={e => setB({ ...b, status: e.target.value })} />
           </div>
         </div>
-      }
-    >
-      <div className="grid gap-5 lg:grid-cols-2">
-        <FlightField label="PNR">
-          <FlightInput value={form.pnr} readOnly />
-        </FlightField>
-
-        <FlightField label="Flight" required>
-          <FlightSelect
-            value={form.flightNumber}
-            onChange={(event) => updateField("flightNumber", event.target.value)}
-          >
-            <option value="">Select a route</option>
-            {flightOptions.map((flight) => (
-              <option key={flight.flightNumber} value={flight.flightNumber}>
-                {flight.flightNumber} · {formatRouteLabel(flight.from, flight.to)}
-              </option>
-            ))}
-          </FlightSelect>
-        </FlightField>
-
-        <FlightField label="Passenger name" required>
-          <FlightInput
-            value={form.passengerName}
-            onChange={(event) => updateField("passengerName", event.target.value)}
-            placeholder="Passenger full name"
-          />
-        </FlightField>
-
-        <FlightField label="Travel date" required>
-          <FlightInput
-            type="date"
-            value={form.date}
-            onChange={(event) => updateField("date", event.target.value)}
-          />
-        </FlightField>
-
-        <FlightField label="Phone">
-          <FlightInput
-            value={form.phone}
-            onChange={(event) => updateField("phone", event.target.value)}
-            placeholder="+91"
-          />
-        </FlightField>
-
-        <FlightField label="Email">
-          <FlightInput
-            type="email"
-            value={form.email}
-            onChange={(event) => updateField("email", event.target.value)}
-            placeholder="traveler@example.com"
-          />
-        </FlightField>
-
-        <FlightField label="Cabin class">
-          <FlightSelect
-            value={form.class}
-            onChange={(event) => updateField("class", event.target.value)}
-          >
-            {bookingClassOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </FlightSelect>
-        </FlightField>
-
-        <FlightField label="Passengers">
-          <FlightInput
-            type="number"
-            min="1"
-            value={form.travellers}
-            onChange={(event) => updateField("travellers", event.target.value)}
-          />
-        </FlightField>
-
-        <FlightField label="Reservation status">
-          <FlightSelect
-            value={form.status}
-            onChange={(event) => updateField("status", event.target.value)}
-          >
-            {BOOKING_STATUSES.map((status) => (
-              <option key={status.value} value={status.value}>
-                {status.label}
-              </option>
-            ))}
-          </FlightSelect>
-        </FlightField>
-
-        <FlightField label="Collection amount">
-          <FlightInput
-            type="number"
-            min="0"
-            value={form.amount}
-            onChange={(event) => updateField("amount", event.target.value)}
-          />
-        </FlightField>
-
-        <FlightField label="Seat number">
-          <FlightInput
-            value={form.seatNumber}
-            onChange={(event) => updateField("seatNumber", event.target.value)}
-            placeholder="14A"
-          />
-        </FlightField>
-
-        <div className="rounded-[24px] border border-[#D8E5F2] bg-[#F7FBFF] p-5 lg:col-span-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <FlightBadge tone="blue">Travel brief</FlightBadge>
-            {linkedFlight ? (
-              <FlightBadge tone="emerald">{linkedFlight.aircraftType}</FlightBadge>
-            ) : null}
-          </div>
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#6D85A0]">
-                Route
-              </p>
-              <p className="mt-2 font-serif text-2xl text-[#163353]">
-                {linkedFlight ? formatRouteLabel(linkedFlight.from, linkedFlight.to) : "--"}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#6D85A0]">
-                Flight window
-              </p>
-              <p className="mt-2 text-lg font-semibold text-[#163353]">
-                {linkedFlight ? `${linkedFlight.departTime} - ${linkedFlight.arriveTime}` : "--"}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#6D85A0]">
-                Fare estimate
-              </p>
-              <p className="mt-2 text-lg font-semibold text-[#163353]">
-                {formatCurrency(form.amount)}
-              </p>
-            </div>
-          </div>
+        
+        <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-white shrink-0">
+          <Btn variant="ghost" onClick={onClose}>Discard</Btn>
+          <Btn onClick={save} disabled={saving}>{saving ? "Saving..." : "Confirm Booking"}</Btn>
         </div>
-
-        {error ? (
-          <div className="rounded-2xl border border-[#F3CDD7] bg-[#FFF2F5] px-4 py-3 text-sm text-[#B33863] lg:col-span-2">
-            {error}
-          </div>
-        ) : null}
+        
       </div>
-    </FlightModal>
+    </div>
   );
-}
+};
 
-export default function FlightBookings() {
+export default function Bookings() {
   const [bookings, setBookings] = useState([]);
   const [flights, setFlights] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [modalOpen, setModalOpen] = useState(false);
+  const [modOpen, setModOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  const fetchBoard = async () => {
+  const fetchAll = async () => {
     setLoading(true);
     try {
-      const [bookingResponse, flightResponse] = await Promise.all([
-        dbs.readCollection("bookings", 500),
-        dbs.readCollection("flights", 300),
+      const [bRes, fRes] = await Promise.all([
+        dbs.readCollection("bookings", 100),
+        dbs.readCollection("flights", 100)
       ]);
-
-      const normalizedFlights = (flightResponse || []).map((flight, index) =>
-        normalizeFlightRecord(flight, index)
-      );
-      const normalizedBookings = (bookingResponse || []).map((booking, index) =>
-        normalizeBookingRecord(booking, index, normalizedFlights)
-      );
-
-      setFlights(normalizedFlights);
-      setBookings(normalizedBookings);
-    } catch {
-      setFlights([]);
-      setBookings([]);
-    } finally {
-      setLoading(false);
-    }
+      setBookings(bRes?.data || bRes || []);
+      setFlights(fRes?.data || fRes || []);
+    } catch {}
+    setLoading(false);
   };
 
-  useEffect(() => {
-    fetchBoard();
-  }, []);
+  useEffect(() => { fetchAll(); }, []);
 
-  const filteredBookings = bookings.filter((booking) => {
-    const matchesSearch =
-      booking.passengerName.toLowerCase().includes(search.toLowerCase()) ||
-      booking.pnr.toLowerCase().includes(search.toLowerCase()) ||
-      booking.flightNumber.toLowerCase().includes(search.toLowerCase()) ||
-      booking.phone.toLowerCase().includes(search.toLowerCase());
+  const del = async id => {
+    if (!window.confirm("Delete this PNR permanently?")) return;
+    await dbs.deleteDocument("bookings", id);
+    fetchAll();
+  };
 
-    const matchesStatus = statusFilter === "All" || booking.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const statusBreakdown = buildStatusBreakdown(bookings, BOOKING_STATUSES);
-  const routePerformance = buildRoutePerformance(flights, bookings).slice(0, 4);
-  const todayLabel = toDateInputValue();
-  const todayBookings = bookings.filter(
-    (booking) => booking.date === todayLabel && booking.status !== "Cancelled"
+  const filtered = bookings.filter(b => 
+    (b.passengerName||"").toLowerCase().includes(search.toLowerCase()) || 
+    (b.pnr||"").toLowerCase().includes(search.toLowerCase()) ||
+    (b.flightNumber||"").toLowerCase().includes(search.toLowerCase())
   );
-  const activeBookings = bookings.filter((booking) => booking.status !== "Cancelled");
-  const checkedInCount = bookings.filter((booking) =>
-    ["Checked-In", "Boarded"].includes(booking.status)
-  ).length;
-  const projectedCollection = activeBookings.reduce(
-    (total, booking) => total + Number(booking.amount || 0),
-    0
-  );
-
-  const openCreateModal = () => {
-    setEditing(null);
-    setModalOpen(true);
-  };
-
-  const openEditModal = (booking) => {
-    setEditing(booking);
-    setModalOpen(true);
-  };
-
-  const deleteBooking = async (bookingId) => {
-    if (!window.confirm("Delete this reservation from the front desk?")) {
-      return;
-    }
-
-    await dbs.deleteDocument("bookings", bookingId);
-    fetchBoard();
-  };
 
   return (
-    <FlightWorkspacePage>
-      <FlightHero
-        eyebrow="Flight front desk"
-        title="Keep reservations, PNRs, and check-in activity moving from one desk."
-        description="This board turns the copied flight reference into an owner-ready operations screen with live PNR management, route context, and passenger contact visibility."
-        actions={
-          <>
-            <FlightButton variant="secondary" onClick={fetchBoard}>
-              <RefreshCw size={16} />
-              Refresh board
-            </FlightButton>
-            <FlightButton onClick={openCreateModal}>
-              <Plus size={16} />
-              New reservation
-            </FlightButton>
-          </>
-        }
-        stats={[
-          {
-            label: "Active PNRs",
-            value: activeBookings.length,
-            detail: "Confirmed, checked-in, and boarded reservations currently tracked.",
-            icon: Ticket,
-            tone: "blue",
-          },
-          {
-            label: "Desk-ready today",
-            value: todayBookings.length,
-            detail: `${formatDateLabel(todayLabel, {
-              day: "numeric",
-              month: "short",
-            })} departures still visible on the board.`,
-            icon: CalendarDays,
-            tone: "indigo",
-          },
-          {
-            label: "Clearance progress",
-            value: checkedInCount,
-            detail: "Passengers who have already checked in or boarded.",
-            icon: ClipboardList,
-            tone: "emerald",
-          },
-          {
-            label: "Projected collection",
-            value: formatCurrency(projectedCollection),
-            detail: "Captured booking value across all non-cancelled reservations.",
-            icon: WalletCards,
-            tone: "amber",
-          },
-        ]}
-      />
-
-      <div className="grid gap-6 xl:grid-cols-[1.6fr_0.95fr]">
-        <FlightPanel
-          title="Reservations board"
-          description="Search by passenger, PNR, or flight number, then jump straight into edits from the same desk."
-          action={
-            <>
-              <FlightSearchField
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search passenger, phone, PNR, or flight"
-                className="min-w-[260px]"
-              />
-              <FlightSelect
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-                className="min-w-[180px]"
-              >
-                {BOOKING_FILTERS.map((filter) => (
-                  <option key={filter} value={filter}>
-                    {filter === "All" ? "All statuses" : filter}
-                  </option>
-                ))}
-              </FlightSelect>
-            </>
-          }
-        >
-          {loading ? (
-            <div className="flex items-center justify-center py-16 text-[#7191AF]">
-              <RefreshCw className="animate-spin" />
-            </div>
-          ) : filteredBookings.length === 0 ? (
-            <FlightEmptyState
-              icon={Ticket}
-              title="No reservations on the desk yet"
-              description="Once bookings land in the flight workspace, this board will group them by PNR, cabin, and travel date. You can already start with a manual reservation."
-              action={<FlightButton onClick={openCreateModal}>Create first reservation</FlightButton>}
-            />
-          ) : (
-            <div className="overflow-hidden rounded-[24px] border border-[#E1EBF5]">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-[#E7EEF7]">
-                  <thead className="bg-[#F6FBFF]">
-                    <tr className="text-left text-[11px] uppercase tracking-[0.24em] text-[#6A839D]">
-                      <th className="px-5 py-4">Passenger</th>
-                      <th className="px-5 py-4">Journey</th>
-                      <th className="px-5 py-4">Fare</th>
-                      <th className="px-5 py-4">Status</th>
-                      <th className="px-5 py-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#EDF3F9] bg-white">
-                    {filteredBookings.map((booking) => {
-                      const statusMeta = getStatusMeta(BOOKING_STATUSES, booking.status);
-                      const linkedFlight = findFlightByNumber(getFlightOptions(flights), booking.flightNumber);
-
-                      return (
-                        <tr key={booking.id} className="align-top">
-                          <td className="px-5 py-4">
-                            <div className="flex items-start gap-3">
-                              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EDF5FF] text-sm font-semibold text-[#0E5EB9]">
-                                {booking.passengerName.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <p className="font-semibold text-[#173453]">{booking.passengerName}</p>
-                                <p className="mt-1 text-xs font-medium text-[#6D859E]">{booking.pnr}</p>
-                                <div className="mt-2 space-y-1 text-xs text-[#728AA2]">
-                                  {booking.phone ? (
-                                    <div className="flex items-center gap-2">
-                                      <Phone size={12} />
-                                      <span>{booking.phone}</span>
-                                    </div>
-                                  ) : null}
-                                  {booking.email ? (
-                                    <div className="flex items-center gap-2">
-                                      <Mail size={12} />
-                                      <span>{booking.email}</span>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-5 py-4">
-                            <p className="font-semibold text-[#173453]">
-                              {booking.flightNumber || "Route pending"}
-                            </p>
-                            <p className="mt-1 text-sm text-[#55708B]">
-                              {linkedFlight
-                                ? formatRouteLabel(linkedFlight.from, linkedFlight.to)
-                                : booking.routeLabel || "Awaiting route assignment"}
-                            </p>
-                            <div className="mt-2 flex flex-wrap gap-2 text-xs text-[#68839E]">
-                              <FlightBadge tone="slate">{formatDateLabel(booking.date)}</FlightBadge>
-                              <FlightBadge tone="slate">{booking.class}</FlightBadge>
-                              <FlightBadge tone="slate">
-                                {booking.travellers} passenger{booking.travellers > 1 ? "s" : ""}
-                              </FlightBadge>
-                            </div>
-                          </td>
-                          <td className="px-5 py-4">
-                            <p className="font-serif text-2xl text-[#173453]">
-                              {formatCurrency(booking.amount)}
-                            </p>
-                            <p className="mt-1 text-xs text-[#6D859E]">
-                              {booking.seatNumber ? `Seat ${booking.seatNumber}` : "Seat assignment open"}
-                            </p>
-                          </td>
-                          <td className="px-5 py-4">
-                            <FlightBadge tone={statusMeta.tone}>{statusMeta.label}</FlightBadge>
-                          </td>
-                          <td className="px-5 py-4">
-                            <div className="flex justify-end gap-2">
-                              <FlightButton
-                                variant="ghost"
-                                className="px-3 py-2"
-                                onClick={() => openEditModal(booking)}
-                              >
-                                <Pencil size={14} />
-                              </FlightButton>
-                              <FlightButton
-                                variant="danger"
-                                className="px-3 py-2"
-                                onClick={() => deleteBooking(booking.id)}
-                              >
-                                <Trash2 size={14} />
-                              </FlightButton>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </FlightPanel>
-
-        <div className="space-y-6">
-          <FlightPanel
-            title="Desk signals"
-            description="Quick visibility into boarding progress, route strength, and reference availability."
-          >
-            <div className="space-y-5">
-              {statusBreakdown.map((status) => (
-                <div key={status.value}>
-                  <div className="mb-2 flex items-center justify-between text-sm text-[#38556F]">
-                    <span>{status.label}</span>
-                    <span className="font-semibold">{status.count}</span>
-                  </div>
-                  <ProgressBar
-                    value={bookings.length ? Math.round((status.count / bookings.length) * 100) : 0}
-                    tone={status.tone}
-                  />
-                </div>
-              ))}
-            </div>
-          </FlightPanel>
-
-          <FlightPanel
-            title="Strongest routes"
-            description="Revenue and sold-seat visibility derived from your current bookings and scheduled flights."
-          >
-            <div className="space-y-4">
-              {routePerformance.length ? (
-                routePerformance.map((route) => (
-                  <article
-                    key={route.id}
-                    className="rounded-[22px] border border-[#E4EDF7] bg-[#F8FBFF] p-4"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-serif text-xl text-[#173453]">{route.routeLabel}</p>
-                        <p className="mt-1 text-sm text-[#67819A]">
-                          {route.soldSeats} sold seats across {route.sectors} scheduled flight
-                          {route.sectors === 1 ? "" : "s"}
-                        </p>
-                      </div>
-                      <FlightBadge tone={route.averageLoad > 70 ? "emerald" : "blue"}>
-                        {route.averageLoad}% load
-                      </FlightBadge>
-                    </div>
-                    <div className="mt-4 grid gap-3 text-sm text-[#38556F] sm:grid-cols-2">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#6D859E]">
-                          Revenue
-                        </p>
-                        <p className="mt-1 font-semibold">{formatCurrency(route.revenue)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#6D859E]">
-                          Average fare
-                        </p>
-                        <p className="mt-1 font-semibold">{formatCurrency(route.averageFare)}</p>
-                      </div>
-                    </div>
-                  </article>
-                ))
-              ) : (
-                <FlightEmptyState
-                  icon={PlaneTakeoff}
-                  title="Route insights will appear here"
-                  description="As soon as flights and bookings are stored together, this panel will start highlighting your strongest corridors."
-                />
-              )}
-            </div>
-          </FlightPanel>
-
-          <FlightPanel
-            title="Reference routes copied"
-            description="The sidebar pages now use the same copied aviation context that you placed in the repo."
-          >
-            <div className="space-y-3">
-              {REFERENCE_ROUTE_TEMPLATES.map((route) => (
-                <div
-                  key={route.flightNumber}
-                  className="flex items-center justify-between rounded-[20px] border border-[#E4EDF7] bg-[#F8FBFF] px-4 py-3"
-                >
-                  <div>
-                    <p className="font-semibold text-[#173453]">{route.flightNumber}</p>
-                    <p className="text-sm text-[#67819A]">
-                      {formatRouteLabel(formatAirportLabel(route.from), formatAirportLabel(route.to))}
-                    </p>
-                  </div>
-                  <FlightBadge tone="blue">{route.airlineName}</FlightBadge>
-                </div>
-              ))}
-            </div>
-          </FlightPanel>
+    <div className="max-w-6xl mx-auto py-8 px-4 sm:px-0">
+      
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Active Clearances</h1>
+          <p className="text-slate-500">Monitor passenger records, issue tickets, and handle boarding states.</p>
         </div>
+        <Btn onClick={() => { setEditing(null); setModOpen(true); }}><FiPlus size={16}/> New Booking</Btn>
       </div>
 
-      <BookingModal
-        open={modalOpen}
-        existing={editing}
-        flights={flights}
-        onClose={() => setModalOpen(false)}
-        onSaved={() => {
-          setModalOpen(false);
-          fetchBoard();
-        }}
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 space-y-6">
+        <div className="relative w-full max-w-md">
+          <FiSearch size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input 
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search Record Locator, Pax, or Route..." 
+            className="w-full rounded-2xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-sm focus:border-slate-800 outline-none shadow-sm transition-all text-slate-800" 
+          />
+        </div>
+
+        <div className="bg-white rounded-[24px] overflow-hidden shadow-sm">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-100">
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-8">Passenger</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Locator</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Route Data</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cabin & Seats</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                <th className="px-6 py-4 w-20"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr><td colSpan={6} className="py-20 text-center"><FiRefreshCw size={24} className="animate-spin text-slate-300 mx-auto" /></td></tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-20 text-center">
+                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                      <HiOutlineTicket size={24} className="text-slate-400" />
+                    </div>
+                    <p className="text-base font-bold text-slate-800">No records found</p>
+                    <p className="text-sm text-slate-500 mt-1">Adjust search parameters or issue a new ticket.</p>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map(b => {
+                  const stat = STATUSES.find(s => s.value === b.status) || STATUSES[0];
+                  return (
+                    <tr key={b.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-6 py-4 pl-8">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 font-bold flex items-center justify-center text-sm">{b.passengerName?.charAt(0)}</div>
+                          <span className="font-semibold text-slate-800">{b.passengerName}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-mono text-sm tracking-widest text-slate-600 font-medium bg-slate-100 px-2 py-1 rounded-md">{b.pnr}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800 text-sm">{b.flightNumber}</span>
+                          <span className="text-xs text-slate-400 font-medium">• {b.date}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-semibold text-slate-700">{b.class}</p>
+                        <p className="text-[10px] uppercase font-bold text-[#037ffc] tracking-widest mt-0.5 whitespace-nowrap">{(b.seats || []).length > 0 ? (b.seats||[]).join(", ") : "UNASSIGNED"}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${stat.bg} ${stat.text}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${stat.dot}`} />
+                          {stat.label}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right pr-6">
+                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => { setEditing(b); setModOpen(true); }} className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"><FiEdit3 size={15} /></button>
+                          <button onClick={() => del(b.id)} className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"><FiTrash2 size={15} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <BookingModal 
+        open={modOpen} existing={editing} flights={flights}
+        onClose={() => setModOpen(false)} 
+        onSave={() => { setModOpen(false); fetchAll(); }}
       />
-    </FlightWorkspacePage>
+    </div>
   );
 }

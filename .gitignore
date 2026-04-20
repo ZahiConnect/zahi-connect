@@ -41,6 +41,9 @@ docker-compose.override.yml
 .DS_Store
 Thumbs.db
 
+# Generated uploads
+services/mobility/uploads/
+
 # Coverage
 htmlcov/
 .coverage

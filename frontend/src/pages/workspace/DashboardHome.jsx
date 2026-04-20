@@ -1,136 +1,51 @@
-import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
-  HiOutlineArrowRight,
-  HiOutlineArchive,
-  HiOutlineChartPie,
-  HiOutlineClipboardList,
-  HiOutlineUsers,
-} from "react-icons/hi";
+  FiBox, FiPieChart, FiClipboard, FiUsers
+} from "react-icons/fi";
+import { HiOutlineBuildingOffice2 } from "react-icons/hi2";
 import RestaurantDashboard from "../restaurant/Dashboard";
+
+const presetBase = "rounded-[24px] border border-slate-200 bg-white p-6 hover:shadow-[0_8px_30px_-4px_rgba(3,127,252,0.08)] transition-all duration-300 group";
+const iconBase = "w-12 h-12 rounded-[16px] flex items-center justify-center text-xl shrink-0";
 
 const workspacePresets = {
   hotel: {
-    eyebrow: "Hotel workspace active",
-    title: "Your stay operations are live with front desk, pricing, guest, and settings flows.",
-    description:
-      "This dashboard now carries the merged StayInn-style hotel workspace inside your existing Zahi login and subscription flow.",
+    kicker: "Hotel workspace active",
+    title: "Hospitality Management System",
+    description: "Your stay operations are live. Manage front desk, pricing, guest flows, and property settings from a single command center.",
+    primaryColor: "text-amber-600",
+    bgAccent: "bg-amber-50 border-amber-100",
     cards: [
-      {
-        title: "Booking board",
-        value: "12 upcoming arrivals",
-        detail: "Manual bookings, OTA confirmations, and walk-ins can all live here.",
-        icon: HiOutlineClipboardList,
-        route: "/dashboard/bookings",
-      },
-      {
-        title: "Room readiness",
-        value: "28 rooms tracked",
-        detail: "Occupancy, cleaning, maintenance, and block dates can sit in one panel.",
-        icon: HiOutlineArchive,
-        route: "/dashboard/rooms",
-      },
-      {
-        title: "Pricing control",
-        value: "3 seasonal rules",
-        detail: "Room rates, weekend surcharges, and nightly overrides are easy to surface.",
-        icon: HiOutlineChartPie,
-        route: "/dashboard/pricing",
-      },
-      {
-        title: "Guest service layer",
-        value: "WhatsApp concierge",
-        detail: "Late checkout, pickup, and room requests can route into one owner inbox.",
-        icon: HiOutlineUsers,
-        route: "/dashboard/guests",
-      },
+      { title: "Booking board", value: "Upcoming arrivals", detail: "Manual bookings and walk-ins.", icon: FiClipboard },
+      { title: "Room readiness", value: "Rooms tracked", detail: "Occupancy and cleaning.", icon: FiBox },
+      { title: "Pricing control", value: "Seasonal rules", detail: "Room rates and overrides.", icon: FiPieChart },
+      { title: "Guest service layer", value: "WhatsApp concierge", detail: "Requests and late checkout.", icon: FiUsers },
     ],
   },
   mobility: {
-    eyebrow: "Dispatch workspace active",
-    title: "Run local rides, fleet visibility, and WhatsApp demand from one board.",
-    description:
-      "This plan is designed for autos, cabs, and small fleet teams. It gives you the right first layer now, while the real-time driver acceptance flow can deepen in the next sprint.",
+    kicker: "Dispatch workspace active",
+    title: "Fleet Operations Center",
+    description: "Run local rides, fleet visibility, and WhatsApp demand from one board. Designed for autos, cabs, and small fleet teams.",
+    primaryColor: "text-emerald-600",
+    bgAccent: "bg-emerald-50 border-emerald-100",
     cards: [
-      {
-        title: "Ride queue",
-        value: "7 live requests",
-        detail: "Incoming ride demand can appear here from WhatsApp and the public site.",
-        icon: HiOutlineClipboardList,
-        route: "/dashboard/rides",
-      },
-      {
-        title: "Driver roster",
-        value: "14 available drivers",
-        detail: "Track who is online, assigned, or offline without an Uber-sized system.",
-        icon: HiOutlineUsers,
-        route: "/dashboard/drivers",
-      },
-      {
-        title: "Fleet board",
-        value: "9 vehicles listed",
-        detail: "Perfect for autos, cabs, and local transport teams starting small.",
-        icon: HiOutlineArchive,
-        route: "/dashboard/fleet",
-      },
-      {
-        title: "Owner analytics",
-        value: "Dispatch snapshot",
-        detail: "Trips, payouts, and top-request zones can become your next reporting layer.",
-        icon: HiOutlineChartPie,
-        route: "/dashboard/reports",
-      },
+      { title: "Ride queue", value: "Live requests", detail: "Incoming ride demand.", icon: FiClipboard },
+      { title: "Fleet board", value: "Vehicles listed", detail: "Local transport teams.", icon: FiBox },
+      { title: "Owner analytics", value: "Dispatch snapshot", detail: "Trips and payouts.", icon: FiPieChart },
+      { title: "Driver roster", value: "Available drivers", detail: "Online and offline status.", icon: FiUsers },
     ],
   },
   flight: {
-    eyebrow: "Aviation workspace active",
-    title: "Your flight operations are live with bookings, schedules, passengers, and settings flows.",
-    description:
-      "This dashboard carries the airline schedule and PNR management interface inside your existing Zahi login and subscription flow.",
-    theme: {
-      bg: "bg-[linear-gradient(135deg,#e8f3ff_0%,#d0e6ff_58%,#a0c8fe_100%)]",
-      border: "border-[#b0d2ff]",
-      shadow: "shadow-[0_20px_45px_rgba(3,127,252,0.09)]",
-      badgeBorder: "border-[#037ffc]",
-      badgeBg: "bg-white/75",
-      badgeText: "text-[#0260c4]",
-      titleText: "text-[#022a5e]",
-      descText: "text-[#05408a]",
-      iconBg: "bg-[#e8f3ff]",
-      iconText: "text-[#037ffc]",
-      cardTitle: "text-[#037ffc]",
-      cardValue: "text-[#022a5e]",
-      cardDetail: "text-[#05408a]",
-    },
+    kicker: "Aviation workspace active",
+    title: "Flight Operations Control",
+    description: "Your aviation operations are live. Manage active PNRs, scheduled flights, dynamic fare classes, and passenger clearance all in one place.",
+    primaryColor: "text-[#037ffc]",
+    bgAccent: "bg-[#037ffc]/5 border-[#037ffc]/10",
     cards: [
-      {
-        title: "Reservations",
-        value: "Active PNRs",
-        detail: "Ticket purchases, seat assignments, and passenger bookings live here.",
-        icon: HiOutlineClipboardList,
-        route: "/dashboard/flight-bookings",
-      },
-      {
-        title: "Flight Schedule",
-        value: "Active Routes",
-        detail: "Manage departures, arrivals, frequency, and fleet assignments.",
-        icon: HiOutlineArchive,
-        route: "/dashboard/flight-schedule",
-      },
-      {
-        title: "Pricing Engine",
-        value: "Fare Classes",
-        detail: "Economy, Business, and First Class rates dynamically controlled.",
-        icon: HiOutlineChartPie,
-        route: "/dashboard/flight-pricing",
-      },
-      {
-        title: "Passenger Manifest",
-        value: "Clearance Board",
-        detail: "Track identity verification, frequent flyers, and boarding limits.",
-        icon: HiOutlineUsers,
-        route: "/dashboard/flight-passengers",
-      },
+      { title: "Reservations", value: "Active PNRs", detail: "Ticket purchases and passenger bookings.", icon: FiClipboard },
+      { title: "Flight Schedule", value: "Network Routing", detail: "Manage departures and arrivals.", icon: FiBox },
+      { title: "Pricing Engine", value: "Fare Classes", detail: "Economy, Business, First.", icon: FiPieChart },
+      { title: "Passenger Manifest", value: "Clearance Board", detail: "Track boarding and frequent flyers.", icon: FiUsers },
     ],
   },
 };
@@ -143,65 +58,56 @@ const DashboardHome = () => {
   }
 
   const preset = workspacePresets[user?.business_type] || workspacePresets.hotel;
-  const theme = preset.theme || {
-    bg: "bg-[linear-gradient(135deg,#FCF7F1_0%,#F4E7D7_58%,#E9D7C7_100%)]",
-    border: "border-[#E7DED5]",
-    shadow: "shadow-[0_20px_45px_rgba(117,81,44,0.09)]",
-    badgeBorder: "border-[#D7B89C]",
-    badgeBg: "bg-white/75",
-    badgeText: "text-[#9E6041]",
-    titleText: "text-[#21170F]",
-    descText: "text-[#5C4A3C]",
-    iconBg: "bg-[#F8EFE4]",
-    iconText: "text-[#A76541]",
-    cardTitle: "text-[#A76541]",
-    cardValue: "text-[#21170F]",
-    cardDetail: "text-[#655649]",
-  };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <section className={`rounded-[30px] border ${theme.border} ${theme.bg} p-8 ${theme.shadow}`}>
-        <span className={`inline-flex rounded-full border ${theme.badgeBorder} ${theme.badgeBg} px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${theme.badgeText}`}>
-          {preset.eyebrow}
-        </span>
-        <h1 className={`mt-4 max-w-3xl text-4xl font-serif leading-tight ${theme.titleText} sm:text-5xl`}>
-          {preset.title}
-        </h1>
-        <p className={`mt-4 max-w-2xl text-base leading-7 ${theme.descText} sm:text-lg`}>
-          {preset.description}
-        </p>
-      </section>
+    <div className="max-w-6xl mx-auto py-8 px-4 sm:px-0 space-y-12 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      
+      {/* Header Area (Replaces giant blue/gradient div) */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm relative overflow-hidden">
+        {/* Subtle background decoration */}
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-slate-50 to-transparent pointer-events-none" />
+        
+        <div className="relative z-10 max-w-2xl">
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${preset.bgAccent} ${preset.primaryColor} mb-4`}>
+            {preset.kicker}
+          </span>
+          <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4 tracking-tight leading-tight">
+            {preset.title}
+          </h1>
+          <p className="text-sm text-slate-500 leading-relaxed max-w-xl">
+            {preset.description}
+          </p>
+        </div>
+        
+        <div className="relative z-10 hidden md:flex items-center justify-center w-32 h-32 rounded-full border border-slate-100 bg-slate-50 p-6 shadow-inner shrink-0">
+          <HiOutlineBuildingOffice2 className="w-full h-full text-slate-300" />
+        </div>
+      </div>
 
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {preset.cards.map((card) => {
-          const Icon = card.icon;
-          const CardTag = card.route ? Link : "article";
-          const cardProps = card.route ? { to: card.route } : {};
-          return (
-            <CardTag
-              key={card.title}
-              {...cardProps}
-              className={`rounded-3xl border border-[#ECE5DD] bg-white p-6 shadow-sm transition-transform duration-300 hover:-translate-y-1 ${
-                card.route ? "group hover:shadow-lg" : ""
-              }`}
-            >
-              <div className={`mb-5 inline-flex rounded-2xl ${theme.iconBg} p-3 ${theme.iconText}`}>
-                <Icon className="text-2xl" />
-              </div>
-              <p className={`text-sm uppercase tracking-[0.18em] ${theme.cardTitle}`}>{card.title}</p>
-              <h2 className={`mt-3 text-2xl font-serif ${theme.cardValue}`}>{card.value}</h2>
-              <p className={`mt-3 text-sm leading-6 ${theme.cardDetail}`}>{card.detail}</p>
-              {card.route ? (
-                <div className={`mt-5 inline-flex items-center gap-2 text-sm font-semibold ${theme.cardTitle}`}>
-                  Open module
-                  <HiOutlineArrowRight className="transition-transform group-hover:translate-x-1" />
+      <div className="space-y-6">
+        <h2 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-4">Command Modules</h2>
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+          {preset.cards.map((card, i) => {
+            const Icon = card.icon;
+            return (
+              <article key={card.title} className={presetBase} style={{ animationFillMode: "both", animationDelay: `${i * 100}ms` }}>
+                <div className="flex flex-col h-full">
+                  <div className="flex items-center gap-4 mb-5">
+                    <div className={`${iconBase} ${preset.bgAccent} ${preset.primaryColor}`}>
+                      <Icon />
+                    </div>
+                    <div>
+                      <p className={`text-[10px] uppercase font-bold tracking-widest ${preset.primaryColor}`}>{card.title}</p>
+                      <h3 className="text-lg font-bold text-slate-800 leading-tight mt-1">{card.value}</h3>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-500 leading-relaxed mt-auto pt-4 border-t border-slate-100">{card.detail}</p>
                 </div>
-              ) : null}
-            </CardTag>
-          );
-        })}
-      </section>
+              </article>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };

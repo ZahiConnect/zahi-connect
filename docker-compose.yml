@@ -165,19 +165,18 @@ services:
         condition: service_healthy
 
   # --- Mobility Service (Cabs / Fleet) — Week 4 ---
-  # mobility_service:
-  #   build: ./services/mobility_service
-  #   container_name: zahi_mobility_service
-  #   volumes:
-  #     - ./services/mobility_service:/app
-  #   command: uvicorn app.main:app --host 0.0.0.0 --port 8004 --reload
-  #   ports:
-  #     - "8004:8004"
-  #   env_file:
-  #     - ./services/mobility_service/.env
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
+  mobility:
+    build: ./services/mobility
+    container_name: zahi_mobility
+    volumes:
+      - ./services/mobility:/app
+    command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8004 --reload --reload-dir /app"
+    restart: always
+    ports:
+      - "8004:8004"
+    depends_on:
+      db:
+        condition: service_healthy
 
   # --- Flight Service (Airline Management) ---
   flight:
@@ -246,6 +245,7 @@ services:
       - accounts
       - hotel
       - restaurant
+      - mobility
       - flight
       - ai_service
       - booking

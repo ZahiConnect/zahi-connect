@@ -1,766 +1,469 @@
-import { useEffect, useState } from "react";
-import {
-  Activity,
-  CalendarRange,
-  Pencil,
-  PlaneTakeoff,
-  Plus,
-  RefreshCw,
-  Trash2,
-  Waves,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { 
+  FiPlus, FiTrash2, FiEdit3, FiX, FiRefreshCw, FiSearch, 
+  FiChevronDown, FiCheck, FiUpload, FiEye, FiClock, FiMapPin
+} from "react-icons/fi";
+import { MdFlightTakeoff, MdOutlineEventSeat } from "react-icons/md";
+import { HiOutlineInformationCircle } from "react-icons/hi2";
 import dbs from "../api/db";
-import {
-  DAYS,
-  FLIGHT_STATUSES,
-  REFERENCE_AIRPORTS,
-  REFERENCE_ROUTE_TEMPLATES,
-  buildDayDistribution,
-  buildRoutePerformance,
-  createFlightDraft,
-  formatCurrency,
-  formatOperatingDays,
-  formatRouteLabel,
-  getLoadFactor,
-  getStatusMeta,
-  getTodayFlights,
-  normalizeBookingRecord,
-  normalizeFlightRecord,
-} from "../lib/workspace";
-import {
-  FlightBadge,
-  FlightButton,
-  FlightEmptyState,
-  FlightField,
-  FlightHero,
-  FlightInput,
-  FlightModal,
-  FlightPanel,
-  FlightSearchField,
-  FlightSelect,
-  FlightWorkspacePage,
-  ProgressBar,
-} from "../components/WorkspaceChrome";
 
-const statusFilters = ["All", ...FLIGHT_STATUSES.map((status) => status.value)];
+const BRAND = "#037ffc";
 
-function FlightScheduleModal({ open, existing, preset, onClose, onSaved }) {
-  const [form, setForm] = useState(createFlightDraft(preset));
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+const STATUSES = [
+  { value: "Active",    label: "Active",    bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-100", dot: "bg-emerald-500" },
+  { value: "Delayed",   label: "Delayed",   bg: "bg-amber-50", text: "text-amber-600", border: "border-amber-100", dot: "bg-amber-500" },
+  { value: "Cancelled", label: "Cancelled", bg: "bg-red-50", text: "text-red-600", border: "border-red-100", dot: "bg-red-500" },
+];
 
-  useEffect(() => {
-    if (!open) return;
+const DAYS = [
+  { val: 1, label: "M" }, { val: 2, label: "T" }, { val: 3, label: "W" },
+  { val: 4, label: "T" }, { val: 5, label: "F" }, { val: 6, label: "S" }, { val: 7, label: "S" }
+];
 
-    if (existing) {
-      setForm({ ...existing });
-    } else {
-      setForm(createFlightDraft(preset));
-    }
+const Btn = ({ children, onClick, disabled, variant = "primary", className = "" }) => {
+  const base = "inline-flex items-center justify-center rounded-2xl font-medium transition-all duration-300 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none px-5 py-2.5 text-sm gap-2";
+  if (variant === "primary") return <button onClick={onClick} disabled={disabled} className={`${base} text-white bg-[#037ffc] hover:bg-[#0269d4] shadow-sm hover:shadow ${className}`}>{children}</button>;
+  if (variant === "ghost") return <button onClick={onClick} disabled={disabled} className={`${base} bg-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100 ${className}`}>{children}</button>;
+  if (variant === "outline") return <button onClick={onClick} disabled={disabled} className={`${base} bg-white border border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50 ${className}`}>{children}</button>;
+};
 
-    setError("");
-  }, [existing, open, preset]);
+const Input = ({ label, required, ...props }) => (
+  <div className="space-y-1">
+    {label && <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest flex gap-1">{label} {required && <span className="text-[#037ffc]">*</span>}</label>}
+    <input className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-[#037ffc] focus:ring-4 focus:ring-[#037ffc]/10 transition-all placeholder:text-slate-300" {...props} />
+  </div>
+);
 
-  const toggleDay = (dayValue) => {
-    setForm((current) => ({
-      ...current,
-      daysOfWeek: current.daysOfWeek.includes(dayValue)
-        ? current.daysOfWeek.filter((day) => day !== dayValue)
-        : [...current.daysOfWeek, dayValue].sort((left, right) => left - right),
-    }));
-  };
-
-  const updateField = (key, value) => {
-    setForm((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  };
-
-  const handleSave = async () => {
-    if (!form.flightNumber.trim()) {
-      setError("Flight number is required.");
-      return;
-    }
-
-    if (!form.from.trim() || !form.to.trim()) {
-      setError("Choose both origin and destination airports.");
-      return;
-    }
-
-    if (!form.daysOfWeek.length) {
-      setError("Select at least one operating day.");
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-
+const ImgUpload = ({ url, onUpload, onClear }) => {
+  const [busy, setBusy] = useState(false);
+  const upload = async e => {
+    if (!e.target.files[0]) return;
+    setBusy(true);
     try {
-      const payload = {
-        ...form,
-        totalSeats: Number(form.economySeats || 0) + Number(form.businessSeats || 0) + Number(form.firstSeats || 0),
-        durationMin: Number(form.durationMin || 0),
-        economySeats: Number(form.economySeats || 0),
-        businessSeats: Number(form.businessSeats || 0),
-        firstSeats: Number(form.firstSeats || 0),
-        economyPrice: Number(form.economyPrice || 0),
-        businessPrice: Number(form.businessPrice || 0),
-        firstPrice: Number(form.firstPrice || 0),
-      };
-
-      if (existing?.id) {
-        await dbs.editDocument("flights", existing.id, payload);
-      } else {
-        await dbs.addAutoIdDocument("flights", payload);
-      }
-
-      onSaved();
-    } catch (saveError) {
-      setError(saveError?.response?.data?.detail || "This schedule could not be saved.");
-    } finally {
-      setSaving(false);
-    }
+      const res = await dbs.uploadImage(e.target.files[0]);
+      onUpload(res.url);
+    } catch { alert("Upload failed."); }
+    setBusy(false);
   };
-
-  return (
-    <FlightModal
-      open={open}
-      onClose={onClose}
-      title={existing ? "Edit scheduled flight" : "Add scheduled flight"}
-      description="Set route, timing, capacity, and fare inventory without leaving the flight workspace."
-      icon={PlaneTakeoff}
-      footer={
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-[#6C8299]">
-            Seat total auto-syncs from Economy, Business, and First allocations.
-          </p>
-          <div className="flex gap-3">
-            <FlightButton variant="secondary" onClick={onClose}>
-              Cancel
-            </FlightButton>
-            <FlightButton onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : existing ? "Save flight" : "Create flight"}
-            </FlightButton>
-          </div>
-        </div>
-      }
-    >
-      <div className="grid gap-6">
-        <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-4">
-          <FlightField label="Flight number" required>
-            <FlightInput
-              value={form.flightNumber}
-              onChange={(event) => updateField("flightNumber", event.target.value)}
-              placeholder="AI-101"
-            />
-          </FlightField>
-
-          <FlightField label="Airline name">
-            <FlightInput
-              value={form.airlineName}
-              onChange={(event) => updateField("airlineName", event.target.value)}
-              placeholder="Air India"
-            />
-          </FlightField>
-
-          <FlightField label="Origin" required>
-            <FlightInput
-              list="flight-airports"
-              value={form.from}
-              onChange={(event) => updateField("from", event.target.value)}
-              placeholder="DEL - New Delhi"
-            />
-          </FlightField>
-
-          <FlightField label="Destination" required>
-            <FlightInput
-              list="flight-airports"
-              value={form.to}
-              onChange={(event) => updateField("to", event.target.value)}
-              placeholder="BOM - Mumbai"
-            />
-          </FlightField>
-        </div>
-
-        <datalist id="flight-airports">
-          {REFERENCE_AIRPORTS.map((airport) => (
-            <option key={airport.code} value={`${airport.code} - ${airport.city}`} />
-          ))}
-        </datalist>
-
-        <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-5">
-          <FlightField label="Departure">
-            <FlightInput
-              type="time"
-              value={form.departTime}
-              onChange={(event) => updateField("departTime", event.target.value)}
-            />
-          </FlightField>
-
-          <FlightField label="Arrival">
-            <FlightInput
-              type="time"
-              value={form.arriveTime}
-              onChange={(event) => updateField("arriveTime", event.target.value)}
-            />
-          </FlightField>
-
-          <FlightField label="Duration (min)">
-            <FlightInput
-              type="number"
-              min="0"
-              value={form.durationMin}
-              onChange={(event) => updateField("durationMin", event.target.value)}
-            />
-          </FlightField>
-
-          <FlightField label="Aircraft">
-            <FlightInput
-              value={form.aircraftType}
-              onChange={(event) => updateField("aircraftType", event.target.value)}
-              placeholder="Airbus A320neo"
-            />
-          </FlightField>
-
-          <FlightField label="Status">
-            <FlightSelect
-              value={form.status}
-              onChange={(event) => updateField("status", event.target.value)}
-            >
-              {FLIGHT_STATUSES.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
-                </option>
-              ))}
-            </FlightSelect>
-          </FlightField>
-        </div>
-
-        <div className="rounded-[24px] border border-[#D9E7F5] bg-[#F8FBFF] p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#637D97]">
-            Operating days
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {DAYS.map((day) => {
-              const active = form.daysOfWeek.includes(day.value);
-              return (
-                <button
-                  key={day.value}
-                  type="button"
-                  onClick={() => toggleDay(day.value)}
-                  className={`inline-flex min-w-16 items-center justify-center rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                    active
-                      ? "border-[#6EAEFD] bg-[#037FFC] text-white"
-                      : "border-[#D4E2F0] bg-white text-[#496783]"
-                  }`}
-                >
-                  {day.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid gap-5 xl:grid-cols-3">
-          <div className="rounded-[24px] border border-[#D9E7F5] bg-white p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#637D97]">
-              Economy
-            </p>
-            <div className="mt-4 grid gap-4">
-              <FlightField label="Seats">
-                <FlightInput
-                  type="number"
-                  min="0"
-                  value={form.economySeats}
-                  onChange={(event) => updateField("economySeats", event.target.value)}
-                />
-              </FlightField>
-              <FlightField label="Price">
-                <FlightInput
-                  type="number"
-                  min="0"
-                  value={form.economyPrice}
-                  onChange={(event) => updateField("economyPrice", event.target.value)}
-                />
-              </FlightField>
-            </div>
-          </div>
-
-          <div className="rounded-[24px] border border-[#D9E7F5] bg-white p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#637D97]">
-              Business
-            </p>
-            <div className="mt-4 grid gap-4">
-              <FlightField label="Seats">
-                <FlightInput
-                  type="number"
-                  min="0"
-                  value={form.businessSeats}
-                  onChange={(event) => updateField("businessSeats", event.target.value)}
-                />
-              </FlightField>
-              <FlightField label="Price">
-                <FlightInput
-                  type="number"
-                  min="0"
-                  value={form.businessPrice}
-                  onChange={(event) => updateField("businessPrice", event.target.value)}
-                />
-              </FlightField>
-            </div>
-          </div>
-
-          <div className="rounded-[24px] border border-[#D9E7F5] bg-white p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#637D97]">
-              First
-            </p>
-            <div className="mt-4 grid gap-4">
-              <FlightField label="Seats">
-                <FlightInput
-                  type="number"
-                  min="0"
-                  value={form.firstSeats}
-                  onChange={(event) => updateField("firstSeats", event.target.value)}
-                />
-              </FlightField>
-              <FlightField label="Price">
-                <FlightInput
-                  type="number"
-                  min="0"
-                  value={form.firstPrice}
-                  onChange={(event) => updateField("firstPrice", event.target.value)}
-                />
-              </FlightField>
-            </div>
-          </div>
-        </div>
-
-        {error ? (
-          <div className="rounded-2xl border border-[#F3CDD7] bg-[#FFF2F5] px-4 py-3 text-sm text-[#B33863]">
-            {error}
-          </div>
-        ) : null}
+  return url ? (
+    <div className="relative w-full h-32 rounded-2xl border border-slate-200 overflow-hidden group">
+      <img src={url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="Preview"/>
+      <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px]">
+        <button onClick={onClear} className="w-10 h-10 bg-white/20 hover:bg-white/40 flex items-center justify-center rounded-xl text-white transition"><FiTrash2 size={18} /></button>
       </div>
-    </FlightModal>
+    </div>
+  ) : (
+    <label className="flex flex-col items-center justify-center w-full h-32 rounded-2xl border-2 border-dashed border-slate-200 hover:border-[#037ffc]/50 bg-slate-50 cursor-pointer hover:bg-[#037ffc]/5 transition-all duration-300">
+      <input type="file" accept="image/*" className="hidden" onChange={upload} />
+      {busy ? <FiRefreshCw size={24} className="text-[#037ffc] animate-spin" /> : (
+        <div className="flex flex-col items-center text-slate-400">
+          <FiUpload size={24} className="mb-2" />
+          <span className="text-xs font-medium">Browse image</span>
+        </div>
+      )}
+    </label>
   );
-}
+};
 
-export default function FlightConfig() {
-  const [flights, setFlights] = useState([]);
-  const [bookings, setBookings] = useState([]);
+// ═══════════════════════════════════════════════════════════════════════════════
+// FARE CLASSES 
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const FareClasses = ({ toast }) => {
+  const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [modalPreset, setModalPreset] = useState(null);
+  const [f, setF] = useState({ name: "", description: "" });
+  const [modOpen, setModOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const fetchSchedule = async () => {
+  const fetch = async () => {
     setLoading(true);
+    const res = await dbs.readCollection("flight_types", 100);
+    setClasses(res.data || res || []);
+    setLoading(false);
+  };
+  useEffect(() => { fetch(); }, []);
+
+  const openMod = (c = null) => {
+    setEditing(c);
+    setF(c ? { ...c } : { name: "", description: "" });
+    setModOpen(true);
+  };
+
+  const save = async () => {
+    if (!f.name?.trim()) return;
+    setSaving(true);
     try {
-      const [flightResponse, bookingResponse] = await Promise.all([
-        dbs.readCollection("flights", 300),
-        dbs.readCollection("bookings", 500),
-      ]);
-
-      const normalizedFlights = (flightResponse || []).map((flight, index) =>
-        normalizeFlightRecord(flight, index)
-      );
-      const normalizedBookings = (bookingResponse || []).map((booking, index) =>
-        normalizeBookingRecord(booking, index, normalizedFlights)
-      );
-
-      setFlights(normalizedFlights);
-      setBookings(normalizedBookings);
-    } catch {
-      setFlights([]);
-      setBookings([]);
-    } finally {
-      setLoading(false);
-    }
+      const doc = { name: f.name.trim(), description: f.description || "", updatedAt: new Date().toISOString() };
+      if (editing) await dbs.editDocument("flight_types", editing.id, doc);
+      else await dbs.addAutoIdDocument("flight_types", { ...doc, createdAt: new Date().toISOString() });
+      setModOpen(false);
+      fetch();
+      toast("Fare class saved.");
+    } catch { toast("Failed to save.", "err"); }
+    setSaving(false);
   };
 
-  useEffect(() => {
-    fetchSchedule();
-  }, []);
-
-  const filteredFlights = flights.filter((flight) => {
-    const searchValue = search.toLowerCase();
-    const matchesSearch =
-      flight.flightNumber.toLowerCase().includes(searchValue) ||
-      flight.from.toLowerCase().includes(searchValue) ||
-      flight.to.toLowerCase().includes(searchValue) ||
-      flight.aircraftType.toLowerCase().includes(searchValue);
-    const matchesStatus = statusFilter === "All" || flight.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const todayFlights = getTodayFlights(flights);
-  const averageLoad = flights.length
-    ? Math.round(
-        flights.reduce((total, flight) => total + getLoadFactor(flight, bookings), 0) / flights.length
-      )
-    : 0;
-  const routePerformance = buildRoutePerformance(flights, bookings).slice(0, 4);
-  const dayDistribution = buildDayDistribution(flights);
-  const delayedFlights = flights.filter((flight) => flight.status !== "Active").length;
-
-  const openCreate = () => {
-    setEditing(null);
-    setModalPreset(null);
-    setModalOpen(true);
-  };
-
-  const openFromTemplate = (template) => {
-    setEditing(null);
-    setModalPreset(template);
-    setModalOpen(true);
-  };
-
-  const openEdit = (flight) => {
-    setEditing(flight);
-    setModalPreset(null);
-    setModalOpen(true);
-  };
-
-  const deleteFlight = async (flightId) => {
-    if (!window.confirm("Delete this scheduled flight?")) {
-      return;
-    }
-
-    await dbs.deleteDocument("flights", flightId);
-    fetchSchedule();
+  const del = async id => {
+    await dbs.deleteDocument("flight_types", id);
+    toast("Deleted.");
+    fetch();
   };
 
   return (
-    <FlightWorkspacePage>
-      <FlightHero
-        eyebrow="Airline schedule"
-        title="Build the flight network, assign capacity, and keep every sector visible."
-        description="This schedule view takes the copied reference routes and turns them into a live operations board for your workspace, complete with templates, fare allocations, and route performance context."
-        actions={
-          <>
-            <FlightButton variant="secondary" onClick={fetchSchedule}>
-              <RefreshCw size={16} />
-              Refresh schedule
-            </FlightButton>
-            <FlightButton onClick={openCreate}>
-              <Plus size={16} />
-              Add flight
-            </FlightButton>
-          </>
-        }
-        stats={[
-          {
-            label: "Scheduled sectors",
-            value: flights.length,
-            detail: "Every route in the flight workspace, regardless of current status.",
-            icon: PlaneTakeoff,
-            tone: "blue",
-          },
-          {
-            label: "Departing today",
-            value: todayFlights.length,
-            detail: "Flights operating on today’s weekly schedule.",
-            icon: CalendarRange,
-            tone: "indigo",
-          },
-          {
-            label: "Average load",
-            value: `${averageLoad}%`,
-            detail: "Booked-seat pressure estimated from current reservations.",
-            icon: Activity,
-            tone: "emerald",
-          },
-          {
-            label: "Disrupted sectors",
-            value: delayedFlights,
-            detail: "Delayed or cancelled routes needing operator attention.",
-            icon: Waves,
-            tone: "amber",
-          },
-        ]}
-      />
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      <div className="flex items-center justify-between">
+        <p className="text-slate-500 text-sm">Define seating tiers and rules across all operating flights.</p>
+        <Btn onClick={() => openMod()}><FiPlus size={16} /> New Class</Btn>
+      </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.55fr_0.95fr]">
-        <div className="space-y-6">
-          <FlightPanel
-            title="Reference route templates"
-            description="These are pulled from the copied flight service reference so you can move faster when building the network."
-          >
-            <div className="grid gap-4 lg:grid-cols-2">
-              {REFERENCE_ROUTE_TEMPLATES.map((template) => (
-                <article
-                  key={template.flightNumber}
-                  className="rounded-[24px] border border-[#DCE8F4] bg-[#F8FBFF] p-5"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="font-serif text-2xl text-[#173453]">{template.flightNumber}</p>
-                      <p className="mt-1 text-sm text-[#68839E]">{template.airlineName}</p>
-                    </div>
-                    <FlightBadge tone="blue">
-                      {formatOperatingDays(template.daysOfWeek)}
-                    </FlightBadge>
-                  </div>
-                  <p className="mt-4 text-base font-semibold text-[#173453]">
-                    {formatRouteLabel(template.from, template.to)}
-                  </p>
-                  <div className="mt-3 grid gap-2 text-sm text-[#5C7893] sm:grid-cols-2">
-                    <span>{template.departTime} departure</span>
-                    <span>{template.aircraftType}</span>
-                    <span>{template.durationMin} min sector</span>
-                    <span>{formatCurrency(template.economyPrice)} economy</span>
-                  </div>
-                  <div className="mt-5 flex justify-end">
-                    <FlightButton variant="secondary" onClick={() => openFromTemplate(template)}>
-                      Use template
-                    </FlightButton>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </FlightPanel>
-
-          <FlightPanel
-            title="Scheduled flights"
-            description="Search by flight number, airport, or aircraft, then jump into edits from each route card."
-            action={
-              <>
-                <FlightSearchField
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search flight, route, or aircraft"
-                />
-                <FlightSelect
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value)}
-                  className="min-w-[180px]"
-                >
-                  {statusFilters.map((filter) => (
-                    <option key={filter} value={filter}>
-                      {filter === "All" ? "All statuses" : filter}
-                    </option>
-                  ))}
-                </FlightSelect>
-              </>
-            }
-          >
-            {loading ? (
-              <div className="flex items-center justify-center py-16 text-[#7191AF]">
-                <RefreshCw className="animate-spin" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {loading ? (
+           <div className="col-span-full py-10 flex justify-center"><FiRefreshCw size={24} className="animate-spin text-slate-300" /></div>
+        ) : classes.map((c, i) => (
+          <div key={c.id} className="group bg-white rounded-[24px] border border-slate-100 p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_30px_-4px_rgba(3,127,252,0.08)] transition-all duration-300" style={{ animationDelay: `${i * 50}ms` }}>
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-12 h-12 rounded-[16px] bg-[#037ffc]/5 text-[#037ffc] flex items-center justify-center text-xl">
+                <MdOutlineEventSeat />
               </div>
-            ) : filteredFlights.length === 0 ? (
-              <FlightEmptyState
-                icon={PlaneTakeoff}
-                title="No flights have been scheduled yet"
-                description="Start with one of the copied route templates above or add your own sector manually. Pricing and manifest pages will wake up once routes exist here."
-                action={<FlightButton onClick={openCreate}>Add first flight</FlightButton>}
-              />
-            ) : (
-              <div className="grid gap-4">
-                {filteredFlights.map((flight) => {
-                  const statusMeta = getStatusMeta(FLIGHT_STATUSES, flight.status);
-                  const loadFactor = getLoadFactor(flight, bookings);
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => openMod(c)} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700"><FiEdit3 size={15}/></button>
+                <button onClick={() => del(c.id)} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500"><FiTrash2 size={15}/></button>
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">{c.name}</h3>
+            <p className="text-sm text-slate-500 leading-relaxed">{c.description || "No official description set."}</p>
+          </div>
+        ))}
+      </div>
 
+      {modOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-8 space-y-6">
+              <h3 className="text-2xl font-bold text-slate-800">{editing ? "Edit Class" : "New Fare Class"}</h3>
+              <Input label="Class Identifier" placeholder="e.g. Premium Economy" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} required />
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">In-flight Perks</label>
+                <textarea className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-[#037ffc] focus:ring-4 focus:ring-[#037ffc]/10 transition-all placeholder:text-slate-300 resize-none h-24" placeholder="Standard cabin, one carry-on..." value={f.description} onChange={e => setF({...f, description: e.target.value})} />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Btn variant="outline" className="flex-1" onClick={() => setModOpen(false)}>Cancel</Btn>
+                <Btn className="flex-1" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save Class"}</Btn>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCHEDULE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const FlightModal = ({ open, existing, onClose, onSave }) => {
+  const [f, setF] = useState({
+    flightNumber: "", from: "", to: "", departTime: "08:00", arriveTime: "10:00",
+    durationMin: 120, daysOfWeek: [1, 2, 3, 4, 5, 6, 7],
+    totalSeats: 180, economySeats: 150, businessSeats: 30, firstSeats: 0,
+    economyPrice: 5000, businessPrice: 15000, firstPrice: 0,
+    aircraftType: "Boeing 737", status: "Active", imageUrl: ""
+  });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setF(existing ? { ...existing } : {
+        flightNumber: "", from: "", to: "", departTime: "08:00", arriveTime: "10:00",
+        durationMin: 120, daysOfWeek: [1, 2, 3, 4, 5, 6, 7],
+        totalSeats: 180, economySeats: 150, businessSeats: 30, firstSeats: 0,
+        economyPrice: 5000, businessPrice: 15000, firstPrice: 0,
+        aircraftType: "Boeing 737", status: "Active", imageUrl: ""
+      });
+    }
+  }, [open, existing]);
+
+  if (!open) return null;
+
+  const toggleDay = d => {
+    setF(prev => {
+      const days = prev.daysOfWeek || [];
+      return {
+        ...prev,
+        daysOfWeek: days.includes(d) ? days.filter(x => x !== d) : [...days, d].sort()
+      };
+    });
+  };
+
+  const save = async () => {
+    if (!f.flightNumber?.trim() || !f.from?.trim() || !f.to?.trim()) return;
+    setSaving(true);
+    try {
+      const doc = {
+        ...f,
+        totalSeats: Number(f.totalSeats), economySeats: Number(f.economySeats), businessSeats: Number(f.businessSeats), firstSeats: Number(f.firstSeats),
+        economyPrice: Number(f.economyPrice), businessPrice: Number(f.businessPrice), firstPrice: Number(f.firstPrice),
+        durationMin: Number(f.durationMin), updatedAt: new Date().toISOString()
+      };
+      if (existing) await dbs.editDocument("flights", existing.id, doc);
+      else await dbs.addAutoIdDocument("flights", { ...doc, createdAt: new Date().toISOString() });
+      onSave();
+    } catch { alert("Failed to save."); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-3xl max-h-[95vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+        
+        <div className="p-8 overflow-y-auto flex-1 space-y-8 custom-scrollbar">
+          <div className="flex items-center justify-between">
+            <h3 className="text-2xl font-bold text-slate-800">{existing ? "Edit Sequence" : "New Flight Route"}</h3>
+            <button onClick={onClose} className="w-10 h-10 bg-slate-50 hover:bg-slate-100 flex items-center justify-center rounded-full text-slate-500 transition"><FiX size={20}/></button>
+          </div>
+
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <Input label="Flight Number" value={f.flightNumber} onChange={e => setF({ ...f, flightNumber: e.target.value })} placeholder="AI-101" required />
+              <Input label="Origin (IATA)" value={f.from} onChange={e => setF({ ...f, from: e.target.value })} placeholder="BOM" required />
+              <Input label="Destination (IATA)" value={f.to} onChange={e => setF({ ...f, to: e.target.value })} placeholder="DEL" required />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <Input label="Departure" type="time" value={f.departTime} onChange={e => setF({ ...f, departTime: e.target.value })} />
+              <Input label="Arrival" type="time" value={f.arriveTime} onChange={e => setF({ ...f, arriveTime: e.target.value })} />
+              <Input label="Flight Time (min)" type="number" value={f.durationMin} onChange={e => setF({ ...f, durationMin: e.target.value })} />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2 block">Operating Days</label>
+              <div className="flex gap-2">
+                {DAYS.map(d => {
+                  const active = (f.daysOfWeek || []).includes(d.val);
                   return (
-                    <article
-                      key={flight.id}
-                      className="rounded-[26px] border border-[#E2EBF5] bg-white p-5 shadow-sm"
-                    >
-                      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="flex-1">
-                          <div className="flex flex-wrap items-center gap-3">
-                            <p className="font-serif text-3xl text-[#173453]">{flight.flightNumber}</p>
-                            <FlightBadge tone={statusMeta.tone}>{statusMeta.label}</FlightBadge>
-                            <FlightBadge tone="slate">{flight.aircraftType}</FlightBadge>
-                          </div>
-                          <p className="mt-3 text-lg font-semibold text-[#173453]">
-                            {formatRouteLabel(flight.from, flight.to)}
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2 text-sm text-[#67819A]">
-                            <span>{flight.departTime} departure</span>
-                            <span>•</span>
-                            <span>{flight.arriveTime} arrival</span>
-                            <span>•</span>
-                            <span>{flight.durationMin} min</span>
-                          </div>
-
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            {DAYS.map((day) => (
-                              <FlightBadge
-                                key={day.value}
-                                tone={flight.daysOfWeek.includes(day.value) ? "blue" : "slate"}
-                                className="px-3"
-                              >
-                                {day.label}
-                              </FlightBadge>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-3 lg:w-[420px]">
-                          <div className="rounded-[20px] border border-[#E4EDF7] bg-[#F8FBFF] p-4">
-                            <p className="text-[11px] uppercase tracking-[0.22em] text-[#69839D]">
-                              Capacity
-                            </p>
-                            <p className="mt-2 font-serif text-2xl text-[#173453]">{flight.totalSeats}</p>
-                            <p className="mt-1 text-xs text-[#68839E]">
-                              E {flight.economySeats} · B {flight.businessSeats} · F {flight.firstSeats}
-                            </p>
-                          </div>
-
-                          <div className="rounded-[20px] border border-[#E4EDF7] bg-[#F8FBFF] p-4">
-                            <p className="text-[11px] uppercase tracking-[0.22em] text-[#69839D]">
-                              Starting fares
-                            </p>
-                            <p className="mt-2 text-sm font-semibold text-[#173453]">
-                              Eco {formatCurrency(flight.economyPrice)}
-                            </p>
-                            <p className="mt-1 text-xs text-[#68839E]">
-                              Biz {formatCurrency(flight.businessPrice)} · First {formatCurrency(flight.firstPrice)}
-                            </p>
-                          </div>
-
-                          <div className="rounded-[20px] border border-[#E4EDF7] bg-[#F8FBFF] p-4">
-                            <p className="text-[11px] uppercase tracking-[0.22em] text-[#69839D]">
-                              Demand pulse
-                            </p>
-                            <p className="mt-2 font-serif text-2xl text-[#173453]">{loadFactor}%</p>
-                            <div className="mt-3">
-                              <ProgressBar
-                                value={loadFactor}
-                                tone={loadFactor > 70 ? "emerald" : loadFactor > 40 ? "blue" : "amber"}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-5 flex justify-end gap-3">
-                        <FlightButton variant="ghost" onClick={() => openEdit(flight)}>
-                          <Pencil size={14} />
-                          Edit
-                        </FlightButton>
-                        <FlightButton variant="danger" onClick={() => deleteFlight(flight.id)}>
-                          <Trash2 size={14} />
-                          Delete
-                        </FlightButton>
-                      </div>
-                    </article>
+                    <button key={d.val} onClick={() => toggleDay(d.val)} className={`w-10 h-10 rounded-full text-sm font-bold transition-all duration-300 ${active ? "bg-[#037ffc] text-white shadow-md shadow-[#037ffc]/20" : "bg-slate-50 text-slate-400 hover:bg-slate-100"}`}>
+                      {d.label}
+                    </button>
                   );
                 })}
               </div>
-            )}
-          </FlightPanel>
+            </div>
+
+            <div className="p-6 bg-slate-50 rounded-[24px] border border-slate-100">
+               <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-4 block">Cabin Configuration</label>
+               <div className="grid grid-cols-3 gap-8">
+                  <div className="space-y-3">
+                    <p className="text-sm font-bold text-slate-800">Economy</p>
+                    <Input label="Allocations" type="number" value={f.economySeats} onChange={e => setF({ ...f, economySeats: e.target.value })} />
+                    <Input label="Base Fare" type="number" value={f.economyPrice} onChange={e => setF({ ...f, economyPrice: e.target.value })} />
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-sm font-bold text-slate-800">Business</p>
+                    <Input label="Allocations" type="number" value={f.businessSeats} onChange={e => setF({ ...f, businessSeats: e.target.value })} />
+                    <Input label="Base Fare" type="number" value={f.businessPrice} onChange={e => setF({ ...f, businessPrice: e.target.value })} />
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-sm font-bold text-slate-800">First Class</p>
+                    <Input label="Allocations" type="number" value={f.firstSeats} onChange={e => setF({ ...f, firstSeats: e.target.value })} />
+                    <Input label="Base Fare" type="number" value={f.firstPrice} onChange={e => setF({ ...f, firstPrice: e.target.value })} />
+                  </div>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+              <div className="space-y-5">
+                <Input label="Aircraft Equipment" value={f.aircraftType} onChange={e => setF({ ...f, aircraftType: e.target.value })} placeholder="Boeing 737-MAX" />
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest flex gap-1">Route Status</label>
+                  <div className="relative">
+                    <select className="w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-[#037ffc] focus:ring-4 focus:ring-[#037ffc]/10 transition-all font-medium" value={f.status} onChange={e => setF({ ...f, status: e.target.value })}>
+                      {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
+                    <FiChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-1 block">Aircraft Avatar</label>
+                <ImgUpload url={f.imageUrl} onUpload={v => setF({ ...f, imageUrl: v })} onClear={() => setF({ ...f, imageUrl: "" })} />
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-6">
-          <FlightPanel
-            title="Route strength"
-            description="Performance across your strongest corridors based on schedule and booking activity."
-          >
-            <div className="space-y-4">
-              {routePerformance.length ? (
-                routePerformance.map((route) => (
-                  <article
-                    key={route.id}
-                    className="rounded-[22px] border border-[#E4EDF7] bg-[#F8FBFF] p-4"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-semibold text-[#173453]">{route.routeLabel}</p>
-                        <p className="mt-1 text-sm text-[#69839D]">
-                          {route.sectors} scheduled sector{route.sectors === 1 ? "" : "s"}
-                        </p>
-                      </div>
-                      <FlightBadge tone={route.averageLoad > 70 ? "emerald" : "blue"}>
-                        {route.averageLoad}% load
-                      </FlightBadge>
-                    </div>
-                    <div className="mt-4 grid gap-3 text-sm text-[#4D6881] sm:grid-cols-2">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#69839D]">
-                          Revenue
-                        </p>
-                        <p className="mt-1 font-semibold">{formatCurrency(route.revenue)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#69839D]">
-                          Seats sold
-                        </p>
-                        <p className="mt-1 font-semibold">{route.soldSeats}</p>
-                      </div>
-                    </div>
-                  </article>
-                ))
-              ) : (
-                <FlightEmptyState
-                  icon={Activity}
-                  title="Route analytics will fill in here"
-                  description="Once reservations start flowing, this panel will reveal which sectors are carrying the network."
-                />
-              )}
-            </div>
-          </FlightPanel>
+        <div className="px-8 py-5 border-t border-slate-100 flex justify-end gap-3 bg-white">
+          <Btn variant="outline" onClick={onClose}>Discard</Btn>
+          <Btn onClick={save} disabled={saving}>{saving ? "Saving..." : "Publish Route"}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-          <FlightPanel
-            title="Weekly operating spread"
-            description="A quick read on where your frequency is concentrated through the week."
-          >
-            <div className="space-y-4">
-              {dayDistribution.map((day) => (
-                <div key={day.value}>
-                  <div className="mb-2 flex items-center justify-between text-sm text-[#3D5B76]">
-                    <span>{day.label}</span>
-                    <span className="font-semibold">{day.count} routes</span>
+
+const Schedule = ({ toast }) => {
+  const [flights, setFlights] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modOpen, setModOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [search, setSearch] = useState("");
+
+  const fetch = async () => {
+    setLoading(true);
+    const res = await dbs.readCollection("flights", 500);
+    setFlights(res.data || res || []);
+    setLoading(false);
+  };
+  useEffect(() => { fetch(); }, []);
+
+  const del = async id => {
+    await dbs.deleteDocument("flights", id);
+    toast("Flight suspended.");
+    fetch();
+  };
+
+  const openMod = (f = null) => {
+    setEditing(f);
+    setModOpen(true);
+  };
+
+  const filtered = flights.filter(f => 
+    (f.flightNumber||"").toLowerCase().includes(search.toLowerCase()) || 
+    (f.from||"").toLowerCase().includes(search.toLowerCase()) || 
+    (f.to||"").toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="relative w-full sm:w-80">
+          <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search network..." className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none focus:border-[#037ffc] transition-all shadow-sm" />
+        </div>
+        <Btn onClick={() => { setEditing(null); setModOpen(true); }}><FiPlus size={18} /> Add Route</Btn>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {loading ? (
+          <div className="col-span-full py-20 flex justify-center"><FiRefreshCw size={24} className="animate-spin text-slate-300" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="col-span-full py-20 text-center bg-white rounded-[32px] border border-slate-100 shadow-sm">
+            <MdFlightTakeoff size={48} className="mx-auto text-slate-200 mb-4" />
+            <p className="text-lg font-bold text-slate-800">Network Empty</p>
+            <p className="text-sm text-slate-500 mt-1">Deploy your first scheduled route to begin carrying passengers.</p>
+          </div>
+        ) : (
+          filtered.map((f, i) => {
+            const stat = STATUSES.find(s => s.value === f.status) || STATUSES[0];
+            return (
+              <div key={f.id} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm hover:shadow-md transition-all group" style={{ animationDelay: `${i * 50}ms` }}>
+                <div className="flex justify-between items-start mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 overflow-hidden shrink-0">
+                      {f.imageUrl ? <img src={f.imageUrl} className="w-full h-full object-cover"/> : <MdFlightTakeoff size={24} className="text-[#037ffc]"/>}
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-800">{f.flightNumber}</h3>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{f.aircraftType || "Equipment unassigned"}</p>
+                    </div>
                   </div>
-                  <ProgressBar
-                    value={
-                      flights.length ? Math.round((day.count / Math.max(...dayDistribution.map((item) => item.count), 1)) * 100) : 0
-                    }
-                    tone="indigo"
-                  />
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${stat.bg} ${stat.text} ${stat.border} border`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${stat.dot}`}/> {stat.label}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </FlightPanel>
 
-          <FlightPanel
-            title="Reference airports"
-            description="Copied from the flight-service seed so your routing stays grounded in the repo data."
-          >
-            <div className="space-y-3">
-              {REFERENCE_AIRPORTS.map((airport) => (
-                <div
-                  key={airport.code}
-                  className="rounded-[20px] border border-[#E4EDF7] bg-[#F8FBFF] px-4 py-3"
-                >
-                  <p className="font-semibold text-[#173453]">
-                    {airport.code} · {airport.city}
-                  </p>
-                  <p className="mt-1 text-sm text-[#69839D]">{airport.name}</p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.22em] text-[#85A0BB]">
-                    {airport.country}
-                  </p>
+                <div className="flex items-center justify-between px-2 mb-6">
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-slate-400 mb-1">Departure</p>
+                    <p className="text-2xl font-bold text-slate-800">{f.departTime}</p>
+                    <p className="text-xs font-bold text-[#037ffc] bg-[#037ffc]/10 px-2 py-1 rounded-md mt-1 inline-block">{f.from}</p>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center px-4">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{Math.floor(f.durationMin/60)}h {f.durationMin%60}m</p>
+                    <div className="w-full h-[2px] bg-slate-100 relative rounded-full">
+                      <MdFlightTakeoff className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-300" size={16}/>
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-slate-400 mb-1">Arrival</p>
+                    <p className="text-2xl font-bold text-slate-800">{f.arriveTime}</p>
+                    <p className="text-xs font-bold text-[#037ffc] bg-[#037ffc]/10 px-2 py-1 rounded-md mt-1 inline-block">{f.to}</p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </FlightPanel>
+
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                  <div className="flex gap-1">
+                    {DAYS.map(d => (
+                      <span key={d.val} className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${(f.daysOfWeek||[]).includes(d.val) ? "bg-slate-800 text-white" : "bg-slate-50 text-slate-300"}`}>
+                        {d.label}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => openMod(f)} className="p-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition"><FiEdit3 size={16}/></button>
+                    <button onClick={() => del(f.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition"><FiTrash2 size={16}/></button>
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      <FlightModal open={modOpen} existing={editing} onClose={() => setModOpen(false)} onSave={() => { setModOpen(false); fetch(); toast("Schedule updated."); }} />
+    </div>
+  );
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export default function Config() {
+  const [tab, setTab] = useState("flights");
+  const [toastMsg, setToastMsg] = useState(null);
+
+  const fire = msg => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900 mb-2">Network Planning</h1>
+        <p className="text-slate-500">Coordinate active corridors, assign equipment, and structure fare rules.</p>
+        
+        <div className="flex gap-2 mt-8 bg-slate-100/50 p-1 rounded-2xl w-fit">
+          {[
+            { id: "flights", label: "Operations Schedule" },
+            { id: "classes", label: "Cabin Classes" }
+          ].map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300
+                ${tab === t.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <FlightScheduleModal
-        open={modalOpen}
-        existing={editing}
-        preset={modalPreset}
-        onClose={() => setModalOpen(false)}
-        onSaved={() => {
-          setModalOpen(false);
-          fetchSchedule();
-        }}
-      />
-    </FlightWorkspacePage>
+      <div>
+        {tab === "flights" && <Schedule toast={fire} />}
+        {tab === "classes" && <FareClasses toast={fire} />}
+      </div>
+
+      {toastMsg && (
+        <div className="fixed bottom-8 right-8 z-50 flex items-center gap-3 px-5 py-3.5 bg-slate-900 text-white rounded-2xl shadow-2xl shadow-slate-900/20 animate-in slide-in-from-bottom-5 duration-300">
+          <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400"><FiCheck size={14}/></div>
+          <span className="text-sm font-medium">{toastMsg}</span>
+        </div>
+      )}
+    </div>
   );
 }

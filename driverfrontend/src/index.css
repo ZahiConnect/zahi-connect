@@ -1,0 +1,233 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --drive-ink: #09090b;       /* Extremely dark slate for text */
+  --drive-muted: #71717a;     /* Clean neutral gray for secondary text */
+  --drive-line: #e4e4e7;      /* Clean neutral line gray */
+  --drive-panel: #ffffff;
+  --drive-card: #fafafa;
+  --drive-primary: #facc15;   /* Premium Taxi Yellow */
+  --drive-primary-fg: #422006;/* Dark foreground text on yellow */
+  --drive-dark: #18181b;      /* Slate black for dark elements */
+  
+  --drive-green: #10b981;
+  --drive-red: #ef4444;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  font-family: "Inter", sans-serif;
+  color: var(--drive-ink);
+  background-color: #f4f4f5;
+  background-image: radial-gradient(#d4d4d8 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+:where(a) {
+  color: inherit;
+  text-decoration: none;
+}
+
+:where(a, button) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.font-display {
+  font-family: "Outfit", sans-serif;
+}
+
+.drive-panel {
+  background: var(--drive-panel);
+  border: 1px solid var(--drive-line);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+.drive-card {
+  background: var(--drive-card);
+  border: 1px solid var(--drive-line);
+  box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.02);
+}
+
+.fade-up {
+  animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.fade-in {
+  animation: fade-in 0.4s ease both;
+}
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+/* ── Unified input / select / textarea style ─────────────── */
+.field-input {
+  width: 100%;
+  display: block;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #09090b;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.field-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.field-input:focus {
+  border-color: #09090b;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(9,9,11,0.06);
+}
+
+.field-input.uppercase {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── File upload field ───────────────────────────────────── */
+.field-upload {
+  width: 100%;
+  display: block;
+  background: #f8fafc;
+  border: 2px dashed #e2e8f0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #09090b;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+  cursor: pointer;
+}
+
+.field-upload:hover {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
+.field-upload::file-selector-button {
+  margin-right: 12px;
+  padding: 6px 16px;
+  border-radius: 99px;
+  border: 0;
+  background: #09090b;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.field-upload::file-selector-button:hover {
+  background: #3f3f46;
+}
+
+/* ── Checkbox ────────────────────────────────────────────── */
+.field-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #09090b;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.field-check:hover {
+  border-color: #09090b;
+}
+
+.field-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  accent-color: #09090b;
+  cursor: pointer;
+}
+
+/* ── Form section separator ──────────────────────────────── */
+.field-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #f1f5f9;
+  margin-bottom: 20px;
+}
+
+.field-section-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #09090b;
+  color: #facc15;
+  flex-shrink: 0;
+}
+
+.field-section-icon.yellow {
+  background: #facc15;
+  color: #09090b;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
