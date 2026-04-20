@@ -40,7 +40,7 @@ const LoadingSplash = () => (
   <div className="flex min-h-screen items-center justify-center px-4">
     <div className="glass-panel w-full max-w-md rounded-[36px] px-8 py-12 text-center fade-in">
       <p className="text-xs uppercase tracking-[0.32em] text-[#c15d1f]">Zahi Trips</p>
-      <h1 className="font-display mt-4 text-5xl text-[#1c1712]">Building your travel board</h1>
+      <h1 className="font-display mt-4 text-5xl text-[#1c1712]">Getting everything ready for you&hellip;</h1>
       <div className="mx-auto mt-8 h-2 w-44 overflow-hidden rounded-full bg-[#f1dcc4]">
         <div className="h-full w-1/2 animate-pulse rounded-full bg-[#d66a2f]" />
       </div>
@@ -135,20 +135,20 @@ const Header = () => {
       <div className="border-b border-[rgba(87,62,39,0.06)] bg-[#231a12] text-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <p className="py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-white/72 md:hidden">
-            Customer dining and request portal for the Zahi network
+            Hotels · Restaurants · Cabs · Flights
           </p>
           <div className="hidden grid-cols-[minmax(0,1.7fr)_auto_auto_auto] items-center gap-6 py-2.5 md:grid">
             <p className="whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.16em] text-white/72 lg:text-xs">
-              Customer dining and request portal for the Zahi network
+              Discover hotels, dining, cabs, and flights in one place
             </p>
             <span className="whitespace-nowrap text-[11px] font-medium text-white/92 lg:text-xs">
-              Live menu availability
+              Verified properties
             </span>
             <span className="whitespace-nowrap text-[11px] font-medium text-white/92 lg:text-xs">
-              Dish-first browsing
+              Instant booking
             </span>
             <span className="whitespace-nowrap text-[11px] font-medium text-white/92 lg:text-xs">
-              Cab and flight requests
+              24 / 7 support
             </span>
           </div>
         </div>
@@ -320,11 +320,10 @@ const Footer = () => (
   <footer className="mt-20 border-t border-[rgba(87,62,39,0.08)]">
     <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 text-sm text-[#67574a] sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr] lg:px-8">
       <div>
-        <p className="font-display text-4xl text-[#1f1812]">One travel storefront, many Zahi services.</p>
+        <p className="font-display text-4xl text-[#1f1812]">Your journey starts here.</p>
         <p className="mt-4 max-w-xl leading-7">
-          Hotels and restaurants are already connected to live tenant data. Cabs and flights now
-          have proper consumer-facing lanes, even while their full operational backends are still
-          coming together.
+          Zahi Trips brings together hotels, restaurants, cabs, and flights in one seamless
+          marketplace. Book confidently with real-time pricing and availability.
         </p>
       </div>
       <div>
@@ -360,10 +359,11 @@ const AppShell = () => (
 
 const NotFoundPage = () => (
   <div className="glass-panel mx-auto max-w-2xl rounded-[36px] px-8 py-14 text-center">
-    <p className="text-xs uppercase tracking-[0.32em] text-[#c15d1f]">Off route</p>
-    <h1 className="font-display mt-4 text-6xl text-[#1f1812]">This trip lane does not exist yet.</h1>
+    <p className="text-xs uppercase tracking-[0.32em] text-[#c15d1f]">Page not found</p>
+    <h1 className="font-display mt-4 text-6xl text-[#1f1812]">This page doesn&apos;t exist.</h1>
     <p className="mt-4 text-[#67574a]">
-      Jump back to the main portal and continue browsing live hotel and restaurant inventory.
+      The link may have changed or the page has been removed. Head back home to continue browsing
+      hotels, restaurants, and more.
     </p>
     <Link
       to="/"

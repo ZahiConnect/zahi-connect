@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, Numeric, String, Text
+from sqlalchemy import DateTime, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -55,6 +55,26 @@ class BookingPaymentOrder(Base):
     razorpay_order_id: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
     razorpay_payment_id: Mapped[str | None] = mapped_column(String(100), nullable=True, unique=True)
     details: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+
+class HotelDocument(Base):
+    __tablename__ = "hotel_documents"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "collection", "doc_id", name="uq_hotel_document_scope"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    collection: Mapped[str] = mapped_column(String(120), index=True, nullable=False)
+    doc_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
