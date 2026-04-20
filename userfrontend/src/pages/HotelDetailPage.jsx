@@ -84,27 +84,27 @@ const sortRooms = (rooms = []) =>
   });
 
 const getRoomModePrice = (roomType, roomMode, hotelStartingPrice) => {
-  if (!roomType) return hotelStartingPrice ?? null;
+  if (!roomType) return (hotelStartingPrice != null && hotelStartingPrice > 0) ? hotelStartingPrice : null;
   const normalizedMode = normalizeRoomMode(roomMode);
-  if (normalizedMode === "AC" && roomType.ac_price != null) return roomType.ac_price;
-  if (normalizedMode === "Non AC" && roomType.non_ac_price != null) return roomType.non_ac_price;
-  if (roomType.starting_price != null) return roomType.starting_price;
-  if (roomType.ac_price != null) return roomType.ac_price;
-  if (roomType.non_ac_price != null) return roomType.non_ac_price;
-  return hotelStartingPrice ?? null;
+  if (normalizedMode === "AC" && roomType.ac_price != null && roomType.ac_price > 0) return roomType.ac_price;
+  if (normalizedMode === "Non AC" && roomType.non_ac_price != null && roomType.non_ac_price > 0) return roomType.non_ac_price;
+  if (roomType.starting_price != null && roomType.starting_price > 0) return roomType.starting_price;
+  if (roomType.ac_price != null && roomType.ac_price > 0) return roomType.ac_price;
+  if (roomType.non_ac_price != null && roomType.non_ac_price > 0) return roomType.non_ac_price;
+  return (hotelStartingPrice != null && hotelStartingPrice > 0) ? hotelStartingPrice : null;
 };
 
 /**
- * Only images directly belonging to the room itself or its room-type.
- * We deliberately DO NOT fall back to hotel-level gallery images so that
- * each room card only shows its own photos.
+ * ONLY the images directly attached to this specific room record.
+ * Room-type images are intentionally excluded because they are shared
+ * across every room of that type and would cause all rooms to display
+ * the same photos (the original bug: room 122's images appearing on
+ * every other room).
  */
-const buildRoomGallery = (room, roomType) =>
+const buildRoomGallery = (room) =>
   uniqueValues([
     ...(room?.image_urls || []),
     room?.image_url,
-    ...(roomType?.image_urls || []),
-    roomType?.image_url,
   ]);
 
 const buildDirectRoomImages = (room) =>
@@ -298,10 +298,10 @@ const HotelDetailPage = () => {
   const selectedRoomType = selectedRoom ? roomTypeMap[selectedRoom.type] || null : null;
   const selectedRoomMode = normalizeRoomMode(selectedRoom?.mode);
 
-  /* ── IMAGE FIX: only room-specific images, no hotel gallery fallback ── */
+  /* Only the selected room's own images — no room-type bleed */
   const selectedRoomImages = useMemo(
-    () => buildRoomGallery(selectedRoom, selectedRoomType),
-    [selectedRoom, selectedRoomType]
+    () => buildRoomGallery(selectedRoom),
+    [selectedRoom]
   );
   const currentRoomImage = selectedRoomImages[activeRoomImageIndex] || null;
 
@@ -358,32 +358,65 @@ const HotelDetailPage = () => {
   }, [hotel, hotelName, selectedRoom, specialRequest, stay.checkIn, stay.checkOut, stay.guests]);
 
   const startInstantBooking = async () => {
-    if (!hotel || !selectedRoom) { toast.error("Choose a room before continuing."); return; }
-    if (!selectedRoom.is_available) { toast.error("Choose an available room to continue."); return; }
+    // ── validation ──────────────────────────────────────────
+    if (!hotel || !selectedRoom) {
+      toast.error("Please select a room first.");
+      return;
+    }
+    if (!selectedRoom.is_available) {
+      toast.error("This room is not available. Please choose a different room.");
+      return;
+    }
     if (!isAuthenticated) {
       navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
       return;
     }
-    if (!guestProfile.guestName.trim() || !guestProfile.phone.trim()) {
-      toast.error("Add the lead guest name and phone number before booking.");
+    if (!guestProfile.guestName.trim()) {
+      toast.error("Please enter the lead guest name.");
       return;
     }
-    if (!stay.checkIn || !stay.checkOut || new Date(stay.checkIn) >= new Date(stay.checkOut)) {
-      toast.error("Choose a valid check-in and check-out date.");
+    if (!guestProfile.phone.trim()) {
+      toast.error("Please enter a contact number.");
       return;
     }
-    if (stayTotal == null || stayTotal <= 0) { toast.error("This room is missing a valid public price."); return; }
+    if (!stay.checkIn || !stay.checkOut) {
+      toast.error("Please choose check-in and check-out dates.");
+      return;
+    }
+    if (new Date(stay.checkIn) >= new Date(stay.checkOut)) {
+      toast.error("Check-out date must be after check-in date.");
+      return;
+    }
+
+    // ── price resolution ────────────────────────────────────
+    // Use the most specific price available, falling back upward:
+    // room-type price → hotel starting price.
+    // If nothing is set, advise the user to contact via WhatsApp.
+    const effectiveNightlyRate =
+      selectedRoomPrice ??
+      hotel?.summary?.starting_price ??
+      hotel?.settings?.starting_price ??
+      null;
+
+    if (effectiveNightlyRate == null || effectiveNightlyRate <= 0) {
+      toast.error(
+        "This room does not have a public price yet. Please contact the hotel via WhatsApp to request a quote."
+      );
+      return;
+    }
+
+    const effectiveTotal = Number((effectiveNightlyRate * roomNights).toFixed(2));
 
     setPayingNow(true);
     try {
       const bookingPayload = {
         service_type: "hotel",
-        title: `Confirmed room ${selectedRoom.room_number} at ${hotelName}`,
-        summary: `Room ${selectedRoom.room_number}, ${selectedRoom.type}, ${roomNights} night(s), ${stay.guests} guest(s)`,
+        title: `Room ${selectedRoom.room_number} at ${hotelName}`,
+        summary: `Room ${selectedRoom.room_number}, ${selectedRoom.type}, ${roomNights} night${roomNights !== 1 ? "s" : ""}, ${stay.guests} guest${stay.guests !== 1 ? "s" : ""}`,
         tenant_id: hotel.tenant?.id || null,
         tenant_slug: hotel.tenant?.slug || null,
         tenant_name: hotelName || null,
-        total_amount: stayTotal,
+        total_amount: effectiveTotal,
         metadata: {
           booking_kind: "confirmed_reservation",
           check_in: stay.checkIn,
@@ -396,8 +429,8 @@ const HotelDetailPage = () => {
           preferred_room_type: selectedRoom.type,
           room_type: selectedRoom.type,
           room_mode: selectedRoomMode,
-          nightly_rate: selectedRoomPrice,
-          room_total_amount: stayTotal,
+          nightly_rate: effectiveNightlyRate,
+          room_total_amount: effectiveTotal,
           room_type_description: selectedRoomType?.description || null,
           room_type_image: selectedRoomType?.image_url || null,
           room_type_images: selectedRoomType?.image_urls || [],
@@ -418,10 +451,15 @@ const HotelDetailPage = () => {
       };
 
       const checkoutData = await bookingService.createPaymentCheckout(bookingPayload);
+
+      // Load the Razorpay checkout script dynamically
       const razorpayLoaded = await loadRazorpayScript();
-      if (!razorpayLoaded || !window.Razorpay) throw new Error("Razorpay checkout could not be loaded.");
+      if (!razorpayLoaded || !window.Razorpay) {
+        throw new Error("Razorpay checkout failed to load. Please check your internet connection and try again.");
+      }
 
       const razorpay = new window.Razorpay({
+        // All values (key, order_id, amount, currency, prefill…) come from the backend
         ...checkoutData.checkout,
         theme: { color: "#2e7d67" },
         handler: async (result) => {
@@ -432,23 +470,42 @@ const HotelDetailPage = () => {
               razorpay_payment_id: result.razorpay_payment_id,
               razorpay_signature: result.razorpay_signature,
             });
-            toast.success("Payment captured and your booking is confirmed.");
+            toast.success("🎉 Payment confirmed! Your room is booked.");
             navigate("/account");
           } catch (err) {
             console.error("Hotel payment verification failed", err);
-            toast.error(err.response?.data?.detail || "Payment was received, but the booking confirmation failed.");
+            toast.error(
+              err.response?.data?.detail ||
+                "Payment was received but confirmation failed. Please contact support."
+            );
             setPayingNow(false);
           }
         },
-        modal: { ondismiss: () => setPayingNow(false) },
+        modal: {
+          ondismiss: () => setPayingNow(false),
+        },
       });
+
       razorpay.open();
     } catch (error) {
       console.error("Failed to start hotel payment", error);
-      toast.error(error.response?.data?.detail || error.message || "Could not start the payment right now.");
+      toast.error(
+        error.response?.data?.detail ||
+          error.message ||
+          "Could not start payment right now. Please try again."
+      );
       setPayingNow(false);
     }
   };
+
+  // Effective total for display (may use hotel fallback price)
+  const effectiveDisplayTotal =
+    stayTotal ??
+    (() => {
+      const fallbackRate =
+        hotel?.summary?.starting_price ?? hotel?.settings?.starting_price ?? null;
+      return fallbackRate != null ? Number((fallbackRate * roomNights).toFixed(2)) : null;
+    })();
 
   /* ── Loading ── */
   if (loading) {
@@ -828,13 +885,11 @@ const HotelDetailPage = () => {
             >
               {sortedRooms.map((room) => {
                 const isSelected = String(selectedRoom?.room_number) === String(room.room_number);
+                // Only use images directly attached to this specific room — no
+                // room-type fallback, which would bleed the same images onto every
+                // room that shares the same type (e.g. all "Standard" rooms).
                 const directImages = buildDirectRoomImages(room);
-                const roomTypeImages = uniqueValues([
-                  ...(roomTypeMap[room.type]?.image_urls || []),
-                  roomTypeMap[room.type]?.image_url,
-                ]);
-                /* ── IMAGE FIX: only show room's own images, or room-type images */
-                const previewImage = directImages[0] || roomTypeImages[0] || null;
+                const previewImage = directImages[0] || null;
                 const { bg: sBg, color: sColor } = statusStyle(room.status, room.is_available);
 
                 return (
@@ -1054,7 +1109,7 @@ const HotelDetailPage = () => {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", alignContent: "start" }}>
                   {[
                     { label: "Nightly rate", value: selectedRoomPrice != null ? formatCurrency(selectedRoomPrice) : "—" },
-                    { label: "Stay total", value: stayTotal != null ? formatCurrency(stayTotal) : "—" },
+                    { label: "Stay total", value: effectiveDisplayTotal != null ? formatCurrency(effectiveDisplayTotal) : "—" },
                     { label: "Availability", value: `${roomAvailabilityCount} of this type` },
                     { label: "Stay length", value: `${roomNights} night${roomNights !== 1 ? "s" : ""}` },
                   ].map(({ label, value }) => (
@@ -1242,11 +1297,13 @@ const HotelDetailPage = () => {
                 Payment summary
               </p>
               <p style={{ fontSize: "28px", fontWeight: "700", color: "#ffffff", marginBottom: "6px" }}>
-                {stayTotal != null ? formatCurrency(stayTotal) : "—"}
+                {effectiveDisplayTotal != null ? formatCurrency(effectiveDisplayTotal) : "—"}
               </p>
               <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", margin: 0 }}>
-                {selectedRoom && selectedRoomPrice != null
+                {selectedRoom && effectiveDisplayTotal != null
                   ? `${formatDateRange(stay.checkIn, stay.checkOut)} · ${roomNights} night${roomNights !== 1 ? "s" : ""}`
+                  : selectedRoom
+                  ? "Price will be confirmed on booking"
                   : "Select a room to see total"}
               </p>
             </div>
@@ -1256,7 +1313,7 @@ const HotelDetailPage = () => {
               <button
                 type="button"
                 onClick={startInstantBooking}
-                disabled={payingNow || !selectedRoom || stayTotal == null || !selectedRoom?.is_available}
+                disabled={payingNow || !selectedRoom || !selectedRoom?.is_available}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -1269,8 +1326,8 @@ const HotelDetailPage = () => {
                   padding: "14px",
                   fontSize: "14px",
                   fontWeight: "700",
-                  cursor: "pointer",
-                  opacity: (payingNow || !selectedRoom || stayTotal == null || !selectedRoom?.is_available) ? 0.6 : 1,
+                  cursor: (payingNow || !selectedRoom || !selectedRoom?.is_available) ? "not-allowed" : "pointer",
+                  opacity: (payingNow || !selectedRoom || !selectedRoom?.is_available) ? 0.6 : 1,
                   transition: "opacity 0.2s ease",
                 }}
               >
@@ -1279,11 +1336,13 @@ const HotelDetailPage = () => {
                   ? "Opening Razorpay…"
                   : !isAuthenticated
                   ? "Sign in to book"
+                  : !selectedRoom
+                  ? "Select a room first"
                   : !selectedRoom?.is_available
                   ? "Room unavailable"
-                  : stayTotal != null
-                  ? `Book now · ${formatCurrency(stayTotal)}`
-                  : "Book now"}
+                  : effectiveDisplayTotal != null
+                  ? `Pay ${formatCurrency(effectiveDisplayTotal)} · Confirm booking`
+                  : "Confirm booking"}
               </button>
 
               <a

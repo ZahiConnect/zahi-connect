@@ -430,7 +430,7 @@ def build_room_type_summaries(
         rates = pricing_defaults.get(room_type, {})
         ac_price = to_float(rates.get("ac"))
         non_ac_price = to_float(rates.get("non_ac"))
-        visible_prices = [price for price in [ac_price, non_ac_price] if price is not None]
+        visible_prices = [price for price in [ac_price, non_ac_price] if price is not None and price > 0]
         room_images = normalize_image_urls(
             [
                 url
@@ -743,7 +743,7 @@ def build_hotel_summary(tenant: Tenant, docs: dict[str, list[dict[str, Any]]]) -
         ),
     )
 
-    visible_prices = [room_type["starting_price"] for room_type in room_types if room_type["starting_price"] is not None]
+    visible_prices = [room_type["starting_price"] for room_type in room_types if room_type.get("starting_price") is not None and room_type["starting_price"] > 0]
     payload = build_public_tenant_payload(tenant)
     payload.update(
         {
