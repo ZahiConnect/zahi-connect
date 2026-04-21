@@ -1,14 +1,15 @@
 import api from "../lib/axios";
 
-const getPayload = async (url, params) => {
-  const response = await api.get(url, { params });
+const getPayload = async (url, params, requestConfig = {}) => {
+  const response = await api.get(url, { params, ...requestConfig });
   return response.data;
 };
 
 export const marketplaceService = {
-  getFoodItems: (params) => getPayload("/auth/marketplace/food-items", params),
-  getRestaurants: (params) => getPayload("/auth/marketplace/restaurants", params),
-  getRestaurant: (slug, params) => getPayload(`/auth/marketplace/restaurants/${slug}`, params),
+  getFoodItems: (params, requestConfig) => getPayload("/auth/marketplace/food-items", params, requestConfig),
+  getRestaurants: (params, requestConfig) => getPayload("/auth/marketplace/restaurants", params, requestConfig),
+  getRestaurant: (slug, params, requestConfig) =>
+    getPayload(`/auth/marketplace/restaurants/${slug}`, params, requestConfig),
   getHotels: () => getPayload("/auth/marketplace/hotels"),
   getHotel: (slug) => getPayload(`/auth/marketplace/hotels/${slug}`),
   getFlights: () => getPayload("/auth/marketplace/flights"),

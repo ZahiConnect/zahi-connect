@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   FiArrowRight,
   FiMapPin,
@@ -23,8 +23,8 @@ import { FaGlobeAmericas, FaAward } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
 import useCustomerLocation from "../hooks/useCustomerLocation";
-import { formatAddress, formatCurrency, formatDistance, shortText } from "../lib/format";
-import marketplaceService from "../services/marketplaceService";
+import useMarketplaceFoodItems from "../hooks/useMarketplaceFoodItems";
+import { formatCurrency } from "../lib/format";
 
 /* ── Helpers ───────────────────────────────────────────── */
 
@@ -58,36 +58,13 @@ const HomePage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { coordinates, locationLabel, requestLocation } = useCustomerLocation(true);
-  
-  const coordinateKey = coordinates
-    ? `${coordinates.latitude.toFixed(5)}:${coordinates.longitude.toFixed(5)}`
-    : "no-location";
-    
+
   const [activeTab, setActiveTab] = useState("restaurants");
-  const [foodItems, setFoodItems] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [foodSearch, setFoodSearch] = useState({
     query: "",
     diners: 2,
   });
-
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      try {
-        const data = await marketplaceService.getFoodItems(
-          coordinates ? { latitude: coordinates.latitude, longitude: coordinates.longitude } : undefined
-        );
-        if (active) setFoodItems(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Failed to load home data", error);
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    load();
-    return () => { active = false; };
-  }, [coordinateKey]);
+  const { foodItems, loading } = useMarketplaceFoodItems(coordinates);
 
   const representedRestaurants = useMemo(
     () => new Set(foodItems.map((item) => item.restaurant?.id || item.restaurant_slug)).size,
@@ -269,7 +246,7 @@ const HomePage = () => {
                >
                  <div className="h-48 overflow-hidden bg-gray-100">
                     {item.image_url ? (
-                      <img src={item.image_url} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                      <img src={item.image_url} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-200"><MdOutlineRestaurant className="text-4xl" /></div>
                     )}

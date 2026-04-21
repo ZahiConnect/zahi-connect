@@ -1,47 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { FiSearch, FiMapPin, FiClock, FiArrowRight, FiUsers } from "react-icons/fi";
 import { BiRestaurant } from "react-icons/bi";
 import { MdOutlineFoodBank } from "react-icons/md";
 
 import useCustomerLocation from "../hooks/useCustomerLocation";
-import marketplaceService from "../services/marketplaceService";
-import { formatAddress, formatCurrency, formatDistance, shortText } from "../lib/format";
+import useMarketplaceFoodItems from "../hooks/useMarketplaceFoodItems";
+import { formatCurrency, formatDistance } from "../lib/format";
 
 const RestaurantsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [foodItems, setFoodItems] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [activeTag, setActiveTag] = useState("all");
   
   const { coordinates, locationLabel, requestLocation } = useCustomerLocation(true);
-  const coordinateKey = coordinates
-    ? `${coordinates.latitude.toFixed(5)}:${coordinates.longitude.toFixed(5)}`
-    : "no-location";
+  const { foodItems, loading } = useMarketplaceFoodItems(coordinates);
 
   const query = searchParams.get("query") || "";
   const diners = Number(searchParams.get("diners") || "2");
-
-  useEffect(() => {
-    let active = true;
-    const loadNearest = async () => {
-      setLoading(true);
-      try {
-        const data = await marketplaceService.getFoodItems(
-          coordinates ? { latitude: coordinates.latitude, longitude: coordinates.longitude } : undefined
-        );
-        if (active) setFoodItems(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Failed to load food catalog", error);
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-
-    loadNearest();
-    return () => { active = false; };
-  }, [coordinateKey]);
 
   const allTags = useMemo(() => {
     const tags = new Set();
@@ -228,7 +204,7 @@ const RestaurantsPage = () => {
               >
                 <Link to={`/restaurants/${item.restaurant_slug}?diners=${diners}&focus=${item.id}`} className="block relative h-56 overflow-hidden">
                   {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img src={item.image_url} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
                     <div className="w-full h-full bg-gray-100 flex items-center justify-center">
                       <BiRestaurant className="text-4xl text-gray-300" />
@@ -292,4 +268,3 @@ const RestaurantsPage = () => {
 };
 
 export default RestaurantsPage;
-

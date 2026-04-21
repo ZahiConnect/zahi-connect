@@ -226,37 +226,76 @@ const CabsPage = () => {
       <motion.section 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-10 bg-gray-900 rounded-[32px] p-8 md:p-12 lg:p-16 text-white relative overflow-hidden shadow-2xl"
+        className="mb-12 relative"
       >
-        <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none">
-          <MdOutlineLocalTaxi className="text-[240px]" />
-        </div>
-        
-        <div className="relative z-10 max-w-3xl">
-          <span className="inline-flex items-center gap-2 bg-orange-500/20 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase mb-6">
-            <FaCarSide className="text-sm" /> Smart Mobility
-          </span>
-          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-[1.1] mb-6">
-            Every route, <span className="text-orange-400">reimagined.</span>
-          </h1>
-          <p className="text-gray-400 text-lg leading-relaxed max-w-xl mb-8">
-            Connect with the nearest verified drivers in real-time. Transparent fares, direct contact, and zero subscription fees.
-          </p>
+        <div className="bg-white rounded-[32px] md:rounded-[40px] p-8 md:p-14 lg:p-16 border-2 border-orange-50 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)] relative overflow-hidden">
+          {/* Animated Background Elements */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+             <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[60%] bg-gradient-to-bl from-orange-200/50 via-orange-100/30 to-transparent rounded-full blur-3xl mix-blend-multiply" />
+             <div className="absolute bottom-[-10%] left-[-5%] w-[50%] h-[50%] bg-gradient-to-tr from-yellow-200/40 via-orange-50/20 to-transparent rounded-full blur-3xl mix-blend-multiply" />
+          </div>
 
-          <div className="flex flex-wrap gap-4 pt-6 border-t border-white/10">
-            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Online Drivers</p>
-              <p className="text-2xl font-bold">{nearbyDrivers.length}</p>
-            </div>
-            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Starting From</p>
-              <p className="text-2xl font-bold">{fareStartingAt !== null ? formatCurrency(fareStartingAt) : "Waiting"}</p>
-            </div>
+          {/* Floating Icons */}
+          <div className="absolute inset-0 pointer-events-none hidden md:block">
+            <motion.div 
+              animate={{ y: [0, -15, 0], x: [0, 10, 0], rotate: [0, 5, 0] }} 
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute top-[10%] right-[15%] text-orange-200 opacity-60 drop-shadow-xl"
+            >
+              <MdOutlineLocalTaxi className="w-24 h-24 rotate-12" />
+            </motion.div>
+            <motion.div 
+              animate={{ y: [0, 20, 0], rotate: [0, -10, 0] }} 
+              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+              className="absolute bottom-[20%] right-[5%] text-yellow-200 opacity-50 drop-shadow-lg"
+            >
+              <MdOutlineRoute className="w-16 h-16" />
+            </motion.div>
+            <motion.div 
+              animate={{ y: [0, -10, 0], x: [0, -10, 0] }} 
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+              className="absolute top-[30%] left-[8%] text-slate-200 opacity-40 drop-shadow-md"
+            >
+              <MdOutlineDirectionsCar className="w-12 h-12 -rotate-12" />
+            </motion.div>
+          </div>
+          
+          <div className="relative z-10 max-w-2xl">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <span className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 border border-orange-100 px-5 py-2 rounded-full text-xs font-bold tracking-[0.2em] uppercase mb-6 shadow-sm">
+                <FaCarSide className="animate-bounce" /> Smart Mobility
+              </span>
+            </motion.div>
+
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.05] text-slate-800 mb-6 drop-shadow-sm"
+            >
+              Every route, <br className="hidden md:block"/> 
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-yellow-500">reimagined.</span>
+            </motion.h1>
+
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="text-slate-500 text-lg md:text-xl leading-relaxed max-w-xl mb-12"
+            >
+              Connect with the nearest verified drivers in real-time. Transparent fares, direct contact, and zero subscription fees.
+            </motion.p>
+
+
           </div>
         </div>
       </motion.section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-10 items-start">
+      <div className="max-w-3xl mx-auto w-full pb-10">
         
         {/* Left Side: Booking Form */}
         <section className="bg-gray-50/50 border border-gray-100 rounded-[32px] p-8">
@@ -401,148 +440,7 @@ const CabsPage = () => {
           </div>
         </section>
 
-        {/* Right Side: Online Drivers */}
-        <section className="bg-white border border-gray-100 rounded-[32px] p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-orange-600 font-bold mb-0.5">Nearby Online</p>
-              <h3 className="text-2xl font-extrabold text-gray-900">Choose your driver</h3>
-            </div>
-            <div className="bg-green-50 text-green-600 border border-green-100 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest animate-pulse">
-              Live Network
-            </div>
-          </div>
 
-          <div className="space-y-4 max-h-[700px] overflow-y-auto pr-2 custom-scrollbar">
-            {/* Auto Assignment Card */}
-            <button
-               onClick={() => setSelectedDriverId(null)}
-               className={`w-full rounded-3xl p-5 text-left border-2 transition-all duration-300 relative group overflow-hidden ${
-                 selectedDriverId === null ? "bg-gray-900 border-gray-900 text-white shadow-xl scale-[1.02]" : "bg-gray-50 border-transparent hover:border-gray-200"
-               }`}
-            >
-               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <FiZap className="text-[60px]" />
-               </div>
-               <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${selectedDriverId === null ? "text-orange-400" : "text-gray-400"}`}>
-                 Instant Match
-               </p>
-               <p className="text-lg font-black leading-tight mb-2">Automated Assignment</p>
-               <p className={`text-xs font-medium leading-relaxed ${selectedDriverId === null ? "text-gray-400" : "text-gray-500"}`}>
-                 Let Zahi pick the nearest high-rated driver instantly.
-               </p>
-            </button>
-
-            {loadingDrivers ? (
-              [...Array(4)].map((_, i) => (
-                <div key={i} className="h-40 bg-gray-50 rounded-3xl animate-pulse border border-gray-100" />
-              ))
-            ) : nearbyDrivers.length === 0 ? (
-              <div className="py-12 bg-gray-50 rounded-3xl border border-dashed border-gray-200 text-center px-6">
-                <FiInfo className="text-3xl text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No active drivers found</p>
-                <p className="text-gray-500 text-sm mt-1">We'll save your request and notify the next driver who goes online.</p>
-              </div>
-            ) : (
-                <motion.div 
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="show"
-                  className="space-y-4"
-                >
-                  {nearbyDrivers.map((item) => {
-                    const driver = item.driver || {};
-                    const vehicle = driver.vehicle || {};
-                    const isSelected = selectedDriverId === driver.id;
-
-                    return (
-                      <motion.button
-                        key={driver.id}
-                        variants={itemVariants}
-                        onClick={() => setSelectedDriverId(driver.id)}
-                        className={`w-full rounded-3xl p-6 text-left border-2 transition-all duration-300 group relative ${
-                          isSelected 
-                            ? "bg-orange-50 border-orange-600 shadow-lg scale-[1.01]" 
-                            : "bg-white border-gray-100 hover:border-orange-200 hover:shadow-md"
-                        }`}
-                      >
-                         <div className="flex flex-col gap-4">
-                           <div className="flex justify-between items-start gap-4">
-                             <div className="flex-1">
-                               <div className="flex flex-wrap items-center gap-2 mb-2">
-                                  <h4 className={`text-lg font-black transition-colors ${isSelected ? "text-orange-950" : "text-gray-900 group-hover:text-orange-600"}`}>
-                                    {driver.full_name}
-                                  </h4>
-                                  <span className="bg-green-50 text-green-600 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest border border-green-100">
-                                    Online
-                                  </span>
-                               </div>
-                               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                 <MdOutlineDirectionsCar className="text-orange-500" /> 
-                                 {vehicle.vehicle_name} · <span className={isSelected ? "text-orange-600" : "text-indigo-600"}>{vehicle.plate_number}</span>
-                               </p>
-                             </div>
-                             
-                             <div className="text-right">
-                               <p className="text-lg font-black text-gray-900">{formatCurrency(vehicle.base_fare || 0)}</p>
-                               <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Base Fare</p>
-                             </div>
-                           </div>
-                           
-                           <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-gray-100/50">
-                             <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                               <MdOutlineSpeed className="text-orange-400 text-sm" /> {formatCurrency(vehicle.per_km_rate || 0)} / km
-                             </div>
-                             {item.distance_km != null && (
-                               <div className="flex items-center gap-2 text-[10px] font-bold text-orange-600 uppercase tracking-widest">
-                                 <FiNavigation className="text-sm" /> {formatDistance(item.distance_km)} away
-                               </div>
-                             )}
-                           </div>
-
-                           <div className="flex items-center gap-2 text-[9px] font-black text-gray-300 group-hover:text-orange-200 transition-colors uppercase tracking-[0.2em] mt-1">
-                             <FiMapPin /> {driver.current_area_label || "Last known location..."}
-                           </div>
-                         </div>
-                      </motion.button>
-                    );
-                  })}
-                </motion.div>
-            )}
-          </div>
-          
-          <div className="mt-8 bg-gray-50 rounded-2xl p-5 border border-gray-100">
-            <p className="text-[10px] font-bold text-gray-400 leading-relaxed uppercase tracking-widest text-center">
-              Zahi Mobility operates on a zero-subscription model. We only grow when our partners grow.
-            </p>
-          </div>
-
-          <AnimatePresence>
-            {selectedDriver && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6 p-6 bg-gray-900 rounded-[28px] text-white shadow-xl shadow-gray-900/10 border border-gray-800"
-              >
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-orange-400">
-                     <FiShield />
-                  </div>
-                  <div>
-                    <h5 className="font-extrabold text-white text-lg leading-tight">{selectedDriver.driver.full_name}</h5>
-                    <p className="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Driver Confirmed</p>
-                  </div>
-                </div>
-                <a 
-                  href={`tel:${selectedDriver.contact_phone}`}
-                  className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-xl py-3.5 px-4 font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
-                >
-                  <FiPhone /> Call This Driver
-                </a>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </section>
       </div>
     </div>
   );

@@ -110,7 +110,7 @@ const Header = () => {
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
-          
+
           {/* Logo & Location */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
             <Link to="/" className="flex items-center gap-3 group">
@@ -132,10 +132,9 @@ const Header = () => {
                   key={item.to}
                   to={item.to}
                   className={({ isActive }) =>
-                    `flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${
-                      isActive
-                        ? "bg-white text-orange-600 shadow-sm ring-1 ring-gray-200"
-                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-100/50"
+                    `flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${isActive
+                      ? "bg-white text-orange-600 shadow-sm ring-1 ring-gray-200"
+                      : "text-gray-500 hover:text-gray-900 hover:bg-gray-100/50"
                     }`
                   }
                 >
@@ -204,8 +203,7 @@ const Header = () => {
                     to={item.to}
                     onClick={() => setMobileOpen(false)}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 p-4 rounded-2xl font-bold transition-colors ${
-                        isActive ? "bg-orange-50 text-orange-600" : "text-gray-600 hover:bg-gray-50"
+                      `flex items-center gap-3 p-4 rounded-2xl font-bold transition-colors ${isActive ? "bg-orange-50 text-orange-600" : "text-gray-600 hover:bg-gray-50"
                       }`
                     }
                   >
@@ -214,7 +212,7 @@ const Header = () => {
                   </NavLink>
                 );
               })}
-              
+
               <div className="pt-4 mt-2 border-t border-gray-100 grid gap-3">
                 {isAuthenticated ? (
                   <>
