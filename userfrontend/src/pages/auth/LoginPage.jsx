@@ -18,7 +18,7 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const nextPath = location.state?.from || "/account";
+  const nextPath = location.state?.from || "/activity";
 
   const finishLogin = (payload) => {
     const sessionUser = applySession(payload);
@@ -87,16 +87,16 @@ const LoginPage = () => {
       footer={
         <p>
           No account yet?{" "}
-          <Link to="/register" className="font-semibold text-[#8e3f11]">
+          <Link to="/register" className="auth-link font-semibold text-[#8e3f11]">
             Create one now
           </Link>
         </p>
       }
     >
       <div className="fade-up">
-        <p className="text-xs uppercase tracking-[0.24em] text-[#a6633b]">Sign in</p>
-        <h2 className="font-display mt-3 text-5xl text-[#1f1812]">Welcome back</h2>
-        <p className="mt-3 text-sm leading-7 text-[#6a5f56]">
+        <p className="auth-link text-xs uppercase tracking-[0.24em] text-[#a6633b]">Sign in</p>
+        <h2 className="auth-heading font-display mt-3 text-5xl text-[#1f1812]">Welcome back</h2>
+        <p className="auth-muted mt-3 text-sm leading-7 text-[#6a5f56]">
           Pick up where you left off and continue browsing real restaurant and hotel data.
         </p>
       </div>
@@ -105,7 +105,7 @@ const LoginPage = () => {
         <button
           type="button"
           onClick={() => googleLogin()}
-          className="inline-flex w-full items-center justify-center gap-3 rounded-full border border-[rgba(96,73,53,0.14)] bg-white px-5 py-3.5 text-sm font-medium text-[#1f1812] shadow-sm hover:bg-[#fffaf4]"
+          className="auth-secondary-button inline-flex w-full items-center justify-center gap-3 rounded-full border border-[rgba(96,73,53,0.14)] bg-white px-5 py-3.5 text-sm font-medium text-[#1f1812] shadow-sm hover:bg-[#fffaf4]"
         >
           <span className="text-lg">G</span>
           Continue with Google
@@ -120,7 +120,7 @@ const LoginPage = () => {
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4 fade-up">
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[#3f342a]">Email or username</span>
+          <span className="auth-heading mb-2 block text-sm font-medium text-[#3f342a]">Email or username</span>
           <div className="relative">
             <UserRound className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d8a79]" />
             <input
@@ -128,14 +128,14 @@ const LoginPage = () => {
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               placeholder="you@example.com"
-              className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
               required
             />
           </div>
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[#3f342a]">Password</span>
+          <span className="auth-heading mb-2 block text-sm font-medium text-[#3f342a]">Password</span>
           <div className="relative">
             <KeyRound className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d8a79]" />
             <input
@@ -143,7 +143,7 @@ const LoginPage = () => {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Enter your password"
-              className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
               required
             />
             <button
@@ -157,14 +157,14 @@ const LoginPage = () => {
         </label>
 
         <div className="flex items-center justify-between text-sm">
-          <span className="text-[#8a7869]">Uses the same refresh-cookie session as the owner app.</span>
-          <Link to="/forgot-password" className="font-medium text-[#8e3f11]">
+          <span className="auth-muted text-[#8a7869]">Uses the same refresh-cookie session as the owner app.</span>
+          <Link to="/forgot-password" className="auth-link font-medium text-[#8e3f11]">
             Forgot password
           </Link>
         </div>
 
         {error ? (
-          <div className="rounded-[22px] border border-[#efc8b7] bg-[#fff1ea] px-4 py-3 text-sm text-[#9f4318]">
+          <div className="auth-error rounded-[22px] border border-[#efc8b7] bg-[#fff1ea] px-4 py-3 text-sm text-[#9f4318]">
             {error}
           </div>
         ) : null}
@@ -172,7 +172,7 @@ const LoginPage = () => {
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(31,24,18,0.12)] hover:bg-[#2f241d] disabled:cursor-not-allowed disabled:opacity-70"
+          className="auth-primary-button inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(31,24,18,0.12)] hover:bg-[#2f241d] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading ? "Signing in..." : "Enter Zahi"}
           <ArrowRight className="h-4 w-4" />

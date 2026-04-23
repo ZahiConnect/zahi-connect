@@ -63,23 +63,23 @@ const RegisterPage = () => {
       footer={
         <p>
           Already registered?{" "}
-          <Link to="/login" className="font-semibold text-[#8e3f11]">
+          <Link to="/login" className="auth-link font-semibold text-[#8e3f11]">
             Sign in instead
           </Link>
         </p>
       }
     >
       <div className="fade-up">
-        <p className="text-xs uppercase tracking-[0.24em] text-[#a6633b]">Register</p>
-        <h2 className="font-display mt-3 text-5xl text-[#1f1812]">Join the Zahi flow</h2>
-        <p className="mt-3 text-sm leading-7 text-[#6a5f56]">
+        <p className="auth-link text-xs uppercase tracking-[0.24em] text-[#a6633b]">Register</p>
+        <h2 className="auth-heading font-display mt-3 text-5xl text-[#1f1812]">Join the Zahi flow</h2>
+        <p className="auth-muted mt-3 text-sm leading-7 text-[#6a5f56]">
           Browse hotels, restaurants, and future hyper-local services from the same account.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4 fade-up">
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[#3f342a]">Username</span>
+          <span className="auth-heading mb-2 block text-sm font-medium text-[#3f342a]">Username</span>
           <div className="relative">
             <UserRound className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d8a79]" />
             <input
@@ -87,7 +87,7 @@ const RegisterPage = () => {
               value={form.username}
               onChange={(event) => setField("username", event.target.value)}
               placeholder="traveller.anu"
-              className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
               minLength={3}
               required
             />
@@ -95,7 +95,7 @@ const RegisterPage = () => {
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[#3f342a]">Email</span>
+          <span className="auth-heading mb-2 block text-sm font-medium text-[#3f342a]">Email</span>
           <div className="relative">
             <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d8a79]" />
             <input
@@ -103,14 +103,14 @@ const RegisterPage = () => {
               value={form.email}
               onChange={(event) => setField("email", event.target.value)}
               placeholder="you@example.com"
-              className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
               required
             />
           </div>
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[#3f342a]">Mobile number</span>
+          <span className="auth-heading mb-2 block text-sm font-medium text-[#3f342a]">Mobile number</span>
           <div className="relative">
             <Phone className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d8a79]" />
             <input
@@ -118,13 +118,13 @@ const RegisterPage = () => {
               value={form.mobile}
               onChange={(event) => setField("mobile", event.target.value)}
               placeholder="+91 98765 43210"
-              className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
             />
           </div>
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[#3f342a]">Password</span>
+          <span className="auth-heading mb-2 block text-sm font-medium text-[#3f342a]">Password</span>
           <div className="relative">
             <KeyRound className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d8a79]" />
             <input
@@ -132,7 +132,7 @@ const RegisterPage = () => {
               value={form.password}
               onChange={(event) => setField("password", event.target.value)}
               placeholder="At least 6 characters"
-              className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
               minLength={6}
               required
             />
@@ -147,7 +147,7 @@ const RegisterPage = () => {
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[#3f342a]">Confirm password</span>
+          <span className="auth-heading mb-2 block text-sm font-medium text-[#3f342a]">Confirm password</span>
           <div className="relative">
             <KeyRound className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d8a79]" />
             <input
@@ -155,7 +155,7 @@ const RegisterPage = () => {
               value={form.confirmPassword}
               onChange={(event) => setField("confirmPassword", event.target.value)}
               placeholder="Repeat your password"
-              className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
               minLength={6}
               required
             />
@@ -170,7 +170,7 @@ const RegisterPage = () => {
         </label>
 
         {error ? (
-          <div className="rounded-[22px] border border-[#efc8b7] bg-[#fff1ea] px-4 py-3 text-sm text-[#9f4318]">
+          <div className="auth-error rounded-[22px] border border-[#efc8b7] bg-[#fff1ea] px-4 py-3 text-sm text-[#9f4318]">
             {error}
           </div>
         ) : null}
@@ -178,7 +178,7 @@ const RegisterPage = () => {
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#2f241d] disabled:cursor-not-allowed disabled:opacity-70"
+          className="auth-primary-button inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#2f241d] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading ? "Creating account..." : "Create account"}
           <ArrowRight className="h-4 w-4" />

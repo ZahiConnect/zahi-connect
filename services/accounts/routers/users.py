@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from dependencies import get_current_admin, get_current_user
 from models.user import User
-from schemas.auth import UserSchema, UserUpdateSchema
+from schemas.auth import SelfUserProfileUpdateSchema, UserSchema, UserUpdateSchema
+from services.user_payload import build_authenticated_user_payload
 
 router = APIRouter(tags=["Users"])
 
@@ -23,6 +24,56 @@ router = APIRouter(tags=["Users"])
 async def get_me(current_user: User = Depends(get_current_user)):
     """Get current authenticated user."""
     return current_user
+
+
+@router.patch("/me")
+async def update_my_profile(
+    data: SelfUserProfileUpdateSchema,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Allow a signed-in customer to update their own profile details."""
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "username" in update_data:
+        username = (update_data.get("username") or "").strip()
+        if not username:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username cannot be empty.")
+        existing_username = await db.execute(
+            select(User).where(User.username == username, User.id != current_user.id)
+        )
+        if existing_username.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="That username is already in use.",
+            )
+        current_user.username = username
+
+    if "email" in update_data:
+        email = str(update_data.get("email") or "").strip().lower()
+        if not email:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email cannot be empty.")
+        existing_email = await db.execute(
+            select(User).where(User.email == email, User.id != current_user.id)
+        )
+        if existing_email.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="That email is already connected to another account.",
+            )
+        current_user.email = email
+
+    for field in ("mobile", "first_name", "last_name", "address"):
+        if field not in update_data:
+            continue
+        value = update_data.get(field)
+        if isinstance(value, str):
+            value = value.strip() or None
+        setattr(current_user, field, value)
+
+    await db.commit()
+    await db.refresh(current_user)
+    return await build_authenticated_user_payload(db, current_user)
 
 
 # Mirrors MyCalo's UserListView (queryset = CustomUser.objects.all().order_by("id"))

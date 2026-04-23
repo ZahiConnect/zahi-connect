@@ -1,12 +1,12 @@
 import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiMenu, FiX, FiLogOut, FiUser, FiMapPin, FiArrowRight } from "react-icons/fi";
+import { FiMenu, FiX, FiMapPin, FiArrowRight } from "react-icons/fi";
 import { MdOutlineHotel, MdOutlineRestaurant, MdOutlineLocalTaxi, MdOutlineFlight } from "react-icons/md";
-import { BiRestaurant } from "react-icons/bi";
 
+import { DesktopAccountMenu, MobileAccountPanel, ThemeToggleButton } from "./components/AccountMenu";
 import { useAuth } from "./context/AuthContext";
-import AccountPage from "./pages/AccountPage";
+import ActivityPage from "./pages/ActivityPage";
 import useCustomerLocation from "./hooks/useCustomerLocation";
 import CabsPage from "./pages/CabsPage";
 import FlightsPage from "./pages/FlightsPage";
@@ -62,7 +62,7 @@ const PublicOnlyRoute = ({ children }) => {
 
   if (loading) return <LoadingSplash />;
   if (isAuthenticated) {
-    return <Navigate to="/account" replace />;
+    return <Navigate to="/activity" replace />;
   }
 
   return children;
@@ -101,9 +101,13 @@ const LocationBadge = () => {
 };
 
 const Header = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const initials = useMemo(() => (user?.username || user?.email || "Z").slice(0, 2).toUpperCase(), [user]);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname, location.search]);
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100">
@@ -146,21 +150,9 @@ const Header = () => {
 
           {/* Desktop Auth */}
           <div className="hidden md:flex items-center gap-3">
+            <ThemeToggleButton compact />
             {isAuthenticated ? (
-              <div className="flex items-center gap-3 bg-gray-50 p-1 pr-4 rounded-full border border-gray-100">
-                <Link to="/account" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                  <div className="w-9 h-9 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center font-bold text-xs">
-                    {initials}
-                  </div>
-                  <span className="text-sm font-bold text-gray-700 max-w-[100px] truncate">
-                    {user?.username?.split(" ")[0] || "Account"}
-                  </span>
-                </Link>
-                <div className="w-px h-4 bg-gray-300 mx-1"></div>
-                <button onClick={logout} className="text-gray-400 hover:text-red-500 transition-colors p-1" title="Logout">
-                  <FiLogOut className="text-lg" />
-                </button>
-              </div>
+              <DesktopAccountMenu />
             ) : (
               <div className="flex items-center gap-2">
                 <Link to="/login" className="px-5 py-2.5 font-bold text-sm text-gray-600 hover:text-gray-900 transition-colors">
@@ -217,16 +209,10 @@ const Header = () => {
 
               <div className="pt-4 mt-2 border-t border-gray-100 grid gap-3">
                 {isAuthenticated ? (
-                  <>
-                    <Link to="/account" onClick={() => setMobileOpen(false)} className="flex items-center justify-center gap-2 p-4 bg-gray-50 rounded-2xl font-bold text-gray-900">
-                      <FiUser /> My Account
-                    </Link>
-                    <button onClick={async () => { setMobileOpen(false); await logout(); }} className="flex items-center justify-center gap-2 p-4 text-red-500 font-bold hover:bg-red-50 rounded-2xl transition-colors">
-                      <FiLogOut /> Log out
-                    </button>
-                  </>
+                  <MobileAccountPanel onClose={() => setMobileOpen(false)} />
                 ) : (
                   <>
+                    <ThemeToggleButton onToggleComplete={() => setMobileOpen(false)} />
                     <Link
                       to="/register"
                       onClick={() => setMobileOpen(false)}
@@ -270,7 +256,7 @@ const Footer = () => (
       <div>
         <p className="text-xs uppercase tracking-[0.24em] text-[#c15d1f]">Account</p>
         <div className="mt-4 flex flex-col gap-3">
-          <Link to="/account">My bookings</Link>
+          <Link to="/activity">My activity</Link>
           <Link to="/login">Sign in</Link>
           <Link to="/register">Create account</Link>
         </div>
@@ -302,7 +288,7 @@ const NotFoundPage = () => (
       className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#1f1812] px-5 py-3 text-sm font-medium text-white"
     >
       Back to home
-      <ArrowRight className="h-4 w-4" />
+      <FiArrowRight className="h-4 w-4" />
     </Link>
   </div>
 );
@@ -320,10 +306,18 @@ function App() {
           <Route path="/cabs" element={<CabsPage />} />
           <Route path="/flights" element={<FlightsPage />} />
           <Route
+            path="/activity"
+            element={
+              <ProtectedRoute>
+                <ActivityPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/account"
             element={
               <ProtectedRoute>
-                <AccountPage />
+                <Navigate to="/activity" replace />
               </ProtectedRoute>
             }
           />
@@ -355,19 +349,11 @@ function App() {
         />
         <Route
           path="/forgot-password"
-          element={
-            <PublicOnlyRoute>
-              <ForgotPasswordPage />
-            </PublicOnlyRoute>
-          }
+          element={<ForgotPasswordPage />}
         />
         <Route
           path="/reset-password"
-          element={
-            <PublicOnlyRoute>
-              <ResetPasswordPage />
-            </PublicOnlyRoute>
-          }
+          element={<ResetPasswordPage />}
         />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

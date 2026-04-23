@@ -1,14 +1,14 @@
 import { Link } from "react-router-dom";
 
 const AuthShell = ({ eyebrow, title, description, children, footer }) => (
-  <div className="relative min-h-screen overflow-hidden px-4 py-8">
+  <div className="auth-shell relative min-h-screen overflow-hidden px-4 py-8">
     <div className="pointer-events-none absolute inset-0">
       <div className="absolute left-[8%] top-[8%] h-44 w-44 rounded-full bg-[rgba(213,109,46,0.18)] blur-3xl" />
       <div className="absolute bottom-[10%] right-[12%] h-52 w-52 rounded-full bg-[rgba(46,125,103,0.14)] blur-3xl" />
     </div>
 
-    <div className="relative mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-[36px] border border-[rgba(92,70,53,0.12)] bg-[rgba(255,250,244,0.7)] shadow-[0_30px_100px_rgba(61,42,26,0.12)] lg:grid-cols-[1fr_0.95fr]">
-      <div className="hero-grid relative hidden overflow-hidden bg-[#1f1812] px-10 py-12 text-white lg:flex lg:flex-col lg:justify-between">
+    <div className="auth-panel relative mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-[36px] border border-[rgba(92,70,53,0.12)] bg-[rgba(255,250,244,0.7)] shadow-[0_30px_100px_rgba(61,42,26,0.12)] lg:grid-cols-[1fr_0.95fr]">
+      <div className="auth-hero hero-grid relative hidden overflow-hidden bg-[#1f1812] px-10 py-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(213,109,46,0.35),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(46,125,103,0.28),transparent_28%)]" />
         <div className="relative">
           <Link to="/" className="inline-flex items-center gap-3">
@@ -53,15 +53,15 @@ const AuthShell = ({ eyebrow, title, description, children, footer }) => (
                 Z
               </div>
               <div>
-                <p className="font-display text-3xl text-[#1f1812]">Zahi Connect</p>
-                <p className="text-xs uppercase tracking-[0.24em] text-[#876c56]">Customer access</p>
+                <p className="auth-heading font-display text-3xl text-[#1f1812]">Zahi Connect</p>
+                <p className="auth-muted text-xs uppercase tracking-[0.24em] text-[#876c56]">Customer access</p>
               </div>
             </Link>
           </div>
 
           {children}
 
-          {footer ? <div className="mt-8 text-sm text-[#6a5f56]">{footer}</div> : null}
+          {footer ? <div className="auth-muted mt-8 text-sm text-[#6a5f56]">{footer}</div> : null}
         </div>
       </div>
     </div>

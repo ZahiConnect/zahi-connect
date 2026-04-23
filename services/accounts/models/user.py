@@ -68,6 +68,7 @@ class User(Base):
     mobile = Column(String(15), nullable=True)  # max_length=15 same as MyCalo
     first_name = Column(String(150), nullable=True)
     last_name = Column(String(150), nullable=True)
+    address = Column(Text, nullable=True)
 
     # --- OTP fields (same as MyCalo) ---
     otp = Column(String(6), nullable=True)

@@ -223,7 +223,7 @@ const RestaurantDetailPage = () => {
         },
       });
       toast.success("Restaurant request saved to your account.");
-      navigate("/account");
+      navigate("/activity");
     } catch (error) {
       toast.error(error.response?.data?.detail || "Could not save the restaurant request.");
     } finally {
@@ -285,7 +285,7 @@ const RestaurantDetailPage = () => {
               razorpay_signature: paymentResult.razorpay_signature,
             });
             toast.success("Payment completed and your order was saved.");
-            navigate("/account");
+            navigate("/activity");
           } catch (verificationError) {
             console.error("Restaurant payment verification failed", verificationError);
             toast.error(

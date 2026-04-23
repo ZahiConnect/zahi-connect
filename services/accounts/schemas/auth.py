@@ -125,6 +125,7 @@ class UserSchema(BaseModel):
     mobile: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    address: Optional[str] = None
     role: str
     status: str
     is_active: bool
@@ -139,8 +140,18 @@ class UserUpdateSchema(BaseModel):
     mobile: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    address: Optional[str] = None
     status: Optional[str] = None
     role: Optional[str] = None
+
+
+class SelfUserProfileUpdateSchema(BaseModel):
+    username: Optional[str] = Field(default=None, min_length=3, max_length=150)
+    email: Optional[EmailStr] = None
+    mobile: Optional[str] = Field(default=None, max_length=15)
+    first_name: Optional[str] = Field(default=None, max_length=150)
+    last_name: Optional[str] = Field(default=None, max_length=150)
+    address: Optional[str] = Field(default=None, max_length=2000)
 
 
 # ──────────────────────────────────────────────────────────────

@@ -199,6 +199,7 @@ const CabsPage = () => {
       } else {
         toast.success("Ride request saved. We will assign the nearest active driver.");
       }
+      navigate("/activity");
     } catch (error) {
       toast.error(error.response?.data?.detail || "Could not confirm the cab request.");
     } finally {

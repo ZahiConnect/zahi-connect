@@ -37,6 +37,7 @@ async def initialize_database():
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
                 await conn.execute(text("ALTER TABLE tenants DROP CONSTRAINT IF EXISTS tenants_email_key"))
+                await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT"))
             async with AsyncSessionLocal() as session:
                 users = (
                     await session.execute(select(User).where(User.tenant_id.is_not(None)))

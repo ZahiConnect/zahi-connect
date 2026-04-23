@@ -61,23 +61,23 @@ const ResetPasswordPage = () => {
       footer={
         <p>
           Need another code?{" "}
-          <Link to="/forgot-password" className="font-semibold text-[#8e3f11]">
+          <Link to="/forgot-password" className="auth-link font-semibold text-[#8e3f11]">
             Request OTP again
           </Link>
         </p>
       }
     >
       <div className="fade-up">
-        <p className="text-xs uppercase tracking-[0.24em] text-[#a6633b]">Reset password</p>
-        <h2 className="font-display mt-3 text-5xl text-[#1f1812]">Choose a new password</h2>
-        <p className="mt-3 text-sm leading-7 text-[#6a5f56]">
+        <p className="auth-link text-xs uppercase tracking-[0.24em] text-[#a6633b]">Reset password</p>
+        <h2 className="auth-heading font-display mt-3 text-5xl text-[#1f1812]">Choose a new password</h2>
+        <p className="auth-muted mt-3 text-sm leading-7 text-[#6a5f56]">
           Resetting access for <span className="font-medium text-[#1f1812]">{email}</span>.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4 fade-up">
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[#3f342a]">OTP</span>
+          <span className="auth-heading mb-2 block text-sm font-medium text-[#3f342a]">OTP</span>
           <div className="relative">
             <ShieldCheck className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d8a79]" />
             <input
@@ -85,14 +85,14 @@ const ResetPasswordPage = () => {
               value={form.otp}
               onChange={(event) => setField("otp", event.target.value.replace(/\D/g, "").slice(0, 6))}
               placeholder="123456"
-              className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 tracking-[0.35em] outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 tracking-[0.35em] outline-none focus:border-[#d56d2e]"
               required
             />
           </div>
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[#3f342a]">New password</span>
+          <span className="auth-heading mb-2 block text-sm font-medium text-[#3f342a]">New password</span>
           <div className="relative">
             <KeyRound className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d8a79]" />
             <input
@@ -100,7 +100,7 @@ const ResetPasswordPage = () => {
               value={form.password}
               onChange={(event) => setField("password", event.target.value)}
               placeholder="At least 6 characters"
-              className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
               minLength={6}
               required
             />
@@ -115,7 +115,7 @@ const ResetPasswordPage = () => {
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[#3f342a]">Confirm password</span>
+          <span className="auth-heading mb-2 block text-sm font-medium text-[#3f342a]">Confirm password</span>
           <div className="relative">
             <KeyRound className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d8a79]" />
             <input
@@ -123,7 +123,7 @@ const ResetPasswordPage = () => {
               value={form.confirmPassword}
               onChange={(event) => setField("confirmPassword", event.target.value)}
               placeholder="Repeat your password"
-              className="w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
               minLength={6}
               required
             />
@@ -138,7 +138,7 @@ const ResetPasswordPage = () => {
         </label>
 
         {error ? (
-          <div className="rounded-[22px] border border-[#efc8b7] bg-[#fff1ea] px-4 py-3 text-sm text-[#9f4318]">
+          <div className="auth-error rounded-[22px] border border-[#efc8b7] bg-[#fff1ea] px-4 py-3 text-sm text-[#9f4318]">
             {error}
           </div>
         ) : null}
@@ -146,7 +146,7 @@ const ResetPasswordPage = () => {
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#2f241d] disabled:cursor-not-allowed disabled:opacity-70"
+          className="auth-primary-button inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#2f241d] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading ? "Updating password..." : "Save new password"}
           <ArrowRight className="h-4 w-4" />

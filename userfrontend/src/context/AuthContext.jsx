@@ -61,6 +61,13 @@ export const AuthProvider = ({ children }) => {
     }
   }, [clearSession]);
 
+  const updateProfile = useCallback(async (payload) => {
+    const response = await api.patch("/auth/users/me", payload);
+    const nextUser = buildSessionUser(response.data);
+    setUser(nextUser);
+    return nextUser;
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -69,8 +76,9 @@ export const AuthProvider = ({ children }) => {
       applySession,
       logout,
       refreshSession,
+      updateProfile,
     }),
-    [applySession, loading, logout, refreshSession, user]
+    [applySession, loading, logout, refreshSession, updateProfile, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

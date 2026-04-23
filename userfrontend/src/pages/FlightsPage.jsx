@@ -277,7 +277,7 @@ const FlightsPage = () => {
 
             toast.dismiss(loadToast);
             toast.success("🛫 Flight booked successfully!");
-            navigate("/account"); 
+            navigate("/activity");
           } catch (err) {
             toast.error("Payment verification failed. Please contact support.");
           } finally {

@@ -39,7 +39,7 @@ const VerifyOtpPage = () => {
         return;
       }
       toast.success("Your account is verified.");
-      navigate("/account", { replace: true });
+      navigate("/activity", { replace: true });
     } catch (requestError) {
       setError(requestError.response?.data?.detail || "Invalid OTP.");
     } finally {
