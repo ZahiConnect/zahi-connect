@@ -18,12 +18,14 @@ import { BiGlobe } from "react-icons/bi";
 import toast from "react-hot-toast";
 
 import { useAuth } from "../context/AuthContext";
+import useCustomerLocation from "../hooks/useCustomerLocation";
 import { loadRazorpayScript } from "../lib/razorpay";
 import {
   buildWhatsAppLink,
   formatAddress,
   formatCurrency,
   formatDateRange,
+  formatDistance,
   todayDate,
 } from "../lib/format";
 import bookingService from "../services/bookingService";
@@ -129,6 +131,10 @@ const HotelDetailPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, user } = useAuth();
+  const { coordinates } = useCustomerLocation(true);
+  const coordinateKey = coordinates
+    ? `${coordinates.latitude.toFixed(5)}:${coordinates.longitude.toFixed(5)}`
+    : "no-location";
   const [searchParams] = useSearchParams();
   const [hotel, setHotel] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -148,7 +154,15 @@ const HotelDetailPage = () => {
     let active = true;
     const load = async () => {
       try {
-        const data = await marketplaceService.getHotel(slug);
+        const data = await marketplaceService.getHotel(
+          slug,
+          coordinates
+            ? {
+                latitude: coordinates.latitude,
+                longitude: coordinates.longitude,
+              }
+            : undefined
+        );
         if (active) setHotel(data);
       } catch (error) {
         console.error("Failed to load hotel detail", error);
@@ -159,7 +173,7 @@ const HotelDetailPage = () => {
     };
     load();
     return () => { active = false; };
-  }, [slug]);
+  }, [coordinateKey, slug]);
 
   useEffect(() => {
     setGuestProfile((c) => ({
@@ -536,6 +550,13 @@ const HotelDetailPage = () => {
               <FiMapPin className="text-indigo-400 shrink-0" />
               <span className="truncate">{formatAddress(hotel.settings?.address)}</span>
             </p>
+
+            {hotel.summary?.distance_km != null && (
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-widest text-indigo-200 mb-6">
+                <FiMapPin className="text-indigo-300" />
+                {formatDistance(hotel.summary.distance_km)}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 mb-6">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">

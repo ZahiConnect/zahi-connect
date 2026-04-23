@@ -10,7 +10,6 @@ import AccountPage from "./pages/AccountPage";
 import useCustomerLocation from "./hooks/useCustomerLocation";
 import CabsPage from "./pages/CabsPage";
 import FlightsPage from "./pages/FlightsPage";
-import HomePage from "./pages/HomePage";
 import HotelDetailPage from "./pages/HotelDetailPage";
 import HotelsPage from "./pages/HotelsPage";
 import LoginPage from "./pages/auth/LoginPage";
@@ -167,7 +166,10 @@ const Header = () => {
                 <Link to="/login" className="px-5 py-2.5 font-bold text-sm text-gray-600 hover:text-gray-900 transition-colors">
                   Log in
                 </Link>
-                <Link to="/register" className="px-6 py-2.5 bg-gray-900 text-white hover:bg-black font-bold text-sm rounded-full shadow-lg shadow-gray-900/20 transition-all active:scale-95">
+                <Link
+                  to="/register"
+                  className="px-6 py-2.5 bg-gray-900 !text-white visited:!text-white hover:bg-black hover:!text-white focus-visible:!text-white font-bold text-sm rounded-full shadow-lg shadow-gray-900/20 transition-all active:scale-95"
+                >
                   Sign up
                 </Link>
               </div>
@@ -225,7 +227,11 @@ const Header = () => {
                   </>
                 ) : (
                   <>
-                    <Link to="/register" onClick={() => setMobileOpen(false)} className="flex items-center justify-center gap-2 p-4 bg-gray-900 text-white rounded-2xl font-bold shadow-md">
+                    <Link
+                      to="/register"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center justify-center gap-2 p-4 bg-gray-900 !text-white visited:!text-white hover:!text-white focus-visible:!text-white rounded-2xl font-bold shadow-md"
+                    >
                       Get Started <FiArrowRight />
                     </Link>
                     <Link to="/login" onClick={() => setMobileOpen(false)} className="flex items-center justify-center gap-2 p-4 bg-gray-50 text-gray-600 rounded-2xl font-bold">
@@ -306,7 +312,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<AppShell />}>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<Navigate to="/hotels" replace />} />
           <Route path="/hotels" element={<HotelsPage />} />
           <Route path="/hotels/:slug" element={<HotelDetailPage />} />
           <Route path="/restaurants" element={<RestaurantsPage />} />

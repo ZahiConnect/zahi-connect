@@ -10,8 +10,8 @@ export const marketplaceService = {
   getRestaurants: (params, requestConfig) => getPayload("/auth/marketplace/restaurants", params, requestConfig),
   getRestaurant: (slug, params, requestConfig) =>
     getPayload(`/auth/marketplace/restaurants/${slug}`, params, requestConfig),
-  getHotels: () => getPayload("/auth/marketplace/hotels"),
-  getHotel: (slug) => getPayload(`/auth/marketplace/hotels/${slug}`),
+  getHotels: (params, requestConfig) => getPayload("/auth/marketplace/hotels", params, requestConfig),
+  getHotel: (slug, params, requestConfig) => getPayload(`/auth/marketplace/hotels/${slug}`, params, requestConfig),
   getFlights: () => getPayload("/auth/marketplace/flights"),
   getFlight: (slug) => getPayload(`/auth/marketplace/flights/${slug}`),
 };

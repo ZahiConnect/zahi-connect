@@ -2,11 +2,11 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  HiOutlineArrowRight,
-  HiOutlineCheckCircle,
-  HiOutlinePlusCircle,
-  HiOutlineRefresh,
-} from "react-icons/hi";
+  FiArrowRight,
+  FiCheckCircle,
+  FiPlusCircle,
+  FiRefreshCw,
+} from "react-icons/fi";
 import toast from "react-hot-toast";
 import api, { setAccessToken } from "../../lib/axios";
 import { setCredentials } from "../../redux/authslice";
@@ -65,31 +65,36 @@ const WorkspaceSelectPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F1EA] px-5 py-10 text-[#1F1A17] sm:px-8 lg:px-10">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <section className="rounded-[34px] border border-[#E7DCCE] bg-[linear-gradient(135deg,#FFF9F2_0%,#F4E5D6_58%,#EBD5C2_100%)] p-8 shadow-[0_20px_55px_rgba(117,81,44,0.12)] sm:p-10">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8 flex flex-col items-center">
+      <div className="mx-auto w-full max-w-6xl space-y-8">
+        
+        {/* Header Hero Section */}
+        <section className="rounded-[40px] border border-gray-100 bg-white p-8 md:p-12 shadow-sm overflow-hidden relative">
+          <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[150%] bg-gradient-to-l from-indigo-50 via-white to-white pointer-events-none" />
+          
+          <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <p className="text-sm uppercase tracking-[0.24em] text-[#A76541]">Choose workspace</p>
-              <h1 className="mt-3 text-4xl font-serif sm:text-5xl">
+              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-indigo-600 mb-2">Choose workspace</p>
+              <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight mb-4">
                 Pick the dashboard you want to open.
               </h1>
-              <p className="mt-4 text-base leading-7 text-[#5C4A3C]">
+              <p className="text-sm font-bold leading-relaxed text-gray-500 max-w-xl">
                 One account can now manage multiple Zahi business workspaces. Open the current one,
                 switch to another business, or add a new workspace from the pricing page.
               </p>
             </div>
 
-            <div className="rounded-3xl border border-[#DFC7B2] bg-white/80 px-5 py-4 text-sm text-[#5C4A3C]">
-              <p className="font-semibold text-[#1F1A17]">
-                {workspaces.length} workspace{workspaces.length === 1 ? "" : "s"}
+            <div className="rounded-3xl border border-gray-200 bg-gray-50/50 px-6 py-5 text-sm">
+              <p className="font-extrabold text-gray-900">
+                {workspaces.length} Workspace{workspaces.length === 1 ? "" : "s"}
               </p>
-              <p className="mt-1">Signed in as {user?.email || user?.username}</p>
+              <p className="mt-1 font-bold text-gray-500 text-[11px] uppercase tracking-widest">Signed in as {user?.email || user?.username}</p>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+        {/* Workspaces Grid */}
+        <section className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
           {workspaces.map((workspace) => {
             const isActive = workspace.tenant_id === activeWorkspace?.tenant_id;
             const isSwitching = switchingTenantId === workspace.tenant_id;
@@ -97,38 +102,37 @@ const WorkspaceSelectPage = () => {
             return (
               <article
                 key={workspace.tenant_id}
-                className="rounded-[30px] border border-[#E8DDD1] bg-white p-7 shadow-sm"
+                className={`rounded-[40px] border ${isActive ? "border-indigo-100 shadow-md shadow-indigo-900/5" : "border-gray-100 shadow-sm"} bg-white p-8 transition-all hover:shadow-lg`}
               >
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start justify-between gap-4 mb-6">
                   <div>
-                    <p className="text-sm uppercase tracking-[0.18em] text-[#A76541]">
+                    <p className={`inline-flex px-3 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-widest mb-4 border ${isActive ? "bg-indigo-50 text-indigo-600 border-indigo-100" : "bg-gray-50 text-gray-500 border-gray-200"}`}>
                       {getWorkspaceLabel(workspace.business_type)}
                     </p>
-                    <h2 className="mt-3 text-3xl font-serif text-[#1F1A17]">
+                    <h2 className="text-2xl font-extrabold text-gray-900">
                       {workspace.tenant_name || "Unnamed workspace"}
                     </h2>
                   </div>
 
-                  {isActive ? (
-                    <span className="inline-flex items-center gap-2 rounded-full bg-[#EEF6EA] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#2D6A3C]">
-                      <HiOutlineCheckCircle className="text-sm" />
-                      Active
+                  {isActive && (
+                    <span className="flex items-center justify-center w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-500">
+                      <FiCheckCircle className="text-xl" />
                     </span>
-                  ) : null}
+                  )}
                 </div>
 
-                <div className="mt-6 space-y-3 text-sm text-[#625446]">
-                  <div className="rounded-2xl bg-[#FBF5EE] px-4 py-3">
-                    Business type:{" "}
-                    <span className="font-medium capitalize text-[#1F1A17]">
-                      {workspace.business_type}
-                    </span>
+                <div className="mt-6 mb-8 space-y-3">
+                  <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-5 py-4 border border-gray-100/50">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Business type</span>
+                    <span className="text-sm font-extrabold capitalize text-gray-900">{workspace.business_type}</span>
                   </div>
-                  <div className="rounded-2xl bg-[#FBF5EE] px-4 py-3">
-                    Plan: <span className="font-medium text-[#1F1A17]">{workspace.plan}</span>
+                  <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-5 py-4 border border-gray-100/50">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Plan</span>
+                    <span className="text-sm font-extrabold text-gray-900">{workspace.plan}</span>
                   </div>
-                  <div className="rounded-2xl bg-[#FBF5EE] px-4 py-3">
-                    Access role: <span className="font-medium text-[#1F1A17]">{workspace.role}</span>
+                  <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-5 py-4 border border-gray-100/50">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Access role</span>
+                    <span className="text-sm font-extrabold text-gray-900">{workspace.role}</span>
                   </div>
                 </div>
 
@@ -136,17 +140,21 @@ const WorkspaceSelectPage = () => {
                   type="button"
                   onClick={() => openWorkspace(workspace)}
                   disabled={isSwitching}
-                  className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1F1A17] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#35281F] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-extrabold transition-all disabled:cursor-not-allowed disabled:opacity-60 active:scale-95 ${
+                    isActive 
+                      ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/20" 
+                      : "bg-gray-900 text-white hover:bg-black shadow-md shadow-gray-900/10"
+                  }`}
                 >
                   {isSwitching ? (
                     <>
-                      <HiOutlineRefresh className="animate-spin text-base" />
+                      <FiRefreshCw className="animate-spin text-lg" />
                       Switching...
                     </>
                   ) : (
                     <>
                       {isActive ? "Open dashboard" : "Switch and open"}
-                      <HiOutlineArrowRight className="text-base" />
+                      <FiArrowRight className="text-lg" />
                     </>
                   )}
                 </button>
@@ -154,10 +162,12 @@ const WorkspaceSelectPage = () => {
             );
           })}
 
-          <article className="rounded-[30px] border border-dashed border-[#D8C7B8] bg-[#FCF7F1] p-7 shadow-sm">
-            <p className="text-sm uppercase tracking-[0.18em] text-[#A76541]">Expand account</p>
-            <h2 className="mt-3 text-3xl font-serif text-[#1F1A17]">Add another workspace</h2>
-            <p className="mt-4 text-sm leading-7 text-[#625446]">
+          <article className="rounded-[40px] border-2 border-dashed border-gray-200 bg-gray-50 p-8 flex flex-col justify-center transition-colors hover:bg-gray-100/50 hover:border-gray-300">
+            <p className="inline-flex px-3 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-widest mb-4 border bg-white text-gray-500 border-gray-200 self-start">
+              Expand account
+            </p>
+            <h2 className="text-2xl font-extrabold text-gray-900 mb-3">Add another workspace</h2>
+            <p className="text-sm font-bold leading-relaxed text-gray-500 mb-8">
               Buy another restaurant, hotel, or mobility workspace from the public pricing page and
               keep it under the same login.
             </p>
@@ -165,9 +175,9 @@ const WorkspaceSelectPage = () => {
             <Link
               to="/"
               state={{ scrollToPricing: true }}
-              className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#D7C6B7] bg-white px-5 py-3 text-sm font-semibold text-[#3A2C21] transition-colors hover:bg-[#FFFDF9]"
+              className="mt-auto flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-6 py-4 text-sm font-extrabold text-gray-900 transition-colors hover:bg-gray-50 hover:border-gray-300 shadow-sm active:scale-95"
             >
-              <HiOutlinePlusCircle className="text-base" />
+              <FiPlusCircle className="text-lg" />
               Buy another workspace
             </Link>
           </article>

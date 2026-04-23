@@ -1,39 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { FiSearch, FiCalendar, FiUsers, FiFilter, FiMapPin } from "react-icons/fi";
 import { MdOutlineHotel, MdOutlineBed } from "react-icons/md";
 
-import marketplaceService from "../services/marketplaceService";
-import { formatAddress, formatCurrency, formatDateRange } from "../lib/format";
+import useCustomerLocation from "../hooks/useCustomerLocation";
+import useMarketplaceHotels from "../hooks/useMarketplaceHotels";
+import { formatAddress, formatCurrency, formatDateRange, formatDistance } from "../lib/format";
 
 const HotelsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [hotels, setHotels] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [availableOnly, setAvailableOnly] = useState(false);
+  const { coordinates, locationLabel, requestLocation } = useCustomerLocation(true);
+  const { hotels, loading } = useMarketplaceHotels(coordinates);
 
   const query = searchParams.get("query") || "";
   const checkIn = searchParams.get("checkIn") || "";
   const checkOut = searchParams.get("checkOut") || "";
   const guests = Number(searchParams.get("guests") || "2");
-
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const data = await marketplaceService.getHotels();
-        if (active) setHotels(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Failed to load hotels", error);
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    load();
-    return () => { active = false; };
-  }, []);
 
   const filteredHotels = useMemo(() => {
     return hotels.filter((hotel) => {
@@ -144,6 +128,23 @@ const HotelsPage = () => {
                 {availableOnly ? "Available ✓" : "Available Only"}
               </button>
             </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {coordinates && locationLabel ? (
+                <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2.5 rounded-full text-sm font-semibold text-indigo-700 border border-indigo-100 max-w-[280px] truncate">
+                  <FiMapPin className="text-indigo-500 shrink-0" />
+                  Near <span className="font-bold text-gray-900 truncate">{locationLabel}</span>
+                </div>
+              ) : (
+                <button
+                  onClick={requestLocation}
+                  className="flex items-center gap-2 bg-indigo-50 px-4 py-2.5 rounded-full text-sm font-semibold text-indigo-700 border border-indigo-100 hover:bg-indigo-100 transition-colors"
+                >
+                  <FiMapPin className="text-indigo-500" />
+                  Enable nearby sorting
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Right Side Stats Panel */}
@@ -228,7 +229,7 @@ const HotelCard = ({ hotel, guests, checkIn, checkOut }) => {
         className="block relative h-56 overflow-hidden bg-gray-100"
       >
         {hotel.cover_image || hotel.logo ? (
-          <img src={hotel.cover_image || hotel.logo} alt={hotel.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          <img src={hotel.cover_image || hotel.logo} alt={hotel.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <MdOutlineHotel className="text-4xl text-gray-300" />
@@ -278,6 +279,13 @@ const HotelCard = ({ hotel, guests, checkIn, checkOut }) => {
            <FiMapPin className="mt-0.5 shrink-0" />
            <span className="line-clamp-1">{formatAddress(hotel.address)}</span>
         </p>
+
+        {hotel.distance_km != null && (
+          <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-indigo-700 border border-indigo-100 w-fit">
+            <FiMapPin className="text-indigo-500" />
+            {formatDistance(hotel.distance_km)}
+          </div>
+        )}
 
         <div className="mt-auto pt-4 border-t border-gray-100 flex flex-col gap-3">
            <div className="flex items-center justify-between bg-gray-50 rounded-xl p-2.5">

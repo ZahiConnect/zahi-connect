@@ -1,6 +1,7 @@
 from collections import defaultdict
 from decimal import Decimal
 from math import asin, cos, radians, sin, sqrt
+import re
 from typing import Any
 
 import httpx
@@ -41,6 +42,20 @@ def to_float(value: Any) -> float | None:
         return float(str(value).strip())
     except (TypeError, ValueError):
         return None
+
+
+def extract_coordinates_from_map_link(value: Any) -> tuple[float | None, float | None]:
+    map_link = clean_text(value)
+    if not map_link:
+        return (None, None)
+
+    match = re.search(r"(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)", map_link)
+    if not match:
+        return (None, None)
+
+    latitude = to_float(match.group(1))
+    longitude = to_float(match.group(2))
+    return (latitude, longitude)
 
 
 def normalize_image_urls(image_urls: Any, image_url: Any = None) -> list[str]:
@@ -120,34 +135,55 @@ def normalize_menu_item(row: dict[str, Any]) -> dict[str, Any]:
 
 def normalize_hotel_settings(payload: dict[str, Any] | None, tenant: Tenant) -> dict[str, Any]:
     payload = payload or {}
-    gallery_image_urls = normalize_image_urls(payload.get("galleryImages"))
-    cover_image = clean_text(payload.get("coverImage")) or (gallery_image_urls[0] if gallery_image_urls else None)
+    gallery_image_urls = normalize_image_urls(
+        payload.get("galleryImages") or payload.get("gallery_image_urls")
+    )
+    cover_image = clean_text(payload.get("coverImage") or payload.get("cover_image")) or (
+        gallery_image_urls[0] if gallery_image_urls else None
+    )
+    map_link = clean_text(payload.get("mapLink") or payload.get("map_link"))
+    map_link_latitude, map_link_longitude = extract_coordinates_from_map_link(map_link)
+    latitude = to_float(payload.get("latitude"))
+    longitude = to_float(payload.get("longitude"))
+    if latitude is None:
+        latitude = map_link_latitude
+    if longitude is None:
+        longitude = map_link_longitude
     if cover_image:
         gallery_image_urls = [cover_image, *[url for url in gallery_image_urls if url != cover_image]]
     elif clean_text(payload.get("logo")):
         gallery_image_urls = normalize_image_urls(gallery_image_urls, payload.get("logo"))
 
     return {
-        "display_name": clean_text(payload.get("name")) or tenant.name,
-        "address": clean_text(payload.get("addr")) or clean_text(tenant.address),
+        "display_name": clean_text(payload.get("name") or payload.get("display_name")) or tenant.name,
+        "address": clean_text(payload.get("addr") or payload.get("address")) or clean_text(tenant.address),
         "phone": clean_text(payload.get("phone")) or clean_text(tenant.phone),
         "email": clean_text(payload.get("email")) or clean_text(tenant.email),
         "website": clean_text(payload.get("website")),
         "gstin": clean_text(payload.get("gstin")),
-        "check_in_time": clean_text(payload.get("checkInTime")) or "14:00",
-        "check_out_time": clean_text(payload.get("checkOutTime")) or "11:00",
+        "check_in_time": clean_text(payload.get("checkInTime") or payload.get("check_in_time")) or "14:00",
+        "check_out_time": clean_text(payload.get("checkOutTime") or payload.get("check_out_time")) or "11:00",
         "tagline": clean_text(payload.get("tagline")),
         "description": clean_text(payload.get("description")),
-        "property_type": clean_text(payload.get("propertyType")),
-        "featured_amenities": normalize_text_list(payload.get("featuredAmenities")),
+        "property_type": clean_text(payload.get("propertyType") or payload.get("property_type")),
+        "featured_amenities": normalize_text_list(
+            payload.get("featuredAmenities") or payload.get("featured_amenities")
+        ),
         "cover_image": cover_image or clean_text(payload.get("logo")),
         "gallery_image_urls": gallery_image_urls
         or ([cover_image] if cover_image else [])
         or normalize_image_urls(None, payload.get("logo")),
         "logo": clean_text(payload.get("logo")),
         "signature": clean_text(payload.get("signature")),
-        "invoice_footer": clean_text(payload.get("invoiceFooter")),
-        "map_link": clean_text(payload.get("mapLink")),
+        "invoice_footer": clean_text(payload.get("invoiceFooter") or payload.get("invoice_footer")),
+        "map_link": map_link
+        or (
+            f"https://www.google.com/maps/search/?api=1&query={latitude},{longitude}"
+            if latitude is not None and longitude is not None
+            else None
+        ),
+        "latitude": latitude,
+        "longitude": longitude,
     }
 
 
@@ -197,10 +233,29 @@ def build_restaurant_geocode_query(tenant: Tenant, profile: dict[str, Any]) -> s
     return ", ".join(unique_parts)
 
 
-async def geocode_restaurant_location(query: str) -> dict[str, Any] | None:
-    cached = GEOCODE_CACHE.get(query)
-    if cached is not None:
-        return cached
+def build_hotel_geocode_query(tenant: Tenant, settings: dict[str, Any]) -> str | None:
+    parts = [
+        clean_text(settings.get("address")),
+        clean_text(tenant.address),
+    ]
+    unique_parts: list[str] = []
+    for part in parts:
+        if part and part not in unique_parts:
+            unique_parts.append(part)
+
+    if not unique_parts:
+        return None
+
+    query = ", ".join(unique_parts)
+    if "," not in query and len(query.split()) < 2:
+        return None
+
+    return query
+
+
+async def geocode_location(query: str) -> dict[str, Any] | None:
+    if query in GEOCODE_CACHE:
+        return GEOCODE_CACHE[query]
 
     try:
         async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
@@ -279,7 +334,7 @@ async def enrich_restaurant_profiles_with_coordinates(
             profiles_by_tenant[tenant.id] = profile
             continue
 
-        geocoded = await geocode_restaurant_location(query)
+        geocoded = await geocode_location(query)
         if not geocoded:
             profiles_by_tenant[tenant.id] = profile
             continue
@@ -330,6 +385,50 @@ async def enrich_restaurant_profiles_with_coordinates(
         await db.commit()
 
     return profiles_by_tenant
+
+
+async def enrich_hotel_documents_with_coordinates(
+    tenants: list[Tenant],
+    hotel_docs: dict[Any, dict[str, list[dict[str, Any]]]],
+) -> dict[Any, dict[str, list[dict[str, Any]]]]:
+    for tenant in tenants:
+        docs = hotel_docs.get(tenant.id, {})
+        settings_docs = docs.get("settings", [])
+        raw_settings = next((doc for doc in settings_docs if doc.get("id") == "hotel"), None)
+        settings = normalize_hotel_settings(raw_settings, tenant)
+
+        if settings.get("latitude") is not None and settings.get("longitude") is not None:
+            continue
+
+        query = build_hotel_geocode_query(tenant, settings)
+        if not query:
+            continue
+
+        geocoded = await geocode_location(query)
+        if not geocoded:
+            continue
+
+        enriched_settings = dict(raw_settings or {})
+        if not raw_settings:
+            enriched_settings["id"] = "hotel"
+            settings_docs.insert(0, enriched_settings)
+
+        if not clean_text(enriched_settings.get("addr")) and settings.get("address"):
+            enriched_settings["addr"] = settings["address"]
+        if not clean_text(enriched_settings.get("mapLink")) and not clean_text(enriched_settings.get("map_link")):
+            enriched_settings["mapLink"] = (
+                "https://www.google.com/maps/search/?api=1&query="
+                f"{geocoded['latitude']},{geocoded['longitude']}"
+            )
+        if enriched_settings.get("latitude") in [None, ""]:
+            enriched_settings["latitude"] = geocoded["latitude"]
+        if enriched_settings.get("longitude") in [None, ""]:
+            enriched_settings["longitude"] = geocoded["longitude"]
+
+        docs["settings"] = settings_docs
+        hotel_docs[tenant.id] = docs
+
+    return hotel_docs
 
 
 def compute_distance_km(
@@ -727,7 +826,11 @@ def build_food_catalog_entry(
     }
 
 
-def build_hotel_summary(tenant: Tenant, docs: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+def build_hotel_summary(
+    tenant: Tenant,
+    docs: dict[str, list[dict[str, Any]]],
+    distance_km: float | None = None,
+) -> dict[str, Any]:
     settings = normalize_hotel_settings(
         next((doc for doc in docs.get("settings", []) if doc.get("id") == "hotel"), None),
         tenant,
@@ -748,6 +851,7 @@ def build_hotel_summary(tenant: Tenant, docs: dict[str, list[dict[str, Any]]]) -
     payload = build_public_tenant_payload(tenant)
     payload.update(
         {
+            "address": settings.get("address") or tenant.address,
             "name": settings.get("display_name") or tenant.name,
             "display_name": settings.get("display_name") or tenant.name,
             "logo": settings.get("logo"),
@@ -759,6 +863,9 @@ def build_hotel_summary(tenant: Tenant, docs: dict[str, list[dict[str, Any]]]) -
             "property_type": settings.get("property_type"),
             "featured_amenities": settings.get("featured_amenities") or [],
             "map_link": settings.get("map_link"),
+            "latitude": settings.get("latitude"),
+            "longitude": settings.get("longitude"),
+            "distance_km": distance_km,
             "website": settings.get("website"),
             "check_in_time": settings.get("check_in_time"),
             "check_out_time": settings.get("check_out_time"),
@@ -773,7 +880,11 @@ def build_hotel_summary(tenant: Tenant, docs: dict[str, list[dict[str, Any]]]) -
     return payload
 
 
-def build_hotel_detail(tenant: Tenant, docs: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+def build_hotel_detail(
+    tenant: Tenant,
+    docs: dict[str, list[dict[str, Any]]],
+    distance_km: float | None = None,
+) -> dict[str, Any]:
     settings = normalize_hotel_settings(
         next((doc for doc in docs.get("settings", []) if doc.get("id") == "hotel"), None),
         tenant,
@@ -786,7 +897,7 @@ def build_hotel_detail(tenant: Tenant, docs: dict[str, list[dict[str, Any]]]) ->
         )
     )
     room_types = build_room_type_summaries(docs.get("room_types", []), rooms, pricing_defaults)
-    summary = build_hotel_summary(tenant, docs)
+    summary = build_hotel_summary(tenant, docs, distance_km)
 
     return {
         "tenant": build_public_tenant_payload(tenant),
@@ -957,7 +1068,11 @@ async def get_restaurant_detail(
 
 
 @router.get("/hotels")
-async def list_hotels(db: AsyncSession = Depends(get_db)):
+async def list_hotels(
+    latitude: float | None = None,
+    longitude: float | None = None,
+    db: AsyncSession = Depends(get_db),
+):
     tenants = (
         await db.execute(
             select(Tenant)
@@ -967,11 +1082,36 @@ async def list_hotels(db: AsyncSession = Depends(get_db)):
     ).scalars().all()
 
     hotel_docs = await fetch_hotel_documents(db, [tenant.id for tenant in tenants])
-    return [build_hotel_summary(tenant, hotel_docs.get(tenant.id, {})) for tenant in tenants]
+    hotel_docs = await enrich_hotel_documents_with_coordinates(tenants, hotel_docs)
+    summaries = []
+
+    for tenant in tenants:
+        summary = build_hotel_summary(tenant, hotel_docs.get(tenant.id, {}))
+        summary["distance_km"] = compute_distance_km(
+            latitude,
+            longitude,
+            summary.get("latitude"),
+            summary.get("longitude"),
+        )
+        summaries.append(summary)
+
+    return sorted(
+        summaries,
+        key=lambda hotel: (
+            hotel.get("distance_km") is None,
+            hotel.get("distance_km") or 0,
+            hotel.get("name") or "",
+        ),
+    )
 
 
 @router.get("/hotels/{slug}")
-async def get_hotel_detail(slug: str, db: AsyncSession = Depends(get_db)):
+async def get_hotel_detail(
+    slug: str,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    db: AsyncSession = Depends(get_db),
+):
     tenant = (
         await db.execute(
             select(Tenant).where(
@@ -986,7 +1126,15 @@ async def get_hotel_detail(slug: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Hotel not found.")
 
     hotel_docs = await fetch_hotel_documents(db, [tenant.id])
-    return build_hotel_detail(tenant, hotel_docs.get(tenant.id, {}))
+    hotel_docs = await enrich_hotel_documents_with_coordinates([tenant], hotel_docs)
+    summary = build_hotel_summary(tenant, hotel_docs.get(tenant.id, {}))
+    distance_km = compute_distance_km(
+        latitude,
+        longitude,
+        summary.get("latitude"),
+        summary.get("longitude"),
+    )
+    return build_hotel_detail(tenant, hotel_docs.get(tenant.id, {}), distance_km)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1200,4 +1348,3 @@ async def get_flight_detail(slug: str, db: AsyncSession = Depends(get_db)):
 
     flight_docs = await fetch_flight_documents(db, [tenant.id])
     return build_flight_detail(tenant, flight_docs.get(tenant.id, {}))
-

@@ -76,7 +76,6 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
       - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
@@ -241,6 +240,7 @@ services:
       # - ./frontend/dist:/usr/share/nginx/html
     ports:
       - "8080:80"
+    restart: always
     depends_on:
       - accounts
       - hotel

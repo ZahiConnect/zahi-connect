@@ -23,7 +23,7 @@ import {
   CheckCircle2, Shield, User, Phone, Mail, Globe,
   MapPin, FileText, Clock, Key, Lock, ChevronDown,
   Hash, Pen, ImageIcon, Star, BadgeCheck, Loader2,
-  IndianRupee,
+  IndianRupee, Search,
 } from "lucide-react";
 import dbs from "../api/db";
 import {
@@ -69,6 +69,45 @@ const ROLE_DEFAULTS = {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
+const cleanText = (value) => {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+};
+
+const buildLocationSuggestion = (result) => {
+  const latitude = Number.parseFloat(result?.lat);
+  const longitude = Number.parseFloat(result?.lon);
+
+  return {
+    label: cleanText(result?.display_name),
+    address: cleanText(result?.display_name),
+    latitude: Number.isFinite(latitude) ? latitude : "",
+    longitude: Number.isFinite(longitude) ? longitude : "",
+    mapLink:
+      Number.isFinite(latitude) && Number.isFinite(longitude)
+        ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
+        : "",
+  };
+};
+
+const buildLocationFromReverseGeocode = (payload, latitude, longitude) => {
+  const locality = cleanText(payload?.locality || payload?.city || payload?.principalSubdivision);
+  const city = cleanText(payload?.city || payload?.locality || payload?.principalSubdivision);
+  const state = cleanText(payload?.principalSubdivision);
+  const addressParts = [locality, city !== locality ? city : "", state].filter(Boolean).join(", ");
+
+  return {
+    label: addressParts || city || state || "Current location",
+    address: addressParts || city || state || "Current location",
+    latitude,
+    longitude,
+    mapLink:
+      latitude && longitude
+        ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
+        : "",
+  };
+};
+
 const Label = ({ ch }) => (
   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{ch}</p>
 );
@@ -537,6 +576,10 @@ const HotelTab = ({ toast }) => {
   const [info, setInfo] = useState(DEFAULT_HOTEL_SETTINGS);
   const [orig, setOrig]   = useState(DEFAULT_HOTEL_SETTINGS);
   const [amenitiesInput, setAmenitiesInput] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [searchingLocations, setSearchingLocations] = useState(false);
+  const [detectingLocation, setDetectingLocation] = useState(false);
   const [saving, setSave] = useState(false);
   const [loaded, setLoad] = useState(false);
 
@@ -545,6 +588,7 @@ const HotelTab = ({ toast }) => {
     setInfo(next);
     setOrig(next);
     setAmenitiesInput((next.featuredAmenities || []).join(", "));
+    setLocationQuery(next.addr || "");
   }, []);
 
   const fetch = useCallback(async()=>{
@@ -560,6 +604,103 @@ const HotelTab = ({ toast }) => {
   useEffect(()=>{ fetch(); },[fetch]);
 
   const set = (k,v) => setInfo(i=>({...i,[k]:v}));
+
+  useEffect(() => {
+    const query = locationQuery.trim();
+    if (query.length < 3) {
+      setLocationSuggestions([]);
+      setSearchingLocations(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(async () => {
+      try {
+        setSearchingLocations(true);
+        const response = await window.fetch(
+          `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(query)}`,
+          {
+            signal: controller.signal,
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        );
+        const payload = await response.json();
+        if (!Array.isArray(payload)) {
+          setLocationSuggestions([]);
+          return;
+        }
+        setLocationSuggestions(payload.map(buildLocationSuggestion));
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.error("Failed to load hotel location suggestions", error);
+          setLocationSuggestions([]);
+        }
+      } finally {
+        setSearchingLocations(false);
+      }
+    }, 300);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
+  }, [locationQuery]);
+
+  const applyLocationSuggestion = (suggestion) => {
+    setInfo((current) => ({
+      ...current,
+      addr: suggestion.address || "",
+      latitude: suggestion.latitude ?? "",
+      longitude: suggestion.longitude ?? "",
+      mapLink: suggestion.mapLink || "",
+    }));
+    setLocationQuery(suggestion.label || "");
+    setLocationSuggestions([]);
+  };
+
+  const detectCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast("Location detection is not supported in this browser.", "err");
+      return;
+    }
+
+    setDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const response = await window.fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.latitude}&longitude=${coords.longitude}&localityLanguage=en`
+          );
+          const payload = await response.json();
+          const location = buildLocationFromReverseGeocode(
+            payload,
+            coords.latitude,
+            coords.longitude
+          );
+          applyLocationSuggestion(location);
+          toast("Current location detected.", "ok");
+        } catch (error) {
+          console.error("Failed to resolve current location", error);
+          toast("Could not resolve your current location.", "err");
+        } finally {
+          setDetectingLocation(false);
+        }
+      },
+      (error) => {
+        console.error("Location detection failed", error);
+        toast("Could not detect your current location.", "err");
+        setDetectingLocation(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      }
+    );
+  };
+
   const persistInfo = useCallback(async (nextInfo, successMessage = "Business details saved!") => {
     setSave(true);
     try {
@@ -607,7 +748,97 @@ const HotelTab = ({ toast }) => {
               value={info.name} onChange={e=>set("name",e.target.value)}/>
           </div>
           <Textarea label="Full Address" placeholder="Street, Area, City, State — Pincode"
-            value={info.addr} onChange={e=>set("addr",e.target.value)} rows={3}/>
+            value={info.addr}
+            onChange={e=>{
+              const nextAddress = e.target.value;
+              set("addr", nextAddress);
+              setLocationQuery(nextAddress);
+              set("latitude", "");
+              set("longitude", "");
+              set("mapLink", "");
+            }}
+            rows={3}/>
+          <div className="col-span-2 rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Geo location picker</p>
+                <p className="mt-2 text-sm leading-6 text-gray-500">
+                  Search a place once or use the current device location. The saved coordinates help the customer portal sort nearby hotels.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={detectCurrentLocation}
+                disabled={detectingLocation}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <MapPin size={13} />
+                {detectingLocation ? "Detecting..." : "Use current location"}
+              </button>
+            </div>
+
+            <div className="relative mt-4">
+              <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                <Search size={14} />
+              </div>
+              <input
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 pl-10 text-sm text-gray-800 outline-none transition focus:border-[#037ffc] focus:ring-2 focus:ring-[#e8f3ff] placeholder:text-gray-300"
+                value={locationQuery}
+                onChange={(event) => setLocationQuery(event.target.value)}
+                placeholder="Search and choose a hotel location"
+              />
+              {searchingLocations ? (
+                <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-gray-400">
+                  Searching locations...
+                </p>
+              ) : null}
+
+              {locationSuggestions.length > 0 ? (
+                <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
+                  {locationSuggestions.map((suggestion) => (
+                    <button
+                      key={`${suggestion.label}-${suggestion.mapLink}`}
+                      type="button"
+                      onClick={() => applyLocationSuggestion(suggestion)}
+                      className="block w-full border-b border-gray-100 px-4 py-3 text-left transition hover:bg-gray-50 last:border-b-0"
+                    >
+                      <p className="text-sm font-semibold text-gray-900">{suggestion.label}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {suggestion.address || "Select this result"}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <Input
+                label="Latitude"
+                placeholder="Auto-filled from location"
+                value={info.latitude}
+                onChange={e=>set("latitude",e.target.value)}
+                readOnly
+              />
+              <Input
+                label="Longitude"
+                placeholder="Auto-filled from location"
+                value={info.longitude}
+                onChange={e=>set("longitude",e.target.value)}
+                readOnly
+              />
+            </div>
+
+            <div className="mt-4">
+              <Input
+                label="Google Maps Link"
+                placeholder="Generated from selected location"
+                value={info.mapLink}
+                onChange={e=>set("mapLink",e.target.value)}
+                icon={<MapPin size={13}/>}
+              />
+            </div>
+          </div>
           <div className="space-y-4">
             <Input label="Phone" placeholder="+91 90350 99375" value={info.phone}
               onChange={e=>set("phone",e.target.value)} icon={<Phone size={13}/>}/>
@@ -670,14 +901,8 @@ const HotelTab = ({ toast }) => {
               Separate amenities with commas. These appear as quick guest-facing highlight chips.
             </p>
           </div>
-          <div className="col-span-2">
-            <Input
-              label="Google Maps Link"
-              placeholder="https://maps.google.com/..."
-              value={info.mapLink}
-              onChange={e=>set("mapLink",e.target.value)}
-              icon={<MapPin size={13}/>}
-            />
+          <div className="col-span-2 text-[11px] text-gray-400">
+            Use the geo location picker above to fill the maps link and coordinates automatically.
           </div>
         </div>
       </Card>

@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -9,17 +10,27 @@
   --color-dark-bg: #0F0F23;
   --color-dark-surface: #1A1A2E;
   --color-light-text: #E8E8F0;
-  
-  --font-inter: 'Inter', system-ui, sans-serif;
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-serif: 'DM Serif Display', Georgia, serif;
+  --font-inter: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
-/* Custom scrollbar matching MyCalo's 'no-scrollbar' */
+html, body {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+/* Custom scrollbar */
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
   .no-scrollbar {
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .font-display {
+    font-family: 'DM Serif Display', Georgia, serif;
   }
 }

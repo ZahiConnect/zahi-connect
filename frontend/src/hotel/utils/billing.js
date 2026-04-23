@@ -26,6 +26,8 @@ export const DEFAULT_HOTEL_SETTINGS = {
   signature: "",
   invoiceFooter: "",
   mapLink: "",
+  latitude: "",
+  longitude: "",
 };
 
 export const DEFAULT_CUSTOM_BILL_DEFAULTS = {
@@ -65,12 +67,28 @@ const normalizeStringArray = (value) =>
         .filter((item, index, list) => list.indexOf(item) === index)
     : [];
 
-export const mergeHotelSettings = (doc = null) => ({
-  ...DEFAULT_HOTEL_SETTINGS,
-  ...(doc || {}),
-  featuredAmenities: normalizeStringArray(doc?.featuredAmenities),
-  galleryImages: normalizeStringArray(doc?.galleryImages),
-});
+export const mergeHotelSettings = (doc = null) => {
+  const source = doc || {};
+
+  return {
+    ...DEFAULT_HOTEL_SETTINGS,
+    ...source,
+    name: source?.name ?? source?.display_name ?? DEFAULT_HOTEL_SETTINGS.name,
+    addr: source?.addr ?? source?.address ?? DEFAULT_HOTEL_SETTINGS.addr,
+    checkInTime: source?.checkInTime ?? source?.check_in_time ?? DEFAULT_HOTEL_SETTINGS.checkInTime,
+    checkOutTime: source?.checkOutTime ?? source?.check_out_time ?? DEFAULT_HOTEL_SETTINGS.checkOutTime,
+    propertyType: source?.propertyType ?? source?.property_type ?? DEFAULT_HOTEL_SETTINGS.propertyType,
+    coverImage: source?.coverImage ?? source?.cover_image ?? DEFAULT_HOTEL_SETTINGS.coverImage,
+    mapLink: source?.mapLink ?? source?.map_link ?? DEFAULT_HOTEL_SETTINGS.mapLink,
+    invoiceFooter: source?.invoiceFooter ?? source?.invoice_footer ?? DEFAULT_HOTEL_SETTINGS.invoiceFooter,
+    featuredAmenities: normalizeStringArray(
+      source?.featuredAmenities ?? source?.featured_amenities
+    ),
+    galleryImages: normalizeStringArray(
+      source?.galleryImages ?? source?.gallery_image_urls
+    ),
+  };
+};
 
 export const mergeBillingSettings = (doc = null) => {
   const merged = {

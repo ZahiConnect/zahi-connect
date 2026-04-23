@@ -407,9 +407,12 @@ const CabsPage = () => {
                     </div>
                     <a 
                       href={`tel:${confirmedRide.assigned_driver.phone}`}
-                      className="bg-gray-900 text-white rounded-2xl px-6 py-4 font-bold flex items-center gap-2 shadow-lg hover:bg-black transition-all"
+                      className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-gray-900 px-6 py-4 font-bold text-white no-underline shadow-lg transition-all hover:bg-black focus:outline-none focus:ring-4 focus:ring-gray-900/10"
+                      style={{ color: "#ffffff" }}
+                      aria-label={`Call driver ${confirmedRide.assigned_driver.full_name}`}
                     >
-                      <FiPhone /> Call Driver
+                      <FiPhone className="text-white" />
+                      <span className="text-white">Call Driver</span>
                     </a>
                   </div>
                 </motion.div>
