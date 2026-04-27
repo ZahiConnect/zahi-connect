@@ -9,6 +9,7 @@ import { useAuth } from "./context/AuthContext";
 import ActivityPage from "./pages/ActivityPage";
 import useCustomerLocation from "./hooks/useCustomerLocation";
 import CabsPage from "./pages/CabsPage";
+import EditProfilePage from "./pages/EditProfilePage";
 import FlightsPage from "./pages/FlightsPage";
 import HotelDetailPage from "./pages/HotelDetailPage";
 import HotelsPage from "./pages/HotelsPage";
@@ -30,8 +31,8 @@ const navItems = [
 const LoadingSplash = () => (
   <div className="flex min-h-screen items-center justify-center px-4">
     <div className="glass-panel w-full max-w-md rounded-[36px] px-8 py-12 text-center fade-in">
-      <p className="text-xs uppercase tracking-[0.32em] text-[#c15d1f]">Zahi Trips</p>
-      <h1 className="font-display mt-4 text-5xl text-[#1c1712]">Getting everything ready for you&hellip;</h1>
+      <p className="text-xs uppercase tracking-[0.32em] text-orange-600">Zahi Trips</p>
+      <h1 className="font-display mt-4 text-5xl text-gray-900">Getting everything ready for you&hellip;</h1>
       <div className="mx-auto mt-8 h-2 w-44 overflow-hidden rounded-full bg-[#f1dcc4]">
         <div className="h-full w-1/2 animate-pulse rounded-full bg-[#d66a2f]" />
       </div>
@@ -235,17 +236,17 @@ const Header = () => {
 };
 
 const Footer = () => (
-  <footer className="mt-20 border-t border-[rgba(87,62,39,0.08)]">
-    <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 text-sm text-[#67574a] sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr] lg:px-8">
+  <footer className="mt-20 border-t border-gray-100">
+    <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 text-sm text-gray-500 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr] lg:px-8">
       <div>
-        <p className="font-display text-4xl text-[#1f1812]">Your journey starts here.</p>
+        <p className="font-display text-4xl text-gray-900">Your journey starts here.</p>
         <p className="mt-4 max-w-xl leading-7">
           Zahi Trips brings together hotels, restaurants, cabs, and flights in one seamless
           marketplace. Book confidently with real-time pricing and availability.
         </p>
       </div>
       <div>
-        <p className="text-xs uppercase tracking-[0.24em] text-[#c15d1f]">Explore</p>
+        <p className="text-xs uppercase tracking-[0.24em] text-orange-600">Explore</p>
         <div className="mt-4 flex flex-col gap-3">
           <Link to="/hotels">Hotels</Link>
           <Link to="/restaurants">Restaurants</Link>
@@ -254,7 +255,7 @@ const Footer = () => (
         </div>
       </div>
       <div>
-        <p className="text-xs uppercase tracking-[0.24em] text-[#c15d1f]">Account</p>
+        <p className="text-xs uppercase tracking-[0.24em] text-orange-600">Account</p>
         <div className="mt-4 flex flex-col gap-3">
           <Link to="/activity">My activity</Link>
           <Link to="/login">Sign in</Link>
@@ -277,15 +278,15 @@ const AppShell = () => (
 
 const NotFoundPage = () => (
   <div className="glass-panel mx-auto max-w-2xl rounded-[36px] px-8 py-14 text-center">
-    <p className="text-xs uppercase tracking-[0.32em] text-[#c15d1f]">Page not found</p>
-    <h1 className="font-display mt-4 text-6xl text-[#1f1812]">This page doesn&apos;t exist.</h1>
-    <p className="mt-4 text-[#67574a]">
+    <p className="text-xs uppercase tracking-[0.32em] text-orange-600">Page not found</p>
+    <h1 className="font-display mt-4 text-6xl text-gray-900">This page doesn&apos;t exist.</h1>
+    <p className="mt-4 text-gray-500">
       The link may have changed or the page has been removed. Head back home to continue browsing
       hotels, restaurants, and more.
     </p>
     <Link
       to="/"
-      className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#1f1812] px-5 py-3 text-sm font-medium text-white"
+      className="mt-8 inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-3 text-sm font-medium text-white shadow-lg transition-all hover:bg-black active:scale-[0.98]"
     >
       Back to home
       <FiArrowRight className="h-4 w-4" />
@@ -310,6 +311,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ActivityPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/edit-profile"
+            element={
+              <ProtectedRoute>
+                <EditProfilePage />
               </ProtectedRoute>
             }
           />

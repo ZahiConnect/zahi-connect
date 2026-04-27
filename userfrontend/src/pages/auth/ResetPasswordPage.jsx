@@ -71,7 +71,7 @@ const ResetPasswordPage = () => {
         <p className="auth-link text-xs uppercase tracking-[0.24em] text-[#a6633b]">Reset password</p>
         <h2 className="auth-heading font-display mt-3 text-5xl text-[#1f1812]">Choose a new password</h2>
         <p className="auth-muted mt-3 text-sm leading-7 text-[#6a5f56]">
-          Resetting access for <span className="font-medium text-[#1f1812]">{email}</span>.
+          Resetting access for <span className="auth-heading font-medium text-[#1f1812]">{email}</span>.
         </p>
       </div>
 
@@ -85,7 +85,7 @@ const ResetPasswordPage = () => {
               value={form.otp}
               onChange={(event) => setField("otp", event.target.value.replace(/\D/g, "").slice(0, 6))}
               placeholder="123456"
-              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 tracking-[0.35em] outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 tracking-[0.35em] outline-none transition-all focus:border-[#d56d2e] focus:ring-4 focus:ring-[rgba(213,109,46,0.08)]"
               required
             />
           </div>
@@ -100,14 +100,14 @@ const ResetPasswordPage = () => {
               value={form.password}
               onChange={(event) => setField("password", event.target.value)}
               placeholder="At least 6 characters"
-              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none transition-all focus:border-[#d56d2e] focus:ring-4 focus:ring-[rgba(213,109,46,0.08)]"
               minLength={6}
               required
             />
             <button
               type="button"
               onClick={() => setShowPassword((current) => !current)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9d8a79]"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9d8a79] transition-colors hover:text-[#6a5f56]"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -123,14 +123,14 @@ const ResetPasswordPage = () => {
               value={form.confirmPassword}
               onChange={(event) => setField("confirmPassword", event.target.value)}
               placeholder="Repeat your password"
-              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none transition-all focus:border-[#d56d2e] focus:ring-4 focus:ring-[rgba(213,109,46,0.08)]"
               minLength={6}
               required
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword((current) => !current)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9d8a79]"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9d8a79] transition-colors hover:text-[#6a5f56]"
             >
               {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -146,7 +146,7 @@ const ResetPasswordPage = () => {
         <button
           type="submit"
           disabled={loading}
-          className="auth-primary-button inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#2f241d] disabled:cursor-not-allowed disabled:opacity-70"
+          className="auth-primary-button inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(31,24,18,0.12)] transition-all hover:bg-[#2f241d] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading ? "Updating password..." : "Save new password"}
           <ArrowRight className="h-4 w-4" />

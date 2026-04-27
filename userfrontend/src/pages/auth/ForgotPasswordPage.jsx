@@ -48,7 +48,7 @@ const ForgotPasswordPage = () => {
     >
       <div className="fade-up">
         <p className="auth-link text-xs uppercase tracking-[0.24em] text-[#a6633b]">Forgot password</p>
-        <h2 className="font-display mt-3 text-5xl text-[#1f1812]">Let’s reset it</h2>
+        <h2 className="auth-heading font-display mt-3 text-5xl text-[#1f1812]">Let&apos;s reset it</h2>
         <p className="auth-muted mt-3 text-sm leading-7 text-[#6a5f56]">
           Enter your email and we will send a one-time code so you can create a new password.
         </p>
@@ -64,7 +64,7 @@ const ForgotPasswordPage = () => {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@example.com"
-              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none transition-all focus:border-[#d56d2e] focus:ring-4 focus:ring-[rgba(213,109,46,0.08)]"
               required
             />
           </div>
@@ -79,7 +79,7 @@ const ForgotPasswordPage = () => {
         <button
           type="submit"
           disabled={loading}
-          className="auth-primary-button inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#2f241d] disabled:cursor-not-allowed disabled:opacity-70"
+          className="auth-primary-button inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(31,24,18,0.12)] transition-all hover:bg-[#2f241d] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading ? "Sending OTP..." : "Send OTP"}
           <ArrowRight className="h-4 w-4" />

@@ -7,9 +7,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import "./index.css";
 
-const clientId =
-  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-  "454684305146-fo80ih4nfk13tplpq56kt2v10f8arqd8.apps.googleusercontent.com";
+const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
 createRoot(document.getElementById("root")).render(
   <GoogleOAuthProvider clientId={clientId}>

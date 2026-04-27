@@ -20,19 +20,19 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --zahi-ink: #f4eee6;
-  --zahi-muted: #b7aba0;
-  --zahi-sand: #121c27;
-  --zahi-card: rgba(18, 28, 39, 0.82);
-  --zahi-accent: #ff9a58;
-  --zahi-accent-dark: #ffd6b3;
-  --zahi-green: #66d5b2;
-  --zahi-line: rgba(194, 208, 226, 0.12);
-  --zahi-surface: #111923;
-  --zahi-surface-soft: #17212d;
-  --zahi-surface-muted: #223041;
-  --zahi-shadow: rgba(5, 10, 18, 0.34);
-  --zahi-backdrop: rgba(5, 10, 18, 0.62);
+  --zahi-ink: #e8e0d6;
+  --zahi-muted: #9a8e82;
+  --zahi-sand: #14202e;
+  --zahi-card: rgba(22, 32, 46, 0.86);
+  --zahi-accent: #f0994d;
+  --zahi-accent-dark: #ffc78f;
+  --zahi-green: #5cc4a0;
+  --zahi-line: rgba(160, 178, 200, 0.1);
+  --zahi-surface: #111b27;
+  --zahi-surface-soft: #172333;
+  --zahi-surface-muted: #1e2d3f;
+  --zahi-shadow: rgba(5, 10, 20, 0.28);
+  --zahi-backdrop: rgba(6, 12, 22, 0.65);
 }
 
 html {
@@ -50,16 +50,15 @@ body {
     radial-gradient(circle at top right, rgba(46, 125, 103, 0.12), transparent 22%),
     radial-gradient(circle at center, rgba(255, 255, 255, 0.56), transparent 34%),
     linear-gradient(180deg, #fff9f0 0%, #fdf6ec 34%, #f7efe3 100%);
-  transition: background-color 220ms ease, color 220ms ease, background-image 220ms ease;
+  transition: background-color 280ms ease, color 280ms ease, background-image 280ms ease;
 }
 
 :root[data-theme="dark"] body {
   color: var(--zahi-ink);
   background:
-    radial-gradient(circle at top left, rgba(255, 145, 76, 0.2), transparent 26%),
-    radial-gradient(circle at top right, rgba(102, 213, 178, 0.14), transparent 20%),
-    radial-gradient(circle at bottom center, rgba(101, 112, 255, 0.12), transparent 28%),
-    linear-gradient(180deg, #08111a 0%, #0d1721 36%, #121c28 100%);
+    radial-gradient(ellipse at 15% 8%, rgba(240, 153, 77, 0.12), transparent 32%),
+    radial-gradient(ellipse at 85% 12%, rgba(92, 196, 160, 0.08), transparent 28%),
+    linear-gradient(180deg, #0c1520 0%, #10192a 50%, #131f2f 100%);
 }
 
 #root {
@@ -116,193 +115,319 @@ textarea {
 
 :root[data-theme="dark"] .hero-grid {
   background-image:
-    linear-gradient(rgba(239, 231, 220, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(239, 231, 220, 0.05) 1px, transparent 1px);
+    linear-gradient(rgba(160, 178, 200, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(160, 178, 200, 0.04) 1px, transparent 1px);
 }
 
 :root[data-theme="dark"] .soft-card {
-  background: rgba(18, 28, 39, 0.84);
-  border-color: rgba(194, 208, 226, 0.1);
-  box-shadow: 0 18px 44px rgba(5, 10, 18, 0.22);
+  background: rgba(22, 35, 51, 0.88);
+  border-color: rgba(160, 178, 200, 0.08);
+  box-shadow: 0 18px 44px rgba(5, 10, 20, 0.18);
 }
+
+/* ─── Dark Mode: Background Overrides ─── */
 
 :root[data-theme="dark"] .bg-white,
 :root[data-theme="dark"] .bg-white\/80,
 :root[data-theme="dark"] .bg-white\/90,
 :root[data-theme="dark"] .bg-white\/95 {
-  background-color: rgba(17, 25, 35, 0.9) !important;
+  background-color: rgba(17, 27, 39, 0.94) !important;
 }
 
-:root[data-theme="dark"] .bg-gray-50 {
-  background-color: rgba(23, 33, 45, 0.86) !important;
+:root[data-theme="dark"] .bg-gray-50,
+:root[data-theme="dark"] .bg-gray-50\/80 {
+  background-color: rgba(23, 35, 51, 0.88) !important;
 }
 
-:root[data-theme="dark"] .bg-gray-100 {
-  background-color: rgba(31, 44, 58, 0.92) !important;
+:root[data-theme="dark"] .bg-gray-100,
+:root[data-theme="dark"] .bg-gray-100\/50 {
+  background-color: rgba(30, 45, 63, 0.72) !important;
 }
 
 :root[data-theme="dark"] .bg-gray-900,
 :root[data-theme="dark"] .bg-black {
-  background-color: #0d1622 !important;
+  background-color: #0e1824 !important;
 }
 
 :root[data-theme="dark"] .bg-orange-50 {
-  background-color: rgba(255, 158, 87, 0.14) !important;
+  background-color: rgba(240, 153, 77, 0.1) !important;
 }
 
 :root[data-theme="dark"] .bg-orange-100 {
-  background-color: rgba(255, 158, 87, 0.2) !important;
+  background-color: rgba(240, 153, 77, 0.16) !important;
 }
 
 :root[data-theme="dark"] .bg-indigo-50 {
-  background-color: rgba(115, 127, 255, 0.15) !important;
+  background-color: rgba(115, 127, 255, 0.1) !important;
 }
 
 :root[data-theme="dark"] .bg-indigo-100 {
-  background-color: rgba(115, 127, 255, 0.24) !important;
+  background-color: rgba(115, 127, 255, 0.18) !important;
+}
+
+:root[data-theme="dark"] .bg-green-50 {
+  background-color: rgba(92, 196, 160, 0.08) !important;
 }
 
 :root[data-theme="dark"] .bg-green-100 {
-  background-color: rgba(102, 213, 178, 0.16) !important;
+  background-color: rgba(92, 196, 160, 0.12) !important;
+}
+
+:root[data-theme="dark"] .bg-red-50 {
+  background-color: rgba(255, 126, 126, 0.08) !important;
 }
 
 :root[data-theme="dark"] .bg-red-100 {
-  background-color: rgba(255, 126, 126, 0.16) !important;
+  background-color: rgba(255, 126, 126, 0.12) !important;
 }
 
+/* ─── Dark Mode: Text Overrides ─── */
+
 :root[data-theme="dark"] .text-gray-900 {
-  color: #f4eee6 !important;
+  color: #e8e0d6 !important;
 }
 
 :root[data-theme="dark"] .text-gray-800 {
-  color: #e6ddd3 !important;
+  color: #dbd1c6 !important;
 }
 
 :root[data-theme="dark"] .text-gray-700 {
-  color: #d4c7b8 !important;
+  color: #c4b8aa !important;
 }
 
 :root[data-theme="dark"] .text-gray-600 {
-  color: #baa997 !important;
+  color: #ab9d8e !important;
 }
 
 :root[data-theme="dark"] .text-gray-500 {
-  color: #9f907f !important;
+  color: #928575 !important;
 }
 
 :root[data-theme="dark"] .text-gray-400 {
-  color: #837768 !important;
+  color: #7b7062 !important;
 }
 
 :root[data-theme="dark"] .text-white {
-  color: #f8f2ea !important;
+  color: #f4eee6 !important;
+}
+
+:root[data-theme="dark"] .text-orange-900 {
+  color: #ffd9b0 !important;
+}
+
+:root[data-theme="dark"] .text-orange-800 {
+  color: #ffcb96 !important;
 }
 
 :root[data-theme="dark"] .text-orange-700 {
-  color: #ffc28f !important;
+  color: #ffbb7a !important;
 }
 
 :root[data-theme="dark"] .text-orange-600 {
-  color: #ffb26c !important;
+  color: #f0994d !important;
 }
 
 :root[data-theme="dark"] .text-orange-500 {
-  color: #ffa15f !important;
+  color: #f0994d !important;
 }
 
 :root[data-theme="dark"] .text-orange-400 {
-  color: #ffc69a !important;
+  color: #ffc08a !important;
 }
 
 :root[data-theme="dark"] .text-indigo-900 {
-  color: #e7ebff !important;
+  color: #dce0ff !important;
 }
 
 :root[data-theme="dark"] .text-indigo-600 {
-  color: #a9b2ff !important;
+  color: #a1abff !important;
 }
 
 :root[data-theme="dark"] .text-indigo-400,
 :root[data-theme="dark"] .text-indigo-300 {
-  color: #c7cdff !important;
+  color: #c0c8ff !important;
+}
+
+:root[data-theme="dark"] .text-green-900 {
+  color: #c8f0df !important;
+}
+
+:root[data-theme="dark"] .text-green-800 {
+  color: #a8e4c8 !important;
 }
 
 :root[data-theme="dark"] .text-green-700,
 :root[data-theme="dark"] .text-green-300 {
-  color: #91e1bf !important;
+  color: #86d9b6 !important;
 }
 
 :root[data-theme="dark"] .text-red-700,
-:root[data-theme="dark"] .text-red-500 {
-  color: #ffb0b0 !important;
+:root[data-theme="dark"] .text-red-500,
+:root[data-theme="dark"] .text-red-600 {
+  color: #ff9e9e !important;
 }
 
+/* ─── Dark Mode: Border Overrides ─── */
+
 :root[data-theme="dark"] .border-gray-100 {
-  border-color: rgba(194, 208, 226, 0.1) !important;
+  border-color: rgba(160, 178, 200, 0.08) !important;
 }
 
 :root[data-theme="dark"] .border-gray-200 {
-  border-color: rgba(194, 208, 226, 0.14) !important;
+  border-color: rgba(160, 178, 200, 0.12) !important;
 }
 
 :root[data-theme="dark"] .border-indigo-100 {
-  border-color: rgba(115, 127, 255, 0.24) !important;
+  border-color: rgba(115, 127, 255, 0.18) !important;
 }
 
 :root[data-theme="dark"] .border-orange-100 {
-  border-color: rgba(255, 158, 87, 0.2) !important;
+  border-color: rgba(240, 153, 77, 0.16) !important;
 }
 
 :root[data-theme="dark"] .border-orange-200 {
-  border-color: rgba(255, 158, 87, 0.28) !important;
+  border-color: rgba(240, 153, 77, 0.22) !important;
 }
+
+:root[data-theme="dark"] .border-green-100 {
+  border-color: rgba(92, 196, 160, 0.14) !important;
+}
+
+/* ─── Dark Mode: Placeholder Overrides ─── */
 
 :root[data-theme="dark"] .placeholder\:text-gray-400::placeholder,
 :root[data-theme="dark"] input::placeholder,
 :root[data-theme="dark"] textarea::placeholder {
-  color: #85786a !important;
+  color: #6b6058 !important;
 }
 
+/* ─── Dark Mode: Hover Overrides ─── */
+
 :root[data-theme="dark"] .hover\:bg-gray-50:hover {
-  background-color: rgba(23, 33, 45, 0.92) !important;
+  background-color: rgba(23, 35, 51, 0.94) !important;
+}
+
+:root[data-theme="dark"] .hover\:bg-gray-100\/50:hover {
+  background-color: rgba(30, 45, 63, 0.52) !important;
 }
 
 :root[data-theme="dark"] .hover\:bg-orange-50:hover {
-  background-color: rgba(255, 158, 87, 0.18) !important;
+  background-color: rgba(240, 153, 77, 0.14) !important;
 }
 
 :root[data-theme="dark"] .hover\:bg-orange-100:hover {
-  background-color: rgba(255, 158, 87, 0.24) !important;
+  background-color: rgba(240, 153, 77, 0.2) !important;
 }
 
 :root[data-theme="dark"] .hover\:bg-red-50:hover {
-  background-color: rgba(255, 126, 126, 0.14) !important;
+  background-color: rgba(255, 126, 126, 0.1) !important;
 }
 
 :root[data-theme="dark"] .hover\:text-gray-900:hover {
-  color: #f4eee6 !important;
+  color: #e8e0d6 !important;
 }
 
 :root[data-theme="dark"] .hover\:text-orange-600:hover {
-  color: #ffbc80 !important;
+  color: #f0994d !important;
 }
+
+/* ─── Dark Mode: Shadow Overrides ─── */
+
+:root[data-theme="dark"] .shadow-sm {
+  box-shadow: 0 1px 3px rgba(5, 10, 20, 0.3) !important;
+}
+
+:root[data-theme="dark"] .shadow-md {
+  box-shadow: 0 4px 12px rgba(5, 10, 20, 0.34) !important;
+}
+
+:root[data-theme="dark"] .shadow-lg {
+  box-shadow: 0 10px 24px rgba(5, 10, 20, 0.36) !important;
+}
+
+/* ─── Dark Mode: Ring Overrides ─── */
+
+:root[data-theme="dark"] .ring-1.ring-gray-200 {
+  --tw-ring-color: rgba(160, 178, 200, 0.12) !important;
+}
+
+/* ─── Dark Mode: Backdrop Blur Header ─── */
+
+:root[data-theme="dark"] .backdrop-blur-xl {
+  backdrop-filter: blur(24px) saturate(1.1) !important;
+}
+
+/* ─── Auth Page Styles ─── */
 
 .auth-shell {
   color: var(--zahi-ink);
 }
 
-.auth-panel {
-  border-color: var(--zahi-line);
-  background: color-mix(in srgb, var(--zahi-surface) 82%, transparent);
-  box-shadow: 0 30px 100px color-mix(in srgb, var(--zahi-shadow) 92%, transparent);
+.auth-stage {
+  border-color: color-mix(in srgb, var(--zahi-line) 118%, transparent);
+  background:
+    radial-gradient(circle at top left, rgba(214, 106, 47, 0.08), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(46, 125, 103, 0.05), transparent 20%),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--zahi-card) 95%, transparent) 0%,
+      color-mix(in srgb, var(--zahi-surface) 84%, transparent) 52%,
+      color-mix(in srgb, var(--zahi-surface-soft) 88%, transparent) 100%
+    );
+  backdrop-filter: blur(20px);
 }
 
-.auth-hero {
-  background: #1f1812;
+.auth-copy-panel {
+  background:
+    radial-gradient(circle at top left, rgba(214, 106, 47, 0.12), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(46, 125, 103, 0.08), transparent 24%),
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--zahi-surface) 82%, transparent) 0%,
+      color-mix(in srgb, var(--zahi-surface-soft) 94%, transparent) 100%
+    );
 }
 
-:root[data-theme="dark"] .auth-hero {
-  background: linear-gradient(180deg, #101924 0%, #0d1620 100%);
+.auth-form-panel {
+  background: color-mix(in srgb, var(--zahi-surface) 88%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.auth-info-card,
+.auth-mobile-strip {
+  background: color-mix(in srgb, var(--zahi-surface) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--zahi-line) 110%, transparent);
+  box-shadow: 0 18px 40px rgba(71, 49, 31, 0.06);
+}
+
+:root[data-theme="dark"] .auth-stage {
+  background:
+    radial-gradient(circle at top left, rgba(240, 153, 77, 0.12), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(92, 196, 160, 0.06), transparent 24%),
+    linear-gradient(
+      135deg,
+      rgba(12, 21, 32, 0.96) 0%,
+      rgba(15, 24, 36, 0.94) 54%,
+      rgba(17, 27, 39, 0.96) 100%
+    );
+}
+
+:root[data-theme="dark"] .auth-copy-panel {
+  background:
+    radial-gradient(circle at top left, rgba(240, 153, 77, 0.12), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(92, 196, 160, 0.08), transparent 26%),
+    linear-gradient(155deg, rgba(15, 24, 36, 0.94) 0%, rgba(17, 27, 39, 0.94) 100%);
+}
+
+:root[data-theme="dark"] .auth-form-panel {
+  background: rgba(12, 21, 32, 0.8);
+}
+
+:root[data-theme="dark"] .auth-info-card,
+:root[data-theme="dark"] .auth-mobile-strip {
+  background: rgba(17, 27, 39, 0.86);
+  border-color: rgba(160, 178, 200, 0.08);
+  box-shadow: 0 18px 36px rgba(5, 10, 20, 0.24);
 }
 
 .auth-link {
@@ -310,7 +435,7 @@ textarea {
 }
 
 :root[data-theme="dark"] .auth-link {
-  color: #ffc18c;
+  color: #f0994d;
 }
 
 .auth-heading {
@@ -334,9 +459,9 @@ textarea {
 }
 
 :root[data-theme="dark"] .auth-error {
-  border-color: rgba(255, 135, 115, 0.26);
-  background: rgba(94, 33, 29, 0.46);
-  color: #ffc5bb;
+  border-color: rgba(240, 130, 100, 0.2);
+  background: rgba(80, 30, 25, 0.38);
+  color: #ffbbae;
 }
 
 .auth-primary-button {
@@ -345,9 +470,9 @@ textarea {
 }
 
 :root[data-theme="dark"] .auth-primary-button {
-  background: linear-gradient(135deg, #ff9858 0%, #ffb97f 100%);
+  background: linear-gradient(135deg, #f0994d 0%, #ffbb7a 100%);
   color: #16110c;
-  box-shadow: 0 16px 32px rgba(255, 152, 88, 0.18);
+  box-shadow: 0 12px 28px rgba(240, 153, 77, 0.16);
 }
 
 .auth-secondary-button {
@@ -358,8 +483,43 @@ textarea {
 
 :root[data-theme="dark"] .auth-secondary-button:hover,
 :root[data-theme="dark"] .auth-primary-button:hover {
-  filter: brightness(1.03);
+  filter: brightness(1.04);
 }
+
+/* ─── Dark Mode: Specific Component Overrides ─── */
+
+:root[data-theme="dark"] .bg-white\/12 {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+:root[data-theme="dark"] .bg-white\/10 {
+  background-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+:root[data-theme="dark"] .bg-white\/6 {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* ─── Dark Mode: Scrollbar Styling ─── */
+
+:root[data-theme="dark"] ::-webkit-scrollbar {
+  width: 8px;
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(160, 178, 200, 0.16);
+  border-radius: 100px;
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(160, 178, 200, 0.24);
+}
+
+/* ─── Utilities ─── */
 
 .line-clamp-2 {
   display: -webkit-box;

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useGoogleLogin } from "@react-oauth/google";
 import toast from "react-hot-toast";
 import { ArrowRight, Eye, EyeOff, KeyRound, UserRound } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 
 import api from "../../lib/axios";
 import { useAuth } from "../../context/AuthContext";
@@ -16,6 +17,7 @@ const LoginPage = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
   const nextPath = location.state?.from || "/activity";
@@ -33,7 +35,7 @@ const LoginPage = () => {
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       try {
-        setLoading(true);
+        setGoogleLoading(true);
         setError("");
         const response = await api.post("/auth/google-login", {
           token: tokenResponse.access_token,
@@ -49,7 +51,7 @@ const LoginPage = () => {
       } catch (requestError) {
         setError(requestError.response?.data?.detail || "Google sign-in failed.");
       } finally {
-        setLoading(false);
+        setGoogleLoading(false);
       }
     },
     onError: () => setError("Google sign-in failed."),
@@ -81,23 +83,25 @@ const LoginPage = () => {
 
   return (
     <AuthShell
-      eyebrow="Manual access meets WhatsApp-first commerce"
-      title="Sign in to your customer space."
-      description="Use the same Zahi auth flow as the main app, then explore restaurants, hotels, and future local services from one polished customer board."
+      eyebrow="Sign in"
+      title="Welcome back"
+      description="View bookings, payments, and trip updates from one account."
       footer={
         <p>
           No account yet?{" "}
           <Link to="/register" className="auth-link font-semibold text-[#8e3f11]">
-            Create one now
+            Create one
           </Link>
         </p>
       }
     >
       <div className="fade-up">
         <p className="auth-link text-xs uppercase tracking-[0.24em] text-[#a6633b]">Sign in</p>
-        <h2 className="auth-heading font-display mt-3 text-5xl text-[#1f1812]">Welcome back</h2>
+        <h2 className="auth-heading font-display mt-3 text-[3.35rem] leading-[0.98] text-[#1f1812]">
+          Welcome back
+        </h2>
         <p className="auth-muted mt-3 text-sm leading-7 text-[#6a5f56]">
-          Pick up where you left off and continue browsing real restaurant and hotel data.
+          Continue with Google or use your email and password.
         </p>
       </div>
 
@@ -105,15 +109,16 @@ const LoginPage = () => {
         <button
           type="button"
           onClick={() => googleLogin()}
-          className="auth-secondary-button inline-flex w-full items-center justify-center gap-3 rounded-full border border-[rgba(96,73,53,0.14)] bg-white px-5 py-3.5 text-sm font-medium text-[#1f1812] shadow-sm hover:bg-[#fffaf4]"
+          disabled={googleLoading}
+          className="auth-secondary-button inline-flex w-full items-center justify-center gap-3 rounded-full border border-[rgba(96,73,53,0.14)] bg-white px-5 py-3.5 text-sm font-semibold text-[#1f1812] shadow-sm transition-all hover:bg-[#fffaf4] hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
         >
-          <span className="text-lg">G</span>
-          Continue with Google
+          <FcGoogle className="text-xl" />
+          {googleLoading ? "Connecting..." : "Continue with Google"}
         </button>
 
         <div className="flex items-center gap-3 text-xs uppercase tracking-[0.22em] text-[#9d8a79]">
           <div className="h-px flex-1 bg-[rgba(96,73,53,0.14)]" />
-          Or with email
+          Or use email
           <div className="h-px flex-1 bg-[rgba(96,73,53,0.14)]" />
         </div>
       </div>
@@ -127,8 +132,8 @@ const LoginPage = () => {
               type="text"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              placeholder="you@example.com"
-              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              placeholder="Email or username"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none transition-all focus:border-[#d56d2e] focus:ring-4 focus:ring-[rgba(213,109,46,0.08)]"
               required
             />
           </div>
@@ -142,24 +147,23 @@ const LoginPage = () => {
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter your password"
-              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none focus:border-[#d56d2e]"
+              placeholder="Password"
+              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none transition-all focus:border-[#d56d2e] focus:ring-4 focus:ring-[rgba(213,109,46,0.08)]"
               required
             />
             <button
               type="button"
               onClick={() => setShowPassword((current) => !current)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9d8a79]"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9d8a79] transition-colors hover:text-[#6a5f56]"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         </label>
 
-        <div className="flex items-center justify-between text-sm">
-          <span className="auth-muted text-[#8a7869]">Uses the same refresh-cookie session as the owner app.</span>
-          <Link to="/forgot-password" className="auth-link font-medium text-[#8e3f11]">
-            Forgot password
+        <div className="flex items-center justify-end text-sm">
+          <Link to="/forgot-password" className="auth-link font-medium text-[#8e3f11] transition-colors hover:text-[#b5511a]">
+            Forgot password?
           </Link>
         </div>
 
@@ -172,9 +176,9 @@ const LoginPage = () => {
         <button
           type="submit"
           disabled={loading}
-          className="auth-primary-button inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(31,24,18,0.12)] hover:bg-[#2f241d] disabled:cursor-not-allowed disabled:opacity-70"
+          className="auth-primary-button inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(31,24,18,0.12)] transition-all hover:bg-[#2f241d] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {loading ? "Signing in..." : "Enter Zahi"}
+          {loading ? "Signing in..." : "Sign in"}
           <ArrowRight className="h-4 w-4" />
         </button>
       </form>

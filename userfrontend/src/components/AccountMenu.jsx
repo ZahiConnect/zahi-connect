@@ -16,7 +16,6 @@ import {
 
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import ProfileEditModal from "./ProfileEditModal";
 
 const getDisplayName = (user) =>
   [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() ||
@@ -80,7 +79,6 @@ export const ThemeToggleButton = ({ compact = false, onToggleComplete }) => {
 export const DesktopAccountMenu = () => {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const containerRef = useRef(null);
 
   const displayName = useMemo(() => getDisplayName(user), [user]);
@@ -118,95 +116,66 @@ export const DesktopAccountMenu = () => {
   };
 
   return (
-    <>
-      <div ref={containerRef} className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen((current) => !current)}
-          className="inline-flex items-center gap-3 rounded-full border border-gray-100 bg-gray-50 p-1.5 pr-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-orange-100"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 text-xs font-extrabold text-orange-700">
-            {initials}
-          </div>
-          <div className="min-w-0">
-            <p className="max-w-[140px] truncate text-sm font-bold text-gray-900">{shortName}</p>
-            <p className="max-w-[140px] truncate text-xs text-gray-500">{user?.email}</p>
-          </div>
-          <FiChevronDown className={`text-sm text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
-        </button>
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="inline-flex items-center gap-3 rounded-full border border-gray-100 bg-gray-50 p-1.5 pr-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-orange-100"
+      >
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 text-xs font-extrabold text-orange-700">
+          {initials}
+        </div>
+        <div className="min-w-0">
+          <p className="max-w-[140px] truncate text-sm font-bold text-gray-900">{shortName}</p>
+          <p className="max-w-[140px] truncate text-xs text-gray-500">{user?.email}</p>
+        </div>
+        <FiChevronDown className={`text-sm text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
 
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.98 }}
-              transition={{ duration: 0.18 }}
-              className="absolute right-0 top-[calc(100%+0.8rem)] z-[70] w-[340px] overflow-hidden rounded-[30px] border border-gray-200 bg-white/95 p-3 shadow-[0_24px_60px_rgba(18,24,32,0.16)] backdrop-blur-2xl"
-            >
-              <div className="relative overflow-hidden rounded-[24px] bg-gray-900 p-5 text-white">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,159,79,0.32),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(81,205,174,0.22),transparent_24%)]" />
-                <div className="relative flex items-start gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-white/10 text-base font-extrabold text-white backdrop-blur-sm">
-                    {initials}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] uppercase tracking-[0.24em] text-orange-200">Signed in</p>
-                    <p className="mt-2 truncate text-xl font-extrabold">{displayName}</p>
-                    <p className="mt-1 truncate text-sm text-white/72">{user?.email}</p>
-                    <p className="mt-2 line-clamp-2 text-xs text-white/62">
-                      {user?.address || "Add your delivery address to speed up hotel, food, and local service handoffs."}
-                    </p>
-                  </div>
-                </div>
-              </div>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+            transition={{ duration: 0.18 }}
+            className="absolute right-0 top-[calc(100%+0.8rem)] z-[70] w-[340px] overflow-hidden rounded-[30px] border border-gray-200 bg-white/95 p-3 shadow-[0_24px_60px_rgba(18,24,32,0.16)] backdrop-blur-2xl"
+          >
+            <div className="grid gap-1">
+              <Link to="/activity" onClick={closeMenu} className={menuItemClassName}>
+                <FiActivity className="text-orange-500" />
+                My Activity
+              </Link>
 
-              <div className="mt-3 grid gap-1">
-                <Link to="/activity" onClick={closeMenu} className={menuItemClassName}>
-                  <FiActivity className="text-orange-500" />
-                  My Activity
-                </Link>
+              <Link to="/edit-profile" onClick={closeMenu} className={menuItemClassName}>
+                <FiEdit3 className="text-orange-500" />
+                Edit Profile
+              </Link>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    closeMenu();
-                    setProfileOpen(true);
-                  }}
-                  className={menuItemClassName}
-                >
-                  <FiEdit3 className="text-orange-500" />
-                  Edit Profile
-                </button>
+              <Link
+                to="/forgot-password"
+                state={{ email: user?.email || "" }}
+                onClick={closeMenu}
+                className={menuItemClassName}
+              >
+                <FiLock className="text-orange-500" />
+                Forgot Password
+              </Link>
 
-                <Link
-                  to="/forgot-password"
-                  state={{ email: user?.email || "" }}
-                  onClick={closeMenu}
-                  className={menuItemClassName}
-                >
-                  <FiLock className="text-orange-500" />
-                  Forgot Password
-                </Link>
-
-                <button type="button" onClick={handleLogout} className={`${menuItemClassName} text-red-600 hover:bg-red-50 hover:text-red-700`}>
-                  <FiLogOut className="text-red-500" />
-                  Logout
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      <ProfileEditModal open={profileOpen} onClose={() => setProfileOpen(false)} />
-    </>
+              <button type="button" onClick={handleLogout} className={`${menuItemClassName} text-red-600 hover:bg-red-50 hover:text-red-700`}>
+                <FiLogOut className="text-red-500" />
+                Logout
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 
 export const MobileAccountPanel = ({ onClose }) => {
   const { user, logout } = useAuth();
-  const [profileOpen, setProfileOpen] = useState(false);
 
   const displayName = useMemo(() => getDisplayName(user), [user]);
   const initials = useMemo(() => getInitials(user), [user]);
@@ -250,17 +219,10 @@ export const MobileAccountPanel = ({ onClose }) => {
           My Activity
         </Link>
 
-        <button
-          type="button"
-          onClick={() => {
-            onClose?.();
-            setProfileOpen(true);
-          }}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-gray-50 p-4 font-bold text-gray-700"
-        >
+        <Link to="/edit-profile" onClick={onClose} className="flex items-center justify-center gap-2 rounded-2xl bg-gray-50 p-4 font-bold text-gray-700">
           <FiUser />
           Edit Profile
-        </button>
+        </Link>
 
         <Link
           to="/forgot-password"
@@ -281,8 +243,6 @@ export const MobileAccountPanel = ({ onClose }) => {
           Logout
         </button>
       </div>
-
-      <ProfileEditModal open={profileOpen} onClose={() => setProfileOpen(false)} />
     </>
   );
 };
