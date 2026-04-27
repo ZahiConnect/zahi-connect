@@ -55,10 +55,10 @@ const LoginPage = () => {
       }
     >
       <div className="fade-up">
-        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#09090b] mb-4">
+        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-900 mb-4">
           <div className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Secure Protocol
         </span>
-        <h2 className="font-display mt-2 text-4xl font-bold tracking-tight text-[#09090b]">System Access</h2>
+        <h2 className="font-display mt-2 text-4xl font-bold tracking-tight text-zinc-900">System Access</h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-500 font-medium">
           Authenticate using your dispatch communications ID or secure email vector.
         </p>
@@ -68,7 +68,7 @@ const LoginPage = () => {
         <label className="block">
           <span className="field-label">Dispatch Identifier</span>
           <div className="relative group">
-            <UserRound className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 group-focus-within:text-[#09090b] transition-colors" />
+            <UserRound className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 group-focus-within:text-zinc-900 transition-colors" />
             <input
               type="text"
               value={identifier}
@@ -84,7 +84,7 @@ const LoginPage = () => {
         <label className="block">
           <span className="field-label">Security Clearance</span>
           <div className="relative group">
-            <KeyRound className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 group-focus-within:text-[#09090b] transition-colors" />
+            <KeyRound className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 group-focus-within:text-zinc-900 transition-colors" />
             <input
               type={showPassword ? "text" : "password"}
               value={password}
@@ -97,7 +97,7 @@ const LoginPage = () => {
             <button
               type="button"
               onClick={() => setShowPassword((current) => !current)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#09090b] transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-zinc-900 transition-colors"
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
@@ -114,7 +114,7 @@ const LoginPage = () => {
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex w-full mt-4 items-center justify-center gap-2 rounded-2xl bg-[#09090b] px-6 py-4 text-sm font-bold text-white transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 hover:bg-[#18181b] shadow-xl shadow-black/10"
+          className="inline-flex w-full mt-4 items-center justify-center gap-2 rounded-2xl bg-zinc-900 px-6 py-4 text-sm font-bold text-white transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 hover:bg-zinc-800 shadow-xl shadow-black/10"
         >
           {loading ? "Signing in..." : "Sign In"}
           <ArrowRight className="h-4 w-4" />

@@ -143,6 +143,10 @@ def build_public_asset_url(filename: str) -> str:
     return f"/mobility/uploads/{filename}"
 
 
+def clean_text(value) -> str:
+    return str(value or "").strip()
+
+
 def haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     earth_radius_km = 6371.0
     lat1_rad = math.radians(lat1)
@@ -158,6 +162,30 @@ def haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) ->
     )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return earth_radius_km * c
+
+
+def online_readiness_issues(driver: MobilityDriver) -> list[str]:
+    issues: list[str] = []
+    vehicle = driver.vehicle
+
+    if not clean_text(driver.phone):
+        issues.append("Complete your profile phone number before going online.")
+    if not vehicle:
+        issues.append("Add vehicle details before going online.")
+        return issues
+
+    if not clean_text(vehicle.vehicle_name):
+        issues.append("Add your vehicle name before going online.")
+    if not clean_text(vehicle.plate_number):
+        issues.append("Add your plate number before going online.")
+    if not vehicle.seat_capacity or vehicle.seat_capacity < 1:
+        issues.append("Add a valid seat capacity before going online.")
+    if vehicle.base_fare is None or vehicle.base_fare < 0:
+        issues.append("Add a valid base fare before going online.")
+    if vehicle.per_km_rate is None or vehicle.per_km_rate < 0:
+        issues.append("Add a valid per-km rate before going online.")
+
+    return issues
 
 
 def serialize_vehicle(vehicle: MobilityVehicle | None) -> dict | None:
@@ -524,6 +552,11 @@ async def update_driver_profile(
     current_driver: MobilityDriver = Depends(get_current_driver),
     db: AsyncSession = Depends(get_db),
 ):
+    if payload.full_name is not None and not clean_text(payload.full_name):
+        raise HTTPException(status_code=400, detail="Full name is required.")
+    if payload.phone is not None and not clean_text(payload.phone):
+        raise HTTPException(status_code=400, detail="Phone number is required.")
+
     if payload.phone and payload.phone != current_driver.phone:
         result = await db.execute(
             select(MobilityDriver).where(
@@ -592,6 +625,16 @@ async def update_driver_status(
     current_driver: MobilityDriver = Depends(get_current_driver),
     db: AsyncSession = Depends(get_db),
 ):
+    if payload.is_online:
+        issues = online_readiness_issues(current_driver)
+        if issues:
+            raise HTTPException(status_code=400, detail=issues[0])
+        if payload.current_latitude is None or payload.current_longitude is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Refresh your location before going online.",
+            )
+
     current_driver.is_online = payload.is_online
     current_driver.current_area_label = payload.current_area_label
     current_driver.current_latitude = payload.current_latitude

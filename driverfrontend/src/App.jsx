@@ -26,9 +26,9 @@ const LoadingSplash = () => (
   <div className="flex min-h-screen items-center justify-center px-4">
     <div className="drive-panel w-full max-w-md rounded-[32px] px-8 py-12 text-center fade-in border border-slate-200">
       <div className="mx-auto w-16 h-16 bg-[#facc15] text-[#422006] flex items-center justify-center rounded-2xl mb-6 shadow-sm"><CarFront size={32}/></div>
-      <h1 className="font-display mt-4 text-3xl font-bold tracking-tight text-[#09090b]">Initializing Command Center</h1>
+      <h1 className="font-display mt-4 text-3xl font-bold tracking-tight text-zinc-900">Initializing Command Center</h1>
       <div className="mx-auto mt-8 h-1.5 w-48 overflow-hidden rounded-full bg-slate-100">
-        <div className="h-full w-1/2 animate-pulse rounded-full bg-[#18181b]" />
+        <div className="h-full w-1/2 animate-pulse rounded-full bg-zinc-800" />
       </div>
     </div>
   </div>
@@ -69,7 +69,7 @@ const Header = () => {
             <CarFront size={20} strokeWidth={2.5}/>
           </div>
           <div>
-            <p className="font-display font-bold text-xl leading-none tracking-tight text-[#09090b]">Zahi Drive</p>
+            <p className="font-display font-bold text-xl leading-none tracking-tight text-zinc-900">Zahi Drive</p>
             <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-400">
               Operations
             </p>
@@ -82,7 +82,7 @@ const Header = () => {
             end
             className={({ isActive }) =>
               `rounded-full px-4 py-2 text-sm font-semibold transition ${
-                isActive ? "bg-slate-100 text-[#09090b]" : "text-slate-500 hover:text-[#09090b]"
+                isActive ? "bg-slate-100 text-zinc-900" : "text-slate-500 hover:text-zinc-900"
               }`
             }
           >
@@ -92,7 +92,7 @@ const Header = () => {
             to="/dashboard"
             className={({ isActive }) =>
               `rounded-full px-4 py-2 text-sm font-semibold transition ${
-                isActive ? "bg-slate-100 text-[#09090b]" : "text-slate-500 hover:text-[#09090b]"
+                isActive ? "bg-slate-100 text-zinc-900" : "text-slate-500 hover:text-zinc-900"
               }`
             }
           >
@@ -125,7 +125,7 @@ const Header = () => {
               </Link>
               <Link
                 to="/register"
-                className="inline-flex items-center gap-2 rounded-full bg-[#facc15] px-5 py-2.5 text-sm font-semibold tracking-wide text-[#09090b] hover:bg-[#eab308] shadow-sm transition-all active:scale-95"
+                className="inline-flex items-center gap-2 rounded-full bg-[#facc15] px-5 py-2.5 text-sm font-semibold tracking-wide text-zinc-900 hover:bg-[#eab308] shadow-sm transition-all active:scale-95"
               >
                 Register
                 <CarFront className="h-4 w-4" />
@@ -184,7 +184,7 @@ const Header = () => {
                 <Link
                   to="/register"
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-xl bg-[#18181b] px-4 py-3 text-sm font-bold text-white text-center"
+                  className="rounded-xl bg-zinc-800 px-4 py-3 text-sm font-bold text-white text-center"
                 >
                   Register
                 </Link>
@@ -201,7 +201,7 @@ const Footer = () => (
   <footer className="mt-20 border-t border-slate-200 bg-white">
     <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 text-sm text-slate-500 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr] lg:px-8">
       <div>
-        <p className="font-display text-4xl font-bold tracking-tight text-[#09090b]">Drive when you want.</p>
+        <p className="font-display text-4xl font-bold tracking-tight text-zinc-900">Drive when you want.</p>
         <p className="mt-4 max-w-xl leading-7">
           Zahi Drive puts the wheel back in your hands. High-end tools to manage your cab documents, track rider receipts, and operate independently.
         </p>
@@ -237,7 +237,7 @@ const AppShell = () => (
 const NotFoundPage = () => (
   <div className="drive-panel mx-auto max-w-xl rounded-[32px] px-8 py-16 text-center shadow-lg mt-12 bg-white">
     <div className="mx-auto w-16 h-16 bg-slate-100 text-slate-600 flex items-center justify-center rounded-full mb-6">!</div>
-    <h1 className="font-display mt-4 text-4xl font-bold tracking-tight text-[#09090b]">Route Terminated.</h1>
+    <h1 className="font-display mt-4 text-4xl font-bold tracking-tight text-zinc-900">Route Terminated.</h1>
     <p className="mt-4 text-slate-500">
       Head back to the Zahi command center to continue your session.
     </p>

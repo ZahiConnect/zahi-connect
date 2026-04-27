@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   CarFront, ChevronRight, LayoutDashboard, LogOut, MapPin,
   Menu, Moon, Settings, Sun, User, X, Zap,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 import { DashboardProvider, useDashboard } from "../../context/DashboardContext";
@@ -106,9 +107,9 @@ const Sidebar = ({ onClose }) => {
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all ${
                 isActive
-                  ? "bg-[#facc15] text-[#09090b]"
+                  ? "bg-[#facc15] text-zinc-900"
                   : isDark 
-                    ? "text-zinc-400 hover:bg-zinc-800/60 hover:text-white" 
+                    ? "text-zinc-200 hover:bg-zinc-800/60 hover:text-white" 
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               }`
             }
@@ -139,11 +140,12 @@ const Sidebar = ({ onClose }) => {
 
 const DashboardShellInner = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
   const { theme, toggleTheme } = useDashboard();
   const isDark = theme === "dark";
 
   return (
-    <div className={`flex h-screen overflow-hidden ${isDark ? "bg-[#09090b]" : "bg-slate-50"}`}>
+    <div className={`flex h-screen overflow-hidden ${isDark ? "bg-zinc-900" : "bg-slate-50"}`}>
       {/* Desktop Sidebar */}
       <aside className={`hidden lg:flex lg:flex-shrink-0 border-r ${isDark ? "bg-zinc-950 border-zinc-800/60" : "bg-white border-slate-200"}`}>
         <Sidebar />
@@ -192,9 +194,19 @@ const DashboardShellInner = () => {
         </div>
 
         {/* Page content */}
-        <main className={`flex-1 overflow-y-auto ${isDark ? "bg-zinc-950" : "bg-slate-50"}`}>
+        <main className={`flex-1 overflow-y-auto overflow-x-hidden ${isDark ? "bg-zinc-950" : "bg-slate-50"}`}>
           <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-            <Outlet />
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
           </div>
         </main>
       </div>

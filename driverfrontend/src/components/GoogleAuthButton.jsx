@@ -63,10 +63,10 @@ const GoogleAuthButton = ({ mode = "signin", label }) => {
       type="button"
       onClick={() => login()}
       disabled={loading}
-      className="w-full flex items-center justify-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-5 py-3.5 text-sm font-bold text-[#09090b] hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-[0.98] disabled:opacity-60 shadow-sm"
+      className="w-full flex items-center justify-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-5 py-3.5 text-sm font-bold text-zinc-900 hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-[0.98] disabled:opacity-60 shadow-sm"
     >
       {loading ? (
-        <div className="w-4 h-4 border-2 border-slate-300 border-t-[#09090b] rounded-full animate-spin" />
+        <div className="w-4 h-4 border-2 border-slate-300 border-t-[#18181b] rounded-full animate-spin" />
       ) : (
         <GoogleIcon />
       )}

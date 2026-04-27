@@ -4,7 +4,7 @@ import { CarFront } from "lucide-react";
 const AuthShell = ({ eyebrow, title, description, footer, children }) => (
   <div className="flex h-screen overflow-hidden bg-white">
     {/* Left Side Section - Dark/Premium branding */}
-    <div className="relative hidden w-0 flex-1 bg-[#09090b] lg:block overflow-hidden">
+    <div className="relative hidden w-0 flex-1 bg-zinc-900 lg:block overflow-hidden">
       <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?q=80&w=2000&auto=format&fit=crop')] opacity-10 bg-cover bg-center mix-blend-overlay" />
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#facc15]/10 blur-[100px] rounded-full translate-x-1/3 -translate-y-1/3" />
       

@@ -18,31 +18,63 @@ const parseFloat_ = (v, fallback = null) => {
   const p = Number.parseFloat(String(v));
   return Number.isFinite(p) ? p : fallback;
 };
+const cleanText = (v) => String(v || "").trim();
 
-export const buildProfileDraft = (d = {}) => ({
-  full_name: d.full_name || "",
-  phone: d.phone || "",
-  aadhaar_number: d.aadhaar_number || "",
-  license_number: d.license_number || "",
-  emergency_contact_name: d.emergency_contact_name || "",
-  emergency_contact_phone: d.emergency_contact_phone || "",
-  current_area_label: d.current_area_label || "",
-});
+export const buildProfileDraft = (driver = {}) => {
+  const d = driver || {};
+  return {
+    full_name: d.full_name || "",
+    phone: d.phone || "",
+    aadhaar_number: d.aadhaar_number || "",
+    license_number: d.license_number || "",
+    emergency_contact_name: d.emergency_contact_name || "",
+    emergency_contact_phone: d.emergency_contact_phone || "",
+    current_area_label: d.current_area_label || "",
+  };
+};
 
-export const buildVehicleDraft = (v = {}) => ({
-  vehicle_name: v.vehicle_name || "",
-  vehicle_type: v.vehicle_type || "Cab",
-  brand: v.brand || "",
-  model: v.model || "",
-  plate_number: v.plate_number || "",
-  color: v.color || "",
-  year: v.year ?? "",
-  seat_capacity: v.seat_capacity ?? 4,
-  air_conditioned: v.air_conditioned !== false,
-  availability_notes: v.availability_notes || "",
-  base_fare: v.base_fare ?? 250,
-  per_km_rate: v.per_km_rate ?? 18,
-});
+export const buildVehicleDraft = (vehicle = {}) => {
+  const v = vehicle || {};
+  return {
+    vehicle_name: v.vehicle_name || "",
+    vehicle_type: v.vehicle_type || "Cab",
+    brand: v.brand || "",
+    model: v.model || "",
+    plate_number: v.plate_number || "",
+    color: v.color || "",
+    year: v.year ?? "",
+    seat_capacity: v.seat_capacity ?? 4,
+    air_conditioned: v.air_conditioned !== false,
+    availability_notes: v.availability_notes || "",
+    base_fare: v.base_fare ?? 250,
+    per_km_rate: v.per_km_rate ?? 18,
+  };
+};
+
+export const getOnlineReadinessIssues = (driver) => {
+  const issues = [];
+  const vehicle = driver?.vehicle;
+
+  if (!cleanText(driver?.phone)) issues.push("Add your phone number in My Profile.");
+  if (!vehicle) {
+    issues.push("Add your vehicle details in My Vehicle.");
+    return issues;
+  }
+
+  if (!cleanText(vehicle.vehicle_name)) issues.push("Add your vehicle name.");
+  if (!cleanText(vehicle.plate_number)) issues.push("Add your plate number.");
+  if (!Number.isFinite(Number(vehicle.seat_capacity)) || Number(vehicle.seat_capacity) < 1) {
+    issues.push("Add a valid seat capacity.");
+  }
+  if (!Number.isFinite(Number(vehicle.base_fare)) || Number(vehicle.base_fare) < 0) {
+    issues.push("Add a valid base fare.");
+  }
+  if (!Number.isFinite(Number(vehicle.per_km_rate)) || Number(vehicle.per_km_rate) < 0) {
+    issues.push("Add a valid per-km rate.");
+  }
+
+  return issues;
+};
 
 const DashboardContext = createContext(null);
 
@@ -116,6 +148,14 @@ export const DashboardProvider = ({ children }) => {
   const toggleOnline = async () => {
     if (switchingOnline) return;
     const goingOnline = !driver?.is_online;
+
+    if (goingOnline) {
+      const issues = getOnlineReadinessIssues(driver);
+      if (issues.length) {
+        toast.error(issues[0]);
+        return;
+      }
+    }
     
     if (goingOnline && locStatus !== "ready") {
       toast.loading("Getting your location...", { id: "location-toast" });
@@ -133,17 +173,24 @@ export const DashboardProvider = ({ children }) => {
       // After requestLocation() returns, localStorage has the latest.
       const payload = JSON.parse(window.localStorage.getItem("zahi_drive_location_coords") || "null");
       const currentLabel = window.localStorage.getItem("zahi_drive_location_label");
+      const currentLatitude = coordinates?.latitude ?? payload?.latitude ?? null;
+      const currentLongitude = coordinates?.longitude ?? payload?.longitude ?? null;
+
+      if (goingOnline && (currentLatitude == null || currentLongitude == null)) {
+        toast.error("Refresh your location before going online.");
+        return;
+      }
 
       const updated = await mobilityService.updateStatus({
         is_online: goingOnline,
         current_area_label: goingOnline ? emptyToNull(locationLabel || currentLabel) : null,
-        current_latitude: goingOnline ? (coordinates?.latitude ?? payload?.latitude ?? null) : null,
-        current_longitude: goingOnline ? (coordinates?.longitude ?? payload?.longitude ?? null) : null,
+        current_latitude: goingOnline ? currentLatitude : null,
+        current_longitude: goingOnline ? currentLongitude : null,
       });
       hydrateDriverState(updated);
       toast.success(goingOnline ? "You are now ONLINE 🟢" : "You are now OFFLINE 🔴");
-    } catch {
-      toast.error("Failed to update status.");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to update status.");
     } finally {
       setSwitchingOnline(false);
     }
@@ -161,6 +208,11 @@ export const DashboardProvider = ({ children }) => {
   };
 
   const saveProfile = async () => {
+    if (!emptyToNull(profileForm.full_name) || !emptyToNull(profileForm.phone)) {
+      toast.error("Full name and phone number are required.");
+      return;
+    }
+
     setSavingProfile(true);
     try {
       const uploads = await uploadFiles(profileFiles);
@@ -185,6 +237,11 @@ export const DashboardProvider = ({ children }) => {
   };
 
   const saveVehicle = async () => {
+    if (!emptyToNull(vehicleForm.vehicle_name) || !emptyToNull(vehicleForm.plate_number)) {
+      toast.error("Vehicle name and plate number are required.");
+      return;
+    }
+
     setSavingVehicle(true);
     try {
       const uploads = await uploadFiles(vehicleFiles);

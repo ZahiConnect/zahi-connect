@@ -13,10 +13,10 @@ const LandingPage = () => {
         <div className="absolute left-0 bottom-0 -z-10 w-96 h-96 bg-zinc-100 rounded-full blur-3xl -translate-x-1/3 translate-y-1/3" />
         <div className="grid gap-12 lg:grid-cols-[1.15fr_0.85fr]">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#09090b] mb-6 shadow-sm">
+            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-900 mb-6 shadow-sm">
               <div className="w-2 h-2 rounded-full bg-[#facc15]" /> Premium Gateway
             </span>
-            <h1 className="font-display mt-2 max-w-4xl text-5xl font-bold leading-[1.1] tracking-tight text-[#09090b] sm:text-6xl lg:text-7xl">
+            <h1 className="font-display mt-2 max-w-4xl text-5xl font-bold leading-[1.1] tracking-tight text-zinc-900 sm:text-6xl lg:text-7xl">
               Take the wheel.<br/>Own your routes.
             </h1>
             <p className="mt-8 max-w-2xl text-lg leading-relaxed text-slate-500 font-medium">
@@ -34,7 +34,7 @@ const LandingPage = () => {
               {!isAuthenticated ? (
                 <Link
                   to="/login"
-                  className="inline-flex items-center gap-2 rounded-full border-2 border-slate-200 bg-white px-6 py-3.5 text-sm font-bold text-[#09090b] hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-full border-2 border-slate-200 bg-white px-6 py-3.5 text-sm font-bold text-zinc-900 hover:bg-slate-50 hover:border-slate-300 transition-colors"
                 >
                   Operator Sign In
                 </Link>
@@ -64,11 +64,11 @@ const LandingPage = () => {
               return (
                 <div key={item.title} className="drive-card rounded-3xl p-6 group hover:border-slate-300 transition-colors bg-white">
                   <div className="flex items-start gap-5">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-[#09090b] group-hover:bg-[#facc15] group-hover:text-[#422006] transition-colors">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-900 group-hover:bg-[#facc15] group-hover:text-[#422006] transition-colors">
                       <Icon className="h-5 w-5" strokeWidth={2.5} />
                     </div>
                     <div>
-                      <h2 className="font-display text-xl font-bold tracking-tight text-[#09090b]">{item.title}</h2>
+                      <h2 className="font-display text-xl font-bold tracking-tight text-zinc-900">{item.title}</h2>
                       <p className="mt-2 text-sm leading-relaxed text-slate-500 font-medium">{item.body}</p>
                     </div>
                   </div>
@@ -95,10 +95,10 @@ const LandingPage = () => {
           },
         ].map((item) => (
           <div key={item.title} className="drive-card rounded-[24px] p-8 hover:shadow-md transition-shadow bg-white">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#09090b] text-[#facc15]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900 text-[#facc15]">
               <CarFront className="h-6 w-6" strokeWidth={2.5}/>
             </div>
-            <h3 className="font-display mt-6 text-2xl font-bold tracking-tight text-[#09090b]">{item.title}</h3>
+            <h3 className="font-display mt-6 text-2xl font-bold tracking-tight text-zinc-900">{item.title}</h3>
             <p className="mt-3 text-sm leading-relaxed text-slate-500 font-medium">{item.body}</p>
           </div>
         ))}

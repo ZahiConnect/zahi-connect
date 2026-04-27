@@ -34,42 +34,72 @@ const parseFloatNumber = (value, fallback = null) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const buildProfileDraft = (driver = {}) => ({
-  full_name: driver.full_name || "",
-  phone: driver.phone || "",
-  aadhaar_number: driver.aadhaar_number || "",
-  license_number: driver.license_number || "",
-  emergency_contact_name: driver.emergency_contact_name || "",
-  emergency_contact_phone: driver.emergency_contact_phone || "",
-  current_area_label: driver.current_area_label || "",
-});
+const buildProfileDraft = (driver = {}) => {
+  const d = driver || {};
+  return {
+    full_name: d.full_name || "",
+    phone: d.phone || "",
+    aadhaar_number: d.aadhaar_number || "",
+    license_number: d.license_number || "",
+    emergency_contact_name: d.emergency_contact_name || "",
+    emergency_contact_phone: d.emergency_contact_phone || "",
+    current_area_label: d.current_area_label || "",
+  };
+};
 
-const buildVehicleDraft = (vehicle = {}) => ({
-  vehicle_name: vehicle.vehicle_name || "",
-  vehicle_type: vehicle.vehicle_type || "Cab",
-  brand: vehicle.brand || "",
-  model: vehicle.model || "",
-  plate_number: vehicle.plate_number || "",
-  color: vehicle.color || "",
-  year: vehicle.year ?? "",
-  seat_capacity: vehicle.seat_capacity ?? 4,
-  air_conditioned: vehicle.air_conditioned !== false,
-  availability_notes: vehicle.availability_notes || "",
-  base_fare: vehicle.base_fare ?? 250,
-  per_km_rate: vehicle.per_km_rate ?? 18,
-});
+const buildVehicleDraft = (vehicle = {}) => {
+  const v = vehicle || {};
+  return {
+    vehicle_name: v.vehicle_name || "",
+    vehicle_type: v.vehicle_type || "Cab",
+    brand: v.brand || "",
+    model: v.model || "",
+    plate_number: v.plate_number || "",
+    color: v.color || "",
+    year: v.year ?? "",
+    seat_capacity: v.seat_capacity ?? 4,
+    air_conditioned: v.air_conditioned !== false,
+    availability_notes: v.availability_notes || "",
+    base_fare: v.base_fare ?? 250,
+    per_km_rate: v.per_km_rate ?? 18,
+  };
+};
 
-const buildProfileAssets = (driver = {}) => ({
-  profile_photo_url: driver.profile_photo_url || null,
-  aadhaar_image_url: driver.aadhaar_image_url || null,
-  license_image_url: driver.license_image_url || null,
-});
+const buildProfileAssets = (driver = {}) => {
+  const d = driver || {};
+  return {
+    profile_photo_url: d.profile_photo_url || null,
+    aadhaar_image_url: d.aadhaar_image_url || null,
+    license_image_url: d.license_image_url || null,
+  };
+};
 
-const buildVehicleAssets = (vehicle = {}) => ({
-  photo_url: vehicle.photo_url || null,
-  rc_image_url: vehicle.rc_image_url || null,
-  insurance_image_url: vehicle.insurance_image_url || null,
-});
+const buildVehicleAssets = (vehicle = {}) => {
+  const v = vehicle || {};
+  return {
+    photo_url: v.photo_url || null,
+    rc_image_url: v.rc_image_url || null,
+    insurance_image_url: v.insurance_image_url || null,
+  };
+};
+
+const getOnlineReadinessIssues = (driver) => {
+  const issues = [];
+  const vehicle = driver?.vehicle;
+
+  if (!emptyToNull(driver?.phone)) issues.push("Add your phone number before going online.");
+  if (!vehicle) {
+    issues.push("Add your vehicle details before going online.");
+    return issues;
+  }
+  if (!emptyToNull(vehicle.vehicle_name)) issues.push("Add your vehicle name before going online.");
+  if (!emptyToNull(vehicle.plate_number)) issues.push("Add your plate number before going online.");
+  if (!Number.isFinite(Number(vehicle.seat_capacity)) || Number(vehicle.seat_capacity) < 1) {
+    issues.push("Add a valid seat capacity before going online.");
+  }
+
+  return issues;
+};
 
 const UploadField = ({ label, file, url, onChange }) => (
   <label className="block">
@@ -99,7 +129,7 @@ const AssetLink = ({ label, url }) => {
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="text-xs font-semibold text-[#09090b] underline decoration-[rgba(31,93,74,0.2)] underline-offset-4"
+      className="text-xs font-semibold text-zinc-900 underline decoration-[rgba(31,93,74,0.2)] underline-offset-4"
     >
       {label}
     </a>
@@ -281,6 +311,13 @@ const DriverDashboardPage = () => {
 
   const handleToggleOnline = async () => {
     const nextOnline = !driver?.is_online;
+    if (nextOnline) {
+      const issues = getOnlineReadinessIssues(driver);
+      if (issues.length) {
+        toast.error(issues[0]);
+        return;
+      }
+    }
     if (nextOnline && !coordinates && !(driver?.current_latitude && driver?.current_longitude)) {
       requestLocation();
       toast.error("Allow location access before going online.");
@@ -335,7 +372,7 @@ const DriverDashboardPage = () => {
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-amber-600">Driver dashboard</p>
-            <h1 className="font-display mt-3 text-6xl leading-none text-[#09090b]">
+            <h1 className="font-display mt-3 text-6xl leading-none text-zinc-900">
               {driver?.full_name || "Driver"}
             </h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-500">
@@ -350,7 +387,7 @@ const DriverDashboardPage = () => {
               onClick={handleToggleOnline}
               disabled={switchingOnline}
               className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70 ${
-                driver?.is_online ? "bg-[#ef4444]" : "bg-[#09090b]"
+                driver?.is_online ? "bg-[#ef4444]" : "bg-zinc-900"
               }`}
             >
               <CheckCircle2 className="h-4 w-4" />
@@ -363,7 +400,7 @@ const DriverDashboardPage = () => {
             <button
               type="button"
               onClick={requestLocation}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-[#09090b]"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-zinc-900"
             >
               <MapPin className="h-4 w-4" />
               Refresh location
@@ -380,7 +417,7 @@ const DriverDashboardPage = () => {
                   setLoading(false);
                 }
               }}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-[#09090b]"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-zinc-900"
             >
               <RefreshCcw className="h-4 w-4" />
               Refresh data
@@ -389,13 +426,13 @@ const DriverDashboardPage = () => {
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <span className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#09090b]">
+          <span className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-900">
             {driver?.is_online ? "Visible in customer search" : "Offline from customer search"}
           </span>
           <span className="rounded-full bg-amber-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">
             {locationLabel || driver?.current_area_label || "Location pending"}
           </span>
-          <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#09090b]">
+          <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-900">
             {documentCount} documents uploaded
           </span>
         </div>
@@ -408,7 +445,7 @@ const DriverDashboardPage = () => {
             value: stats.paid_customers || 0,
             caption: "Completed paid riders assigned to you",
             icon: Users,
-            tone: "bg-slate-100 text-[#09090b]",
+            tone: "bg-slate-100 text-zinc-900",
           },
           {
             label: "Total fare value",
@@ -439,7 +476,7 @@ const DriverDashboardPage = () => {
                 <Icon className="h-5 w-5" />
               </div>
               <p className="mt-4 text-xs uppercase tracking-[0.18em] text-[#7a8a82]">{item.label}</p>
-              <p className="font-display mt-3 text-5xl leading-none text-[#09090b]">{item.value}</p>
+              <p className="font-display mt-3 text-5xl leading-none text-zinc-900">{item.value}</p>
               <p className="mt-3 text-sm leading-7 text-slate-500">{item.caption}</p>
             </div>
           );
@@ -454,7 +491,7 @@ const DriverDashboardPage = () => {
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-amber-600">Driver details</p>
-              <h2 className="font-display text-4xl leading-none text-[#09090b]">Profile and compliance</h2>
+              <h2 className="font-display text-4xl leading-none text-zinc-900">Profile and compliance</h2>
             </div>
           </div>
 
@@ -592,7 +629,7 @@ const DriverDashboardPage = () => {
             <button
               type="submit"
               disabled={savingProfile}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#09090b] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-900 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
             >
               {savingProfile ? "Saving profile..." : "Save profile"}
             </button>
@@ -611,7 +648,7 @@ const DriverDashboardPage = () => {
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-amber-600">Cab details</p>
-              <h2 className="font-display text-4xl leading-none text-[#09090b]">Vehicle setup</h2>
+              <h2 className="font-display text-4xl leading-none text-zinc-900">Vehicle setup</h2>
             </div>
           </div>
 
@@ -816,7 +853,7 @@ const DriverDashboardPage = () => {
             <button
               type="submit"
               disabled={savingVehicle}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#09090b] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-zinc-900 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
             >
               {savingVehicle ? "Saving vehicle..." : "Save vehicle"}
             </button>
@@ -832,7 +869,7 @@ const DriverDashboardPage = () => {
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-amber-600">Latest paid customers</p>
-              <h2 className="font-display text-4xl leading-none text-[#09090b]">Recent payouts view</h2>
+              <h2 className="font-display text-4xl leading-none text-zinc-900">Recent payouts view</h2>
             </div>
           </div>
 
@@ -842,7 +879,7 @@ const DriverDashboardPage = () => {
                 <div key={ride.id} className="rounded-[24px] border border-[rgba(34,64,53,0.1)] bg-white p-4">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-lg font-semibold text-[#09090b]">
+                      <p className="text-lg font-semibold text-zinc-900">
                         {ride.customer_name || "Customer"} · {ride.passengers} passenger(s)
                       </p>
                       <p className="mt-2 text-sm leading-7 text-slate-500">
@@ -850,7 +887,7 @@ const DriverDashboardPage = () => {
                       </p>
                       <p className="text-sm leading-7 text-slate-500">
                         {ride.customer_phone ? (
-                          <a href={`tel:${ride.customer_phone}`} className="font-medium text-[#09090b]">
+                          <a href={`tel:${ride.customer_phone}`} className="font-medium text-zinc-900">
                             {ride.customer_phone}
                           </a>
                         ) : (
@@ -859,7 +896,7 @@ const DriverDashboardPage = () => {
                       </p>
                     </div>
                     <div className="text-left sm:text-right">
-                      <p className="text-sm font-semibold text-[#09090b]">
+                      <p className="text-sm font-semibold text-zinc-900">
                         {formatCurrency(ride.estimated_fare)}
                       </p>
                       <p className="mt-1 text-xs uppercase tracking-[0.16em] text-amber-600">
@@ -888,7 +925,7 @@ const DriverDashboardPage = () => {
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-amber-600">Activity feed</p>
-              <h2 className="font-display text-4xl leading-none text-[#09090b]">Assigned ride requests</h2>
+              <h2 className="font-display text-4xl leading-none text-zinc-900">Assigned ride requests</h2>
             </div>
           </div>
 
@@ -898,7 +935,7 @@ const DriverDashboardPage = () => {
                 <div key={ride.id} className="rounded-[24px] border border-[rgba(34,64,53,0.1)] bg-white p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-lg font-semibold text-[#09090b]">
+                      <p className="text-lg font-semibold text-zinc-900">
                         {ride.pickup_label} to {ride.drop_label}
                       </p>
                       <p className="mt-2 text-sm leading-7 text-slate-500">
@@ -908,7 +945,7 @@ const DriverDashboardPage = () => {
                         {ride.customer_phone ? (
                           <a
                             href={`tel:${ride.customer_phone}`}
-                            className="inline-flex items-center gap-2 font-medium text-[#09090b]"
+                            className="inline-flex items-center gap-2 font-medium text-zinc-900"
                           >
                             <Phone className="h-4 w-4" />
                             {ride.customer_phone}
@@ -919,10 +956,10 @@ const DriverDashboardPage = () => {
                       </p>
                     </div>
                     <div className="text-left sm:text-right">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#09090b]">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-900">
                         {ride.status}
                       </span>
-                      <p className="mt-3 text-sm font-semibold text-[#09090b]">
+                      <p className="mt-3 text-sm font-semibold text-zinc-900">
                         {formatCurrency(ride.estimated_fare)}
                       </p>
                       <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[#7c8b82]">
