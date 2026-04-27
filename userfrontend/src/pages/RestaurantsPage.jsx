@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FiSearch, FiMapPin, FiClock, FiArrowRight, FiUsers } from "react-icons/fi";
+import { FiSearch, FiMapPin, FiClock, FiArrowRight } from "react-icons/fi";
 import { BiRestaurant } from "react-icons/bi";
 import { MdOutlineFoodBank } from "react-icons/md";
 
@@ -12,31 +12,28 @@ import { formatCurrency, formatDistance } from "../lib/format";
 
 const RestaurantsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTag, setActiveTag] = useState("all");
+  const [activeFoodType, setActiveFoodType] = useState("");
   
   const { coordinates } = useCustomerLocation(true);
   const { foodItems, loading } = useMarketplaceFoodItems(coordinates);
 
   const query = searchParams.get("query") || "";
-  const diners = Number(searchParams.get("diners") || "2");
 
-  const allTags = useMemo(() => {
-    const tags = new Set();
-    foodItems.forEach((item) => {
-      if (item.category_name) tags.add(item.category_name);
-    });
-    return ["all", ...Array.from(tags)];
-  }, [foodItems]);
+  const foodTypeFilters = [
+    { value: "", label: "All categories" },
+    { value: "veg", label: "Veg" },
+    { value: "non_veg", label: "Non veg" },
+  ];
 
   const filteredItems = useMemo(() => {
     return foodItems.filter((item) => {
       const haystack = [item.name, item.description, item.category_name, item.restaurant_name, item.restaurant_address]
         .join(" ").toLowerCase();
       const matchesSearch = haystack.includes(query.toLowerCase());
-      const matchesTag = activeTag === "all" || item.category_name === activeTag;
-      return matchesSearch && matchesTag;
+      const matchesFoodType = !activeFoodType || item.food_type === activeFoodType;
+      return matchesSearch && matchesFoodType;
     });
-  }, [activeTag, foodItems, query]);
+  }, [activeFoodType, foodItems, query]);
 
   const representedRestaurants = useMemo(
     () => new Set(filteredItems.map((item) => item.restaurant?.id || item.restaurant_slug)).size,
@@ -49,6 +46,9 @@ const RestaurantsPage = () => {
     else next.delete(key);
     setSearchParams(next);
   };
+
+  const getSelectedFoodPath = (item) =>
+    `/restaurants/${item.restaurant_slug}?focus=${encodeURIComponent(item.id)}&add=1`;
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -98,19 +98,6 @@ const RestaurantsPage = () => {
             
             <div className="mt-6 flex flex-wrap items-center gap-4">
               <LocationPicker tone="orange" />
-
-              <label className="flex items-center gap-2 bg-gray-100 px-4 py-2.5 rounded-full text-sm font-semibold text-gray-700">
-                <FiUsers className="text-gray-500" />
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={diners}
-                  onChange={(event) => updateParam("diners", Number(event.target.value) || 1)}
-                  className="w-10 bg-transparent outline-none text-center"
-                />
-                Diners
-              </label>
             </div>
           </div>
 
@@ -137,20 +124,20 @@ const RestaurantsPage = () => {
         </div>
       </motion.section>
 
-      {/* Category Tabs */}
+      {/* Food Type Tabs */}
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8 sticky top-24 z-30">
         <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide py-2">
-          {allTags.map((tag) => (
+          {foodTypeFilters.map((filter) => (
             <button
-              key={tag}
-              onClick={() => setActiveTag(tag)}
+              key={filter.value}
+              onClick={() => setActiveFoodType(filter.value)}
               className={`whitespace-nowrap px-6 py-2.5 rounded-full text-sm font-semibold transition-all shadow-sm ${
-                activeTag === tag
+                activeFoodType === filter.value
                   ? "bg-gray-900 text-white shadow-md scale-105"
                   : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200 hover:border-gray-300"
               }`}
             >
-              {tag === "all" ? "All categories" : tag}
+              {filter.label}
             </button>
           ))}
         </div>
@@ -173,7 +160,7 @@ const RestaurantsPage = () => {
             <MdOutlineFoodBank className="text-8xl text-gray-200 mb-6" />
             <h2 className="text-3xl font-bold text-gray-900 mb-4">No bites found</h2>
             <p className="text-gray-500 mb-8 max-w-md">We couldn't find anything matching your search. Try adjusting your filters or search term.</p>
-            <button onClick={() => { setActiveTag("all"); updateParam("query", "") }} className="bg-gray-900 text-white px-8 py-3 rounded-full font-semibold hover:bg-black transition-colors">
+            <button onClick={() => { setActiveFoodType(""); updateParam("query", "") }} className="bg-gray-900 text-white px-8 py-3 rounded-full font-semibold hover:bg-black transition-colors">
               Clear filters
             </button>
           </motion.div>
@@ -190,7 +177,7 @@ const RestaurantsPage = () => {
                 key={item.id} 
                 className="group bg-white rounded-3xl overflow-hidden border border-gray-100 hover:border-orange-200 hover:shadow-xl transition-all duration-300 flex flex-col hover:-translate-y-1 relative"
               >
-                <Link to={`/restaurants/${item.restaurant_slug}?diners=${diners}&focus=${item.id}`} className="block relative h-56 overflow-hidden">
+                <Link to={getSelectedFoodPath(item)} className="block relative h-56 overflow-hidden">
                   {item.image_url ? (
                     <img src={item.image_url} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
@@ -210,9 +197,12 @@ const RestaurantsPage = () => {
 
                 <div className="p-5 flex-1 flex flex-col">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-xl text-gray-900 leading-tight pr-4">
+                    <Link
+                      to={getSelectedFoodPath(item)}
+                      className="font-bold text-xl text-gray-900 leading-tight pr-4 hover:text-orange-600 transition-colors"
+                    >
                       {item.name}
-                    </h3>
+                    </Link>
                   </div>
 
                   <p className="text-gray-500 text-sm line-clamp-2 mb-4 flex-1">
@@ -233,7 +223,7 @@ const RestaurantsPage = () => {
                   </div>
                   
                   <Link 
-                    to={`/restaurants/${item.restaurant_slug}`}
+                    to={getSelectedFoodPath(item)}
                     className="mt-4 bg-gray-50 rounded-xl p-3 flex items-center justify-between group-hover:bg-orange-50 transition-colors"
                   >
                     <div className="flex items-center gap-2 overflow-hidden">

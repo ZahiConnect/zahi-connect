@@ -81,10 +81,30 @@ const nextSeq = async () => {
   } catch { return 1; }
 };
 
-const priceLookup = (pMap, pDef, type, mode, ci) => {
+const positiveAmount = (value) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0 ? amount : 0;
+};
+
+const roomBaseRate = (room) => positiveAmount(room?.basePrice ?? room?.base_price);
+
+const typeBaseRate = (rooms, type) => {
+  const matchingRates = rooms
+    .filter((room) => room?.type === type)
+    .map(roomBaseRate)
+    .filter((rate) => rate > 0);
+
+  return matchingRates[0] || 0;
+};
+
+const priceLookup = (pMap, pDef, type, mode, ci, fallbackRate = 0) => {
   const dateKey = ci ? ci.slice(0,10) : todayKey();
   const field   = mode === "AC" ? "ac" : "nonAc";
-  return pMap[dateKey]?.[type]?.[field] || pDef[type]?.[field] || 0;
+  return (
+    positiveAmount(pMap[dateKey]?.[type]?.[field]) ||
+    positiveAmount(pDef[type]?.[field]) ||
+    positiveAmount(fallbackRate)
+  );
 };
 
 const buildAutoBillItems = (booking, extras = [], billingSettings = DEFAULT_BILLING_SETTINGS) => {
@@ -703,9 +723,11 @@ const CheckInWizard = ({
   // Auto-price from calendar
   useEffect(()=>{
     const r={};
-    roomTypes.forEach(t=>{ r[t.name]=priceLookup(pMap,pDef,t.name,F.mode,F.checkIn); });
+    roomTypes.forEach(t=>{
+      r[t.name]=priceLookup(pMap,pDef,t.name,F.mode,F.checkIn,typeBaseRate(rooms,t.name));
+    });
     setRates(r);
-  },[F.mode,F.checkIn,roomTypes,pMap,pDef,open]);
+  },[F.mode,F.checkIn,roomTypes,rooms,pMap,pDef,open]);
 
   const unavail = useMemo(()=>{
     const s=new Date(F.checkIn).getTime(), e=new Date(F.checkOut).getTime();

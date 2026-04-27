@@ -15,6 +15,8 @@ import { buildWhatsAppLink, formatAddress, formatCurrency, formatDistance, short
 import bookingService from "../services/bookingService";
 import marketplaceService from "../services/marketplaceService";
 
+const DELIVERY_FEE = 40;
+
 const RestaurantDetailPage = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -32,8 +34,10 @@ const RestaurantDetailPage = () => {
   const [payingNow, setPayingNow] = useState(false);
   const [notes, setNotes] = useState("");
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
-  const diners = Number(searchParams.get("diners") || "2");
+  const [autoAddedItemId, setAutoAddedItemId] = useState(null);
+
   const focusedItemId = searchParams.get("focus");
+  const shouldAutoAddFocusedItem = searchParams.get("add") === "1";
   const shopGalleryImages = useMemo(() => {
     const images = [
       restaurant?.summary?.cover_image,
@@ -80,6 +84,7 @@ const RestaurantDetailPage = () => {
     let active = true;
 
     const load = async () => {
+      setLoading(true);
       try {
         const data = await marketplaceService.getRestaurant(
           slug,
@@ -112,6 +117,10 @@ const RestaurantDetailPage = () => {
   }, [coordinateKey, slug]);
 
   useEffect(() => {
+    setAutoAddedItemId(null);
+  }, [focusedItemId, slug]);
+
+  useEffect(() => {
     if (!focusedItemId || loading) return;
 
     const target = document.getElementById(`dish-${focusedItemId}`);
@@ -119,6 +128,42 @@ const RestaurantDetailPage = () => {
 
     target.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [focusedItemId, loading, visibleSections]);
+
+  useEffect(() => {
+    if (!shouldAutoAddFocusedItem || !focusedItemId || loading) return;
+
+    const autoAddKey = `${slug}:${focusedItemId}`;
+    if (autoAddedItemId === autoAddKey) return;
+
+    const focusedItem = visibleSections
+      .flatMap((section) => section.items || [])
+      .find((item) => String(item.id) === String(focusedItemId));
+
+    if (!focusedItem) return;
+
+    if (cart[focusedItem.id] > 0) {
+      setAutoAddedItemId(autoAddKey);
+      return;
+    }
+
+    setCart((current) => {
+      if (current[focusedItem.id] > 0) return current;
+      return {
+        ...current,
+        [focusedItem.id]: 1,
+      };
+    });
+    setAutoAddedItemId(autoAddKey);
+    toast.success(`${focusedItem.name} added to cart.`);
+  }, [
+    autoAddedItemId,
+    cart,
+    focusedItemId,
+    loading,
+    shouldAutoAddFocusedItem,
+    slug,
+    visibleSections,
+  ]);
 
   useEffect(() => {
     setActiveGalleryIndex(0);
@@ -148,10 +193,12 @@ const RestaurantDetailPage = () => {
       }));
   }, [allItems, cart]);
 
-  const grandTotal = useMemo(
+  const cartSubtotal = useMemo(
     () => cartLines.reduce((sum, line) => sum + line.total, 0),
     [cartLines]
   );
+  const deliveryFee = cartLines.length > 0 ? DELIVERY_FEE : 0;
+  const grandTotal = cartSubtotal + deliveryFee;
 
   const browseGallery = (direction) => {
     if (!shopGalleryImages.length) return;
@@ -179,15 +226,15 @@ const RestaurantDetailPage = () => {
     if (!restaurant) return "";
     const intro = `Hi Zahi, I want to place an order from ${restaurant.tenant?.name || "this restaurant"}.`;
     if (cartLines.length === 0) {
-      return `${intro} Please help me choose dishes for ${diners} diners.`;
+      return `${intro} Please help me choose dishes.`;
     }
 
     const lines = cartLines.map(
       (line) => `- ${line.name} x${line.quantity} (${formatCurrency(line.total)})`
     );
     const noteLine = notes ? `Notes: ${notes}` : "";
-    return `${intro}\n${lines.join("\n")}\nParty size: ${diners}\n${noteLine}\nTotal: ${formatCurrency(grandTotal)}`;
-  }, [cartLines, diners, grandTotal, notes, restaurant]);
+    return `${intro}\n${lines.join("\n")}\nDelivery fee: ${formatCurrency(deliveryFee)}\n${noteLine}\nTotal: ${formatCurrency(grandTotal)}`;
+  }, [cartLines, deliveryFee, grandTotal, notes, restaurant]);
 
   const submitOrderRequest = async () => {
     if (!restaurant) return;
@@ -205,13 +252,14 @@ const RestaurantDetailPage = () => {
       await bookingService.createRequest({
         service_type: "restaurant",
         title: `Dining request for ${restaurant.tenant?.name}`,
-        summary: `${cartLines.length} item(s), ${diners} diner(s), total ${formatCurrency(grandTotal)}`,
+        summary: `${cartLines.length} item(s), delivery ${formatCurrency(deliveryFee)}, total ${formatCurrency(grandTotal)}`,
         tenant_id: restaurant.tenant?.id || null,
         tenant_slug: restaurant.tenant?.slug || null,
         tenant_name: restaurant.tenant?.name || null,
         total_amount: grandTotal,
         metadata: {
-          diners,
+          subtotal: cartSubtotal,
+          delivery_fee: deliveryFee,
           notes,
           items: cartLines.map((line) => ({
             id: line.id,
@@ -248,13 +296,14 @@ const RestaurantDetailPage = () => {
       const checkoutData = await bookingService.createPaymentCheckout({
         service_type: "restaurant",
         title: `Paid order for ${restaurant.tenant?.name}`,
-        summary: `${cartLines.length} item(s), ${diners} diner(s), total ${formatCurrency(grandTotal)}`,
+        summary: `${cartLines.length} item(s), delivery ${formatCurrency(deliveryFee)}, total ${formatCurrency(grandTotal)}`,
         tenant_id: restaurant.tenant?.id || null,
         tenant_slug: restaurant.tenant?.slug || null,
         tenant_name: restaurant.tenant?.name || null,
         total_amount: grandTotal,
         metadata: {
-          diners,
+          subtotal: cartSubtotal,
+          delivery_fee: deliveryFee,
           notes,
           items: cartLines.map((line) => ({
             id: line.id,
@@ -340,7 +389,7 @@ const RestaurantDetailPage = () => {
   }
 
   return (
-    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden mb-12 pb-24 pt-4">
+    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden lg:overflow-visible mb-12 pb-24 pt-4">
       {/* Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
         <Link to="/restaurants" className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100 w-fit">
@@ -428,11 +477,6 @@ const RestaurantDetailPage = () => {
                       {label}
                     </span>
                   ))}
-                  {(restaurant.summary?.category_labels || []).map((label) => (
-                    <span key={label} className="bg-orange-50 text-orange-600 border border-orange-100 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider">
-                      {label}
-                    </span>
-                  ))}
                 </div>
               </div>
             </div>
@@ -468,7 +512,7 @@ const RestaurantDetailPage = () => {
                           id={`dish-${item.id}`}
                           key={item.id}
                           className={`bg-white rounded-3xl p-4 flex gap-4 transition-all duration-300 border ${
-                            focusedItemId === item.id 
+                            String(focusedItemId) === String(item.id)
                               ? "border-orange-300 shadow-md ring-4 ring-orange-50" 
                               : "border-gray-100 hover:border-gray-200 shadow-sm hover:shadow-md"
                           }`}
@@ -529,9 +573,8 @@ const RestaurantDetailPage = () => {
         </div>
 
         {/* Right Column: Cart Sticky */}
-        <div className="relative">
-          <div className="sticky top-24 bg-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-gray-200/40 border border-gray-100">
-             
+        <div className="relative lg:self-start lg:sticky lg:top-20">
+          <div className="bg-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-gray-200/40 border border-gray-100">
             <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-6">
               <div className="w-12 h-12 bg-gray-900 text-white rounded-2xl flex items-center justify-center">
                 <FiShoppingBag className="text-xl" />
@@ -551,7 +594,7 @@ const RestaurantDetailPage = () => {
                  <p className="text-gray-400 text-sm mt-1">Add items from the menu to start</p>
                </div>
             ) : (
-              <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+              <div className="space-y-4">
                 <AnimatePresence>
                   {cartLines.map((line) => (
                     <motion.div 
@@ -578,9 +621,19 @@ const RestaurantDetailPage = () => {
 
             {cartLines.length > 0 && (
               <div className="mt-6 border-t border-gray-100 pt-6">
-                <div className="flex justify-between items-center mb-6">
-                  <span className="font-bold text-gray-500">Total amount</span>
-                  <span className="text-2xl font-extrabold text-gray-900">{formatCurrency(grandTotal)}</span>
+                <div className="space-y-3 mb-6">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-bold text-gray-500">Subtotal</span>
+                    <span className="font-bold text-gray-900">{formatCurrency(cartSubtotal)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-bold text-gray-500">Delivery fee</span>
+                    <span className="font-bold text-gray-900">{formatCurrency(deliveryFee)}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-t border-gray-100 pt-4">
+                    <span className="font-bold text-gray-500">Total amount</span>
+                    <span className="text-2xl font-extrabold text-gray-900">{formatCurrency(grandTotal)}</span>
+                  </div>
                 </div>
 
                 <div className="mb-6">

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FiSearch, FiCalendar, FiUsers, FiFilter, FiMapPin } from "react-icons/fi";
+import { FiSearch, FiCalendar, FiFilter, FiMapPin } from "react-icons/fi";
 import { MdOutlineHotel, MdOutlineBed } from "react-icons/md";
 
 import LocationPicker from "../components/LocationPicker";
@@ -36,17 +36,15 @@ const HotelsPage = () => {
     });
   }, [availableOnly, hotels, query]);
 
+  const availableRoomCount = useMemo(
+    () => filteredHotels.reduce((total, hotel) => total + Number(hotel.available_rooms || 0), 0),
+    [filteredHotels]
+  );
+
   const updateQuery = (value) => {
     const next = new URLSearchParams(searchParams);
     if (value) next.set("query", value);
     else next.delete("query");
-    setSearchParams(next);
-  };
-
-  const updateParam = (key, value) => {
-    const next = new URLSearchParams(searchParams);
-    if (value || value === 0) next.set(key, String(value));
-    else next.delete(key);
     setSearchParams(next);
   };
 
@@ -104,19 +102,6 @@ const HotelsPage = () => {
                 </div>
               )}
 
-              <label className="flex items-center gap-2 bg-gray-100 px-4 py-2.5 rounded-full text-sm font-semibold text-gray-700">
-                <FiUsers className="text-gray-500" />
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={guests}
-                  onChange={(event) => updateParam("guests", Number(event.target.value) || 1)}
-                  className="w-10 bg-transparent outline-none text-center"
-                />
-                Guests
-              </label>
-
               <button
                 onClick={() => setAvailableOnly(!availableOnly)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors border ${
@@ -149,8 +134,8 @@ const HotelsPage = () => {
                    <p className="text-3xl font-extrabold">{hotels.length}</p>
                  </div>
                  <div className="pl-2">
-                   <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Matches Found</p>
-                   <p className="text-3xl font-extrabold">{filteredHotels.length}</p>
+                   <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Rooms Available</p>
+                   <p className="text-3xl font-extrabold">{availableRoomCount}</p>
                  </div>
                </div>
              </div>
@@ -282,10 +267,8 @@ const HotelCard = ({ hotel, guests, checkIn, checkOut }) => {
                <p className="text-xs font-bold text-gray-900">{hotel.total_rooms || 0}</p>
              </div>
              <div className="text-center flex-1">
-               <p className="text-[10px] uppercase text-gray-400 font-bold mb-0.5 tracking-wider">Guests</p>
-               <p className="text-xs font-bold text-gray-900 flex items-center justify-center gap-1">
-                 <FiUsers /> {guests}
-               </p>
+               <p className="text-[10px] uppercase text-gray-400 font-bold mb-0.5 tracking-wider">Available</p>
+               <p className="text-xs font-bold text-gray-900">{hotel.available_rooms || 0}</p>
              </div>
            </div>
            

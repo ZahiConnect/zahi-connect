@@ -5,7 +5,7 @@ import {
   RefreshCw, Search, MoreVertical, Building2,
   Sparkles, AlertTriangle, Hash, ChevronDown,
   ChevronUp, ArrowUp, ArrowDown,
-  ImageIcon, Upload,
+  ImageIcon, Upload, IndianRupee,
 } from "lucide-react";
 import dbs from "../api/db";
 
@@ -98,10 +98,16 @@ const normalizeRoomDraft = (room = {}) => {
     room.imageUrl || room.image_url
   );
 
+  const rawPrice = room.basePrice ?? room.base_price ?? "";
+  const basePrice = rawPrice === "" || rawPrice === null || rawPrice === undefined
+    ? ""
+    : Number(rawPrice);
+
   return {
     ...room,
     imageUrls,
     imageUrl: imageUrls[0] || "",
+    basePrice,
   };
 };
 
@@ -203,8 +209,19 @@ const RoomCard = ({ room, onEdit, onDelete, onStatusChange }) => {
           )}
         </div>
 
-        {/* Status */}
-        <StatusPill status={room.status} />
+        {/* Price + Status */}
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          {(room.basePrice || room.base_price) ? (
+            <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg">
+              <IndianRupee size={10} />
+              {Number(room.basePrice || room.base_price).toLocaleString("en-IN")}
+              <span className="text-[9px] font-medium text-emerald-500 ml-0.5">/night</span>
+            </span>
+          ) : (
+            <span className="text-[10px] text-slate-300 italic">No price set</span>
+          )}
+          <StatusPill status={room.status} />
+        </div>
 
         {/* Notes */}
         {room.notes && (
@@ -224,6 +241,7 @@ const RoomModal = ({ isOpen, onClose, onSave, room, roomTypes, floors }) => {
     mode: "AC",
     status: "Available",
     notes: "",
+    basePrice: "",
     imageUrls: [],
     imageUrl: "",
   };
@@ -326,6 +344,14 @@ const RoomModal = ({ isOpen, onClose, onSave, room, roomTypes, floors }) => {
               </select>
             </Field>
           </div>
+
+          <Field label="Base Price (₹ per night)">
+            <div className="relative">
+              <IndianRupee size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input className={`${inputCls} pl-9`} type="number" min="0" step="1" placeholder="e.g. 2500"
+                value={form.basePrice} onChange={e => setForm({ ...form, basePrice: e.target.value })} />
+            </div>
+          </Field>
 
           <Field label="Room Type">
             <select className={inputCls} value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
@@ -451,7 +477,10 @@ const BulkModal = ({ isOpen, onClose, onSave, roomTypes, floors }) => {
   const [end,   setEnd]   = useState("");
   const [type,  setType]  = useState(roomTypes[0]?.name || "");
   const [mode,  setMode]  = useState("AC");
+  const [basePrice, setBasePrice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [imageUrls, setImageUrls] = useState([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   const nums = (() => {
     const s = parseInt(start), e = parseInt(end);
@@ -459,27 +488,56 @@ const BulkModal = ({ isOpen, onClose, onSave, roomTypes, floors }) => {
     return Array.from({ length: e - s + 1 }, (_, i) => s + i);
   })();
 
+  const uploadBulkImages = async (fileList) => {
+    const files = Array.from(fileList || []).filter(Boolean);
+    if (!files.length) return;
+
+    setUploadingImages(true);
+    try {
+      const uploaded = await Promise.all(files.map((file) => dbs.uploadImage(file)));
+      setImageUrls((current) =>
+        normalizeImageUrls([
+          ...current,
+          ...uploaded.map((item) => item?.url),
+        ])
+      );
+    } catch (error) {
+      console.error(error);
+      alert("Image upload failed.");
+    }
+    setUploadingImages(false);
+  };
+
+  const removeBulkImage = (targetUrl) => {
+    setImageUrls((current) => current.filter((url) => url !== targetUrl));
+  };
+
   const submit = async () => {
     setSaving(true);
+    const normalizedUrls = normalizeImageUrls(imageUrls);
     await onSave(
       nums.map(n => ({
         roomNumber: String(n),
         floor,
         type,
         mode,
+        basePrice: basePrice === "" ? "" : Number(basePrice),
         status: "Available",
         notes: "",
-        imageUrls: [],
-        imageUrl: "",
+        imageUrls: normalizedUrls,
+        imageUrl: normalizedUrls[0] || "",
       }))
     );
-    setSaving(false); onClose();
+    setSaving(false);
+    setImageUrls([]);
+    setBasePrice("");
+    onClose();
   };
 
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
         <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center"
@@ -491,7 +549,7 @@ const BulkModal = ({ isOpen, onClose, onSave, roomTypes, floors }) => {
           </div>
           <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition cursor-pointer"><X size={16} /></button>
         </div>
-        <div className="px-6 py-5 flex flex-col gap-4">
+        <div className="px-6 py-5 flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-3">
             <Field label="From">
               <input className={inputCls} type="number" placeholder="101" value={start} onChange={e => setStart(e.target.value)} />
@@ -520,6 +578,59 @@ const BulkModal = ({ isOpen, onClose, onSave, roomTypes, floors }) => {
                   {m === "AC" ? <Snowflake size={12} /> : <Wind size={12} />} {m}
                 </button>
               ))}
+            </div>
+          </Field>
+          <Field label="Base Price (₹ per night)">
+            <div className="relative">
+              <IndianRupee size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input className={`${inputCls} pl-9`} type="number" min="0" step="1" placeholder="e.g. 2500"
+                value={basePrice} onChange={e => setBasePrice(e.target.value)} />
+            </div>
+          </Field>
+          <Field label="Room Images (applied to all)">
+            <div className="space-y-3">
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50/60">
+                {uploadingImages ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                {uploadingImages ? "Uploading images..." : "Add room images"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={e => uploadBulkImages(e.target.files)}
+                />
+              </label>
+
+              {imageUrls.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {imageUrls.map((imageUrl, index) => (
+                    <div key={`${imageUrl}-${index}`} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <div className="relative h-24 bg-slate-100">
+                        <img src={imageUrl} alt={`Bulk image ${index + 1}`} className="h-full w-full object-cover" />
+                        {index === 0 && (
+                          <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-blue-600">
+                            Primary
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2 p-2">
+                        <button
+                          type="button"
+                          onClick={() => removeBulkImage(imageUrl)}
+                          className="flex-1 rounded-lg bg-red-50 px-2 py-1.5 text-[11px] font-semibold text-red-500 transition hover:bg-red-100"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-400">
+                  <ImageIcon size={13} />
+                  Images will apply to all rooms in this batch.
+                </div>
+              )}
             </div>
           </Field>
           {nums.length > 0 && (

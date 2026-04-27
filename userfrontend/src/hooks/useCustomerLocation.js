@@ -181,7 +181,6 @@ export const useCustomerLocation = (enabled = true) => {
   const [status, setStatus] = useState(locationLabel ? "ready" : "idle");
   const coordinatesRef = useRef(coordinates);
   const locationLabelRef = useRef(locationLabel);
-  const sourceRef = useRef(source);
   const requestingRef = useRef(false);
 
   useEffect(() => {
@@ -191,10 +190,6 @@ export const useCustomerLocation = (enabled = true) => {
   useEffect(() => {
     locationLabelRef.current = locationLabel;
   }, [locationLabel]);
-
-  useEffect(() => {
-    sourceRef.current = source;
-  }, [source]);
 
   const applyLocationSnapshot = useCallback((snapshot) => {
     setLocationLabel(snapshot.locationLabel || "");
@@ -364,11 +359,7 @@ export const useCustomerLocation = (enabled = true) => {
       try {
         permissionStatus = await navigator.permissions.query({ name: "geolocation" });
         if (permissionStatus.state === "granted") {
-          if (sourceRef.current !== "manual") {
-            requestLocation();
-          } else {
-            setStatus(locationLabelRef.current && coordinatesRef.current ? "ready" : "needs_permission");
-          }
+          setStatus(locationLabelRef.current && coordinatesRef.current ? "ready" : "needs_permission");
         } else if (permissionStatus.state === "denied") {
           setStatus(locationLabelRef.current && coordinatesRef.current ? "ready" : "denied");
         } else {
@@ -377,11 +368,7 @@ export const useCustomerLocation = (enabled = true) => {
 
         permissionStatus.onchange = () => {
           if (permissionStatus.state === "granted") {
-            if (sourceRef.current !== "manual") {
-              requestLocation();
-            } else {
-              setStatus(locationLabelRef.current && coordinatesRef.current ? "ready" : "needs_permission");
-            }
+            setStatus(locationLabelRef.current && coordinatesRef.current ? "ready" : "needs_permission");
             return;
           }
           if (permissionStatus.state === "denied") {
@@ -401,7 +388,7 @@ export const useCustomerLocation = (enabled = true) => {
         permissionStatus.onchange = null;
       }
     };
-  }, [enabled, requestLocation]);
+  }, [enabled]);
 
   return {
     coordinates,

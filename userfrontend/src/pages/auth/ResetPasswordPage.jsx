@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import toast from "react-hot-toast";
-import { ArrowRight, Eye, EyeOff, KeyRound, ShieldCheck } from "lucide-react";
+import {
+  FiArrowRight,
+  FiEye,
+  FiEyeOff,
+  FiLock,
+  FiShield,
+  FiKey,
+} from "react-icons/fi";
 
 import api from "../../lib/axios";
 import AuthShell from "./AuthShell";
@@ -55,103 +63,127 @@ const ResetPasswordPage = () => {
 
   return (
     <AuthShell
-      eyebrow="Create a fresh password"
-      title="Finish the reset flow."
-      description="Use the OTP from your email, set a new password, and then step back into the customer-facing Zahi experience."
       footer={
         <p>
           Need another code?{" "}
-          <Link to="/forgot-password" className="auth-link font-semibold text-[#8e3f11]">
+          <Link to="/forgot-password" className="font-bold text-gray-900 hover:text-orange-600 transition-colors">
             Request OTP again
           </Link>
         </p>
       }
     >
-      <div className="fade-up">
-        <p className="auth-link text-xs uppercase tracking-[0.24em] text-[#a6633b]">Reset password</p>
-        <h2 className="auth-heading font-display mt-3 text-5xl text-[#1f1812]">Choose a new password</h2>
-        <p className="auth-muted mt-3 text-sm leading-7 text-[#6a5f56]">
-          Resetting access for <span className="auth-heading font-medium text-[#1f1812]">{email}</span>.
-        </p>
+      <div className="space-y-6">
+        <div>
+          <span className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full text-[10px] font-bold tracking-[0.18em] uppercase mb-4">
+            <FiKey size={11} />
+            New Password
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight leading-tight">
+            Set new password
+          </h2>
+          <p className="mt-2 text-gray-400 text-sm leading-relaxed">
+            Resetting password for{" "}
+            <span className="font-bold text-gray-700">{email}</span>.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 block px-1">
+              OTP Code
+            </label>
+            <div className="relative group">
+              <FiShield className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-orange-500 transition-colors" />
+              <input
+                type="text"
+                value={form.otp}
+                onChange={(e) => setField("otp", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="000000"
+                className="w-full rounded-2xl border border-gray-200 bg-gray-50/50 pl-11 pr-4 py-3.5 text-sm text-gray-900 tracking-[0.35em] font-bold outline-none focus:bg-white focus:ring-4 focus:ring-orange-500/8 focus:border-orange-400 transition-all placeholder:text-gray-300 placeholder:font-normal placeholder:tracking-[0.35em]"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 block px-1">
+              New password
+            </label>
+            <div className="relative group">
+              <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-orange-500 transition-colors" />
+              <input
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={(e) => setField("password", e.target.value)}
+                placeholder="At least 6 characters"
+                className="w-full rounded-2xl border border-gray-200 bg-gray-50/50 pl-11 pr-12 py-3.5 text-sm text-gray-900 outline-none focus:bg-white focus:ring-4 focus:ring-orange-500/8 focus:border-orange-400 transition-all placeholder:text-gray-300"
+                minLength={6}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((c) => !c)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
+              >
+                {showPassword ? <FiEyeOff size={15} /> : <FiEye size={15} />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 block px-1">
+              Confirm password
+            </label>
+            <div className="relative group">
+              <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-orange-500 transition-colors" />
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                value={form.confirmPassword}
+                onChange={(e) => setField("confirmPassword", e.target.value)}
+                placeholder="Repeat your password"
+                className="w-full rounded-2xl border border-gray-200 bg-gray-50/50 pl-11 pr-12 py-3.5 text-sm text-gray-900 outline-none focus:bg-white focus:ring-4 focus:ring-orange-500/8 focus:border-orange-400 transition-all placeholder:text-gray-300"
+                minLength={6}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((c) => !c)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
+              >
+                {showConfirmPassword ? <FiEyeOff size={15} /> : <FiEye size={15} />}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600 font-medium"
+            >
+              {error}
+            </motion.div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-gray-900 hover:bg-black text-white font-bold py-4 rounded-2xl shadow-xl shadow-gray-900/8 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Saving...
+              </span>
+            ) : (
+              <>
+                Save new password
+                <FiArrowRight size={16} />
+              </>
+            )}
+          </button>
+        </form>
       </div>
-
-      <form onSubmit={handleSubmit} className="mt-8 space-y-4 fade-up">
-        <label className="block">
-          <span className="auth-heading mb-2 block text-sm font-medium text-[#3f342a]">OTP</span>
-          <div className="relative">
-            <ShieldCheck className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d8a79]" />
-            <input
-              type="text"
-              value={form.otp}
-              onChange={(event) => setField("otp", event.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="123456"
-              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 tracking-[0.35em] outline-none transition-all focus:border-[#d56d2e] focus:ring-4 focus:ring-[rgba(213,109,46,0.08)]"
-              required
-            />
-          </div>
-        </label>
-
-        <label className="block">
-          <span className="auth-heading mb-2 block text-sm font-medium text-[#3f342a]">New password</span>
-          <div className="relative">
-            <KeyRound className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d8a79]" />
-            <input
-              type={showPassword ? "text" : "password"}
-              value={form.password}
-              onChange={(event) => setField("password", event.target.value)}
-              placeholder="At least 6 characters"
-              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none transition-all focus:border-[#d56d2e] focus:ring-4 focus:ring-[rgba(213,109,46,0.08)]"
-              minLength={6}
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((current) => !current)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9d8a79] transition-colors hover:text-[#6a5f56]"
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </label>
-
-        <label className="block">
-          <span className="auth-heading mb-2 block text-sm font-medium text-[#3f342a]">Confirm password</span>
-          <div className="relative">
-            <KeyRound className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d8a79]" />
-            <input
-              type={showConfirmPassword ? "text" : "password"}
-              value={form.confirmPassword}
-              onChange={(event) => setField("confirmPassword", event.target.value)}
-              placeholder="Repeat your password"
-              className="auth-input-surface w-full rounded-[22px] border border-[rgba(96,73,53,0.14)] bg-white px-12 py-3.5 outline-none transition-all focus:border-[#d56d2e] focus:ring-4 focus:ring-[rgba(213,109,46,0.08)]"
-              minLength={6}
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword((current) => !current)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9d8a79] transition-colors hover:text-[#6a5f56]"
-            >
-              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </label>
-
-        {error ? (
-          <div className="auth-error rounded-[22px] border border-[#efc8b7] bg-[#fff1ea] px-4 py-3 text-sm text-[#9f4318]">
-            {error}
-          </div>
-        ) : null}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="auth-primary-button inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1f1812] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(31,24,18,0.12)] transition-all hover:bg-[#2f241d] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {loading ? "Updating password..." : "Save new password"}
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </form>
     </AuthShell>
   );
 };
