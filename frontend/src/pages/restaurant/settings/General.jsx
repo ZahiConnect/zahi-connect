@@ -105,6 +105,56 @@ const buildLocationQueryFromSettings = (settings) =>
     .filter(Boolean)
     .join(", ");
 
+const isAutoCoordinateMapLink = (value) =>
+  cleanText(value).startsWith("https://www.google.com/maps/search/?api=1&query=");
+
+const optionalText = (value) => {
+  const text = cleanText(value);
+  return text || null;
+};
+
+const optionalCoordinate = (value) => {
+  if (value === "" || value === null || value === undefined) return null;
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+};
+
+const buildGeneralPayload = (form) => ({
+  name: cleanText(form.name),
+  email: cleanText(form.email),
+  phone: optionalText(form.phone),
+  address: optionalText(form.address),
+  tagline: optionalText(form.tagline),
+  description: optionalText(form.description),
+  area_name: optionalText(form.area_name),
+  city: optionalText(form.city),
+  state: optionalText(form.state),
+  postal_code: optionalText(form.postal_code),
+  map_link: optionalText(form.map_link),
+  latitude: optionalCoordinate(form.latitude),
+  longitude: optionalCoordinate(form.longitude),
+  contact_email: optionalText(form.contact_email),
+  reservation_phone: optionalText(form.reservation_phone),
+  whatsapp_number: optionalText(form.whatsapp_number),
+});
+
+const getApiErrorMessage = (error, fallback) => {
+  const detail = error.response?.data?.detail;
+
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => item?.msg || item?.message || String(item))
+      .filter(Boolean)
+      .join(" ");
+  }
+  if (detail && typeof detail === "object") {
+    return detail.msg || detail.message || fallback;
+  }
+
+  return fallback;
+};
+
 export default function RestaurantGeneralSettings() {
   const { settings, loading, hydrate } = useRestaurantSettingsPage();
   const [form, setForm] = useState(buildGeneralForm(null));
@@ -126,6 +176,21 @@ export default function RestaurantGeneralSettings() {
       : event.target.value;
 
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateManualLocationField = (field) => (event) => {
+    const limit = numericFieldRules[field];
+    const value = limit
+      ? keepDigitsOnly(event.target.value, limit)
+      : event.target.value;
+
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+      map_link: isAutoCoordinateMapLink(current.map_link) ? "" : current.map_link,
+      latitude: "",
+      longitude: "",
+    }));
   };
 
   useEffect(() => {
@@ -229,11 +294,11 @@ export default function RestaurantGeneralSettings() {
     event.preventDefault();
     setSaving(true);
     try {
-      hydrate(await restaurantService.updateSettingsGeneral(form));
+      hydrate(await restaurantService.updateSettingsGeneral(buildGeneralPayload(form)));
       toast.success("General settings saved.");
     } catch (error) {
       console.error("Failed to save restaurant settings", error);
-      toast.error(error.response?.data?.detail || "Could not save general settings.");
+      toast.error(getApiErrorMessage(error, "Could not save general settings."));
     } finally {
       setSaving(false);
     }
@@ -313,8 +378,9 @@ export default function RestaurantGeneralSettings() {
             <div>
               <p className="text-sm font-semibold text-[#201711]">Location picker</p>
               <p className="mt-2 text-sm leading-7 text-[#6D5A4B]">
-                Search once and choose a suggestion, or use the device location. The area, city,
-                state, postal code, and map link will be filled automatically.
+                Search once and choose a suggestion, or use the device location to autofill the
+                fields. You can still edit the address, area, city, state, postal code, and map
+                link below.
               </p>
             </div>
             <button
@@ -336,7 +402,7 @@ export default function RestaurantGeneralSettings() {
               className={`${inputClassName} pl-11`}
               value={locationQuery}
               onChange={(event) => setLocationQuery(event.target.value)}
-              placeholder="Search and choose a location suggestion"
+              placeholder="Search for a location suggestion"
             />
             {searchingLocations ? (
               <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-[#9C7A61]">
@@ -368,55 +434,56 @@ export default function RestaurantGeneralSettings() {
 
         <Field label="Full address">
           <input
-            className={`${inputClassName} bg-[#F8F2EA] text-[#6D5A4B]`}
+            className={inputClassName}
             value={form.address}
-            readOnly
-            placeholder="Choose a location suggestion"
+            onChange={updateManualLocationField("address")}
+            placeholder="Type the full restaurant address"
           />
         </Field>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Area">
             <input
-              className={`${inputClassName} bg-[#F8F2EA] text-[#6D5A4B]`}
+              className={inputClassName}
               value={form.area_name}
-              readOnly
-              placeholder="Auto-filled from location"
+              onChange={updateManualLocationField("area_name")}
+              placeholder="Area or locality"
             />
           </Field>
           <Field label="City">
             <input
-              className={`${inputClassName} bg-[#F8F2EA] text-[#6D5A4B]`}
+              className={inputClassName}
               value={form.city}
-              readOnly
-              placeholder="Auto-filled from location"
+              onChange={updateManualLocationField("city")}
+              placeholder="City"
             />
           </Field>
           <Field label="State">
             <input
-              className={`${inputClassName} bg-[#F8F2EA] text-[#6D5A4B]`}
+              className={inputClassName}
               value={form.state}
-              readOnly
-              placeholder="Auto-filled from location"
+              onChange={updateManualLocationField("state")}
+              placeholder="State"
             />
           </Field>
           <Field label="Postal code">
             <input
-              className={`${inputClassName} bg-[#F8F2EA] text-[#6D5A4B]`}
+              className={inputClassName}
               value={form.postal_code}
-              readOnly
+              onChange={updateManualLocationField("postal_code")}
               inputMode="numeric"
-              placeholder="Auto-filled from location"
+              maxLength={10}
+              placeholder="Postal code"
             />
           </Field>
         </div>
 
         <Field label="Google Maps link">
           <input
-            className={`${inputClassName} bg-[#F8F2EA] text-[#6D5A4B]`}
+            className={inputClassName}
             value={form.map_link}
-            readOnly
-            placeholder="Generated from selected location"
+            onChange={updateField("map_link")}
+            placeholder="Paste a Google Maps link"
           />
         </Field>
 

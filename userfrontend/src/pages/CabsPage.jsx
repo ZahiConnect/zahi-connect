@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -21,9 +21,10 @@ import {
   MdOutlineSpeed,
   MdOutlineRoute
 } from "react-icons/md";
-import { FaCarSide, FaMapMarkedAlt } from "react-icons/fa";
+import { FaCarSide } from "react-icons/fa";
 import toast from "react-hot-toast";
 
+import LocationPicker from "../components/LocationPicker";
 import { useAuth } from "../context/AuthContext";
 import useCustomerLocation from "../hooks/useCustomerLocation";
 import { formatCurrency, formatDistance, formatShortDate, todayDate } from "../lib/format";
@@ -51,8 +52,6 @@ const CabsPage = () => {
   const {
     coordinates,
     locationLabel,
-    status: locationStatus,
-    requestLocation,
   } = useCustomerLocation(true);
   
   const coordinateKey = coordinates
@@ -60,6 +59,7 @@ const CabsPage = () => {
     : "no-location";
     
   const driverAppUrl = import.meta.env.VITE_DRIVER_APP_URL || "http://localhost:5175";
+  const lastLocationPickupRef = useRef("");
 
   const [submitting, setSubmitting] = useState(false);
   const [loadingDrivers, setLoadingDrivers] = useState(true);
@@ -80,7 +80,13 @@ const CabsPage = () => {
 
   useEffect(() => {
     if (!locationLabel) return;
-    setForm((current) => (current.pickup ? current : { ...current, pickup: locationLabel }));
+    setForm((current) => {
+      const shouldReplacePickup =
+        !current.pickup || current.pickup === lastLocationPickupRef.current;
+      if (!shouldReplacePickup) return current;
+      lastLocationPickupRef.current = locationLabel;
+      return { ...current, pickup: locationLabel };
+    });
   }, [locationLabel]);
 
   useEffect(() => {
@@ -371,18 +377,7 @@ const CabsPage = () => {
             </FormField>
 
             <div className="flex flex-wrap gap-3 py-2">
-              {locationStatus === "ready" && locationLabel ? (
-                <div className="bg-orange-50 text-orange-600 border border-orange-100 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                  <FaMapMarkedAlt /> Near {locationLabel}
-                </div>
-              ) : (
-                <button 
-                  onClick={requestLocation} 
-                  className="bg-white border border-gray-200 hover:border-orange-200 text-gray-600 hover:text-orange-600 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm"
-                >
-                  <FiMapPin /> Enable nearby ranking
-                </button>
-              )}
+              <LocationPicker tone="orange" />
             </div>
 
             <AnimatePresence>

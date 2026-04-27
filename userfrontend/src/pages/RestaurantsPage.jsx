@@ -5,6 +5,7 @@ import { FiSearch, FiMapPin, FiClock, FiArrowRight, FiUsers } from "react-icons/
 import { BiRestaurant } from "react-icons/bi";
 import { MdOutlineFoodBank } from "react-icons/md";
 
+import LocationPicker from "../components/LocationPicker";
 import useCustomerLocation from "../hooks/useCustomerLocation";
 import useMarketplaceFoodItems from "../hooks/useMarketplaceFoodItems";
 import { formatCurrency, formatDistance } from "../lib/format";
@@ -13,7 +14,7 @@ const RestaurantsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTag, setActiveTag] = useState("all");
   
-  const { coordinates, locationLabel, requestLocation } = useCustomerLocation(true);
+  const { coordinates } = useCustomerLocation(true);
   const { foodItems, loading } = useMarketplaceFoodItems(coordinates);
 
   const query = searchParams.get("query") || "";
@@ -96,20 +97,7 @@ const RestaurantsPage = () => {
             </div>
             
             <div className="mt-6 flex flex-wrap items-center gap-4">
-              {coordinates && locationLabel ? (
-                <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-4 py-2.5 rounded-full font-medium">
-                  <FiMapPin className="text-orange-500" />
-                  Near <span className="font-bold text-gray-900 max-w-[200px] truncate">{locationLabel}</span>
-                </div>
-              ) : (
-                <button
-                  onClick={requestLocation}
-                  className="flex items-center gap-2 text-sm text-orange-600 bg-orange-50 hover:bg-orange-100 px-4 py-2.5 rounded-full transition-colors font-semibold border border-orange-100"
-                >
-                  <FiMapPin />
-                  Enable nearby sorting
-                </button>
-              )}
+              <LocationPicker tone="orange" />
 
               <label className="flex items-center gap-2 bg-gray-100 px-4 py-2.5 rounded-full text-sm font-semibold text-gray-700">
                 <FiUsers className="text-gray-500" />

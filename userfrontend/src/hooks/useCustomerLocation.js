@@ -2,6 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const STORAGE_KEY = "zahi_customer_location_label";
 const COORDINATES_STORAGE_KEY = "zahi_customer_location_coords";
+const SOURCE_STORAGE_KEY = "zahi_customer_location_source";
+const LOCATION_EVENT = "zahi:customer-location-changed";
+
+const getStoredLocationSnapshot = () => ({
+  locationLabel: window.localStorage.getItem(STORAGE_KEY) || "",
+  coordinates: parseStoredCoordinates(),
+  source: window.localStorage.getItem(SOURCE_STORAGE_KEY) || "",
+});
 
 const parseStoredCoordinates = () => {
   try {
@@ -11,18 +19,15 @@ const parseStoredCoordinates = () => {
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
       return null;
     }
-    return { latitude, longitude };
+    const accuracy = Number(payload?.accuracy);
+    return {
+      latitude,
+      longitude,
+      accuracy: Number.isFinite(accuracy) ? accuracy : null,
+    };
   } catch {
     return null;
   }
-};
-
-const coordinatesMatch = (left, right) => {
-  if (!left || !right) return false;
-  return (
-    Math.abs(Number(left.latitude) - Number(right.latitude)) < 0.00001 &&
-    Math.abs(Number(left.longitude) - Number(right.longitude)) < 0.00001
-  );
 };
 
 const cleanAreaName = (value) =>
@@ -33,6 +38,44 @@ const cleanAreaName = (value) =>
     )
     .replace(/\s{2,}/g, " ")
     .trim();
+
+const uniqueParts = (parts) => {
+  const seen = new Set();
+  return parts
+    .map(cleanAreaName)
+    .filter(Boolean)
+    .filter((part) => {
+      const key = part.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
+const buildNominatimLabel = (payload) => {
+  const address = payload?.address || {};
+  const exactParts = uniqueParts([
+    address.building,
+    address.house_number && address.road
+      ? `${address.house_number} ${address.road}`
+      : address.road,
+    address.neighbourhood,
+    address.suburb,
+    address.city_district,
+    address.village,
+    address.town,
+    address.city,
+    address.state_district,
+    address.state,
+    address.postcode,
+  ]);
+
+  if (exactParts.length) {
+    return exactParts.slice(0, 4).join(", ");
+  }
+
+  return cleanAreaName(payload?.display_name);
+};
 
 const getMostSpecificAdministrativeArea = (payload) => {
   const administrative = [...(payload.localityInfo?.administrative || [])]
@@ -78,29 +121,67 @@ const buildLocationLabel = (payload) => {
 };
 
 const reverseGeocode = async (latitude, longitude) => {
-  const params = new URLSearchParams({
+  const nominatimParams = new URLSearchParams({
+    format: "jsonv2",
+    addressdetails: "1",
+    lat: String(latitude),
+    lon: String(longitude),
+    zoom: "18",
+  });
+
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?${nominatimParams.toString()}`
+    );
+    if (response.ok) {
+      const payload = await response.json();
+      const label = buildNominatimLabel(payload);
+      if (label) return label;
+    }
+  } catch {
+    // Fall back to the secondary reverse geocoder below.
+  }
+
+  const fallbackParams = new URLSearchParams({
     latitude: String(latitude),
     longitude: String(longitude),
     localityLanguage: "en",
   });
-  const response = await fetch(
-    `https://api.bigdatacloud.net/data/reverse-geocode-client?${params.toString()}`
+  const fallbackResponse = await fetch(
+    `https://api.bigdatacloud.net/data/reverse-geocode-client?${fallbackParams.toString()}`
   );
 
-  if (!response.ok) {
+  if (!fallbackResponse.ok) {
     throw new Error("Location lookup failed");
   }
 
-  const payload = await response.json();
-  return buildLocationLabel(payload) || "Current location";
+  const fallbackPayload = await fallbackResponse.json();
+  return buildLocationLabel(fallbackPayload) || "Current location";
+};
+
+const persistLocation = ({ label, coordinates, source }) => {
+  window.localStorage.setItem(STORAGE_KEY, label);
+  window.localStorage.setItem(COORDINATES_STORAGE_KEY, JSON.stringify(coordinates));
+  window.localStorage.setItem(SOURCE_STORAGE_KEY, source);
+  window.dispatchEvent(
+    new CustomEvent(LOCATION_EVENT, {
+      detail: {
+        locationLabel: label,
+        coordinates,
+        source,
+      },
+    })
+  );
 };
 
 export const useCustomerLocation = (enabled = true) => {
-  const [locationLabel, setLocationLabel] = useState(() => window.localStorage.getItem(STORAGE_KEY) || "");
-  const [coordinates, setCoordinates] = useState(() => parseStoredCoordinates());
+  const [locationLabel, setLocationLabel] = useState(() => getStoredLocationSnapshot().locationLabel);
+  const [coordinates, setCoordinates] = useState(() => getStoredLocationSnapshot().coordinates);
+  const [source, setSource] = useState(() => getStoredLocationSnapshot().source);
   const [status, setStatus] = useState(locationLabel ? "ready" : "idle");
   const coordinatesRef = useRef(coordinates);
   const locationLabelRef = useRef(locationLabel);
+  const sourceRef = useRef(source);
   const requestingRef = useRef(false);
 
   useEffect(() => {
@@ -111,6 +192,19 @@ export const useCustomerLocation = (enabled = true) => {
     locationLabelRef.current = locationLabel;
   }, [locationLabel]);
 
+  useEffect(() => {
+    sourceRef.current = source;
+  }, [source]);
+
+  const applyLocationSnapshot = useCallback((snapshot) => {
+    setLocationLabel(snapshot.locationLabel || "");
+    setCoordinates(snapshot.coordinates || null);
+    setSource(snapshot.source || "");
+    if (snapshot.locationLabel && snapshot.coordinates) {
+      setStatus("ready");
+    }
+  }, []);
+
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setStatus("unsupported");
@@ -120,36 +214,78 @@ export const useCustomerLocation = (enabled = true) => {
 
     requestingRef.current = true;
     setStatus("loading");
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const nextCoordinates = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          };
-          const label = await reverseGeocode(
-            nextCoordinates.latitude,
-            nextCoordinates.longitude
-          );
-          window.localStorage.setItem(STORAGE_KEY, label);
-          window.localStorage.setItem(
-            COORDINATES_STORAGE_KEY,
-            JSON.stringify(nextCoordinates)
-          );
-          if (label !== locationLabelRef.current) {
-            setLocationLabel(label);
-          }
-          if (!coordinatesMatch(coordinatesRef.current, nextCoordinates)) {
-            setCoordinates(nextCoordinates);
-          }
-          setStatus("ready");
-        } catch {
-          setStatus("error");
-        } finally {
-          requestingRef.current = false;
+    let bestPosition = null;
+    let completed = false;
+    let watchId = null;
+
+    const finishWithPosition = async (position) => {
+      if (completed) return;
+      completed = true;
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+
+      try {
+        const nextCoordinates = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: Number.isFinite(position.coords.accuracy)
+            ? position.coords.accuracy
+            : null,
+        };
+        const label = await reverseGeocode(
+          nextCoordinates.latitude,
+          nextCoordinates.longitude
+        );
+        persistLocation({
+          label,
+          coordinates: nextCoordinates,
+          source: "gps",
+        });
+        setLocationLabel(label);
+        setCoordinates(nextCoordinates);
+        setSource("gps");
+        setStatus("ready");
+      } catch {
+        setStatus("error");
+      } finally {
+        requestingRef.current = false;
+      }
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      if (bestPosition) {
+        finishWithPosition(bestPosition);
+        return;
+      }
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      requestingRef.current = false;
+      setStatus("error");
+    }, 12000);
+
+    const finish = (position) => {
+      window.clearTimeout(timeoutId);
+      finishWithPosition(position);
+    };
+
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        if (
+          !bestPosition ||
+          Number(position.coords.accuracy || Infinity) <
+            Number(bestPosition.coords.accuracy || Infinity)
+        ) {
+          bestPosition = position;
+        }
+
+        if (Number(position.coords.accuracy || Infinity) <= 75) {
+          finish(position);
         }
       },
       (error) => {
+        if (bestPosition) {
+          finish(bestPosition);
+          return;
+        }
+        window.clearTimeout(timeoutId);
         requestingRef.current = false;
         if (error.code === error.PERMISSION_DENIED) {
           setStatus("denied");
@@ -158,12 +294,57 @@ export const useCustomerLocation = (enabled = true) => {
         setStatus("error");
       },
       {
-        enableHighAccuracy: false,
+        enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 300000,
+        maximumAge: 0,
       }
     );
   }, []);
+
+  const setManualLocation = useCallback((nextLocation) => {
+    const latitude = Number(nextLocation?.latitude);
+    const longitude = Number(nextLocation?.longitude);
+    const label = String(nextLocation?.label || nextLocation?.address || "").trim();
+
+    if (!label || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return false;
+    }
+
+    const nextCoordinates = { latitude, longitude };
+    persistLocation({
+      label,
+      coordinates: nextCoordinates,
+      source: "manual",
+    });
+    setLocationLabel(label);
+    setCoordinates(nextCoordinates);
+    setSource("manual");
+    setStatus("ready");
+    return true;
+  }, []);
+
+  useEffect(() => {
+    const handleLocationChange = (event) => {
+      applyLocationSnapshot(event.detail || getStoredLocationSnapshot());
+    };
+
+    const handleStorageChange = (event) => {
+      if (
+        event.key === STORAGE_KEY ||
+        event.key === COORDINATES_STORAGE_KEY ||
+        event.key === SOURCE_STORAGE_KEY
+      ) {
+        applyLocationSnapshot(getStoredLocationSnapshot());
+      }
+    };
+
+    window.addEventListener(LOCATION_EVENT, handleLocationChange);
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener(LOCATION_EVENT, handleLocationChange);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [applyLocationSnapshot]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -183,7 +364,11 @@ export const useCustomerLocation = (enabled = true) => {
       try {
         permissionStatus = await navigator.permissions.query({ name: "geolocation" });
         if (permissionStatus.state === "granted") {
-          requestLocation();
+          if (sourceRef.current !== "manual") {
+            requestLocation();
+          } else {
+            setStatus(locationLabelRef.current && coordinatesRef.current ? "ready" : "needs_permission");
+          }
         } else if (permissionStatus.state === "denied") {
           setStatus(locationLabelRef.current && coordinatesRef.current ? "ready" : "denied");
         } else {
@@ -192,7 +377,11 @@ export const useCustomerLocation = (enabled = true) => {
 
         permissionStatus.onchange = () => {
           if (permissionStatus.state === "granted") {
-            requestLocation();
+            if (sourceRef.current !== "manual") {
+              requestLocation();
+            } else {
+              setStatus(locationLabelRef.current && coordinatesRef.current ? "ready" : "needs_permission");
+            }
             return;
           }
           if (permissionStatus.state === "denied") {
@@ -217,8 +406,10 @@ export const useCustomerLocation = (enabled = true) => {
   return {
     coordinates,
     locationLabel,
+    source,
     status,
     requestLocation,
+    setManualLocation,
   };
 };
 

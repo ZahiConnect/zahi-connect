@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { FiSearch, FiCalendar, FiUsers, FiFilter, FiMapPin } from "react-icons/fi";
 import { MdOutlineHotel, MdOutlineBed } from "react-icons/md";
 
+import LocationPicker from "../components/LocationPicker";
 import useCustomerLocation from "../hooks/useCustomerLocation";
 import useMarketplaceHotels from "../hooks/useMarketplaceHotels";
 import { formatAddress, formatCurrency, formatDateRange, formatDistance } from "../lib/format";
@@ -11,7 +12,7 @@ import { formatAddress, formatCurrency, formatDateRange, formatDistance } from "
 const HotelsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [availableOnly, setAvailableOnly] = useState(false);
-  const { coordinates, locationLabel, requestLocation } = useCustomerLocation(true);
+  const { coordinates } = useCustomerLocation(true);
   const { hotels, loading } = useMarketplaceHotels(coordinates);
 
   const query = searchParams.get("query") || "";
@@ -130,20 +131,7 @@ const HotelsPage = () => {
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              {coordinates && locationLabel ? (
-                <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2.5 rounded-full text-sm font-semibold text-indigo-700 border border-indigo-100 max-w-[280px] truncate">
-                  <FiMapPin className="text-indigo-500 shrink-0" />
-                  Near <span className="font-bold text-gray-900 truncate">{locationLabel}</span>
-                </div>
-              ) : (
-                <button
-                  onClick={requestLocation}
-                  className="flex items-center gap-2 bg-indigo-50 px-4 py-2.5 rounded-full text-sm font-semibold text-indigo-700 border border-indigo-100 hover:bg-indigo-100 transition-colors"
-                >
-                  <FiMapPin className="text-indigo-500" />
-                  Enable nearby sorting
-                </button>
-              )}
+              <LocationPicker tone="indigo" />
             </div>
           </div>
 

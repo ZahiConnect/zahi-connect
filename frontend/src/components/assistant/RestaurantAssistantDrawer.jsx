@@ -293,18 +293,7 @@ const RestaurantAssistantDrawer = ({ user }) => {
         </div>
       </aside>
 
-      {!open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-3 rounded-full border border-[#D9C7B6] bg-[#1F1A17] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_16px_40px_rgba(34,22,15,0.24)] transition-transform hover:-translate-y-0.5 hover:bg-[#36281F]"
-        >
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
-            <HiOutlineChatAlt2 className="text-xl" />
-          </span>
-          Ask Zahi AI
-        </button>
-      ) : null}
+
     </>
   );
 };

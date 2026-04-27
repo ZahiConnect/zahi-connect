@@ -21,6 +21,7 @@ import {
 import { FaGlobeAmericas, FaCreditCard } from "react-icons/fa";
 import toast from "react-hot-toast";
 
+import LocationPicker from "../components/LocationPicker";
 import { useAuth } from "../context/AuthContext";
 import { todayDate, formatCurrency } from "../lib/format";
 import marketplaceService from "../services/marketplaceService";
@@ -410,6 +411,17 @@ const FlightsPage = () => {
 
       {/* Search Bar Container */}
       <section className="bg-gray-50/50 border border-gray-100 rounded-[32px] p-6 mb-12 shadow-inner">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky-600">
+              Your place
+            </p>
+            <p className="mt-1 text-sm font-semibold text-gray-500">
+              Pick a city or use current location to keep Zahi recommendations in sync.
+            </p>
+          </div>
+          <LocationPicker tone="sky" />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
           <FormField label="Departure" icon={MdOutlineFlightTakeoff}>
             <div className="relative">

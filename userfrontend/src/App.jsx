@@ -1,13 +1,13 @@
 import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiMenu, FiX, FiMapPin, FiArrowRight } from "react-icons/fi";
+import { FiMenu, FiX, FiArrowRight } from "react-icons/fi";
 import { MdOutlineHotel, MdOutlineRestaurant, MdOutlineLocalTaxi, MdOutlineFlight } from "react-icons/md";
 
 import { DesktopAccountMenu, MobileAccountPanel, ThemeToggleButton } from "./components/AccountMenu";
+import LocationPicker from "./components/LocationPicker";
 import { useAuth } from "./context/AuthContext";
 import ActivityPage from "./pages/ActivityPage";
-import useCustomerLocation from "./hooks/useCustomerLocation";
 import CabsPage from "./pages/CabsPage";
 import EditProfilePage from "./pages/EditProfilePage";
 import FlightsPage from "./pages/FlightsPage";
@@ -70,35 +70,7 @@ const PublicOnlyRoute = ({ children }) => {
 };
 
 const LocationBadge = () => {
-  const { locationLabel, status, requestLocation } = useCustomerLocation(true);
-
-  if (status === "loading") {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-gray-400 font-medium tracking-wide">
-        <FiMapPin className="animate-pulse" /> Locating...
-      </span>
-    );
-  }
-
-  if (status === "ready" && locationLabel) {
-    return (
-      <span title={locationLabel} className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-semibold max-w-[200px] truncate border border-gray-200">
-        <FiMapPin className="text-orange-500 shrink-0" />
-        <span className="truncate">{locationLabel}</span>
-      </span>
-    );
-  }
-
-  if (status === "unsupported") return null;
-
-  return (
-    <button
-      onClick={requestLocation}
-      className="inline-flex items-center gap-1.5 hover:bg-gray-100 text-gray-500 hover:text-gray-900 px-3 py-1 rounded-full text-xs font-semibold transition-colors"
-    >
-      <FiMapPin /> Enable location
-    </button>
-  );
+  return <LocationPicker compact className="max-w-[240px]" />;
 };
 
 const Header = () => {
