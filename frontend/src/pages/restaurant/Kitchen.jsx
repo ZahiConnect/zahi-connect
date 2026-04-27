@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   HiOutlineCheckCircle,
   HiOutlineClock,
@@ -61,11 +61,24 @@ const initialBoard = {
   ready: [],
 };
 
+const getErrorDetail = (error) => String(error.response?.data?.detail || error.message || "");
+
+const isTransitionConflictError = (error) => {
+  if (error.response?.status !== 400) return false;
+  const detail = getErrorDetail(error);
+  return (
+    detail.startsWith("Cannot transition from") ||
+    detail.startsWith("Cannot claim") ||
+    detail.startsWith("Cannot mark")
+  );
+};
+
 export default function Kitchen() {
   const [board, setBoard] = useState(initialBoard);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState("");
+  const updatingOrdersRef = useRef(new Set());
 
   const fetchBoard = useCallback(async ({ silent = false } = {}) => {
     if (silent) setSyncing(true);
@@ -89,6 +102,11 @@ export default function Kitchen() {
 
   useEffect(() => {
     fetchBoard();
+    const intervalId = window.setInterval(() => {
+      fetchBoard({ silent: true });
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
   }, [fetchBoard]);
 
   const { connectionState } = useRestaurantLiveUpdates((event) => {
@@ -98,15 +116,24 @@ export default function Kitchen() {
   });
 
   const moveOrder = async (orderId, newStatus) => {
+    const updateKey = `${orderId}:${newStatus}`;
+    if (updatingOrdersRef.current.has(updateKey)) return;
+
     try {
+      updatingOrdersRef.current.add(updateKey);
       setUpdatingOrderId(orderId);
       await restaurantService.updateOrderStatus(orderId, newStatus);
       toast.success(newStatus === "preparing" ? "Moved into prep" : "Marked ready for attender");
       await fetchBoard({ silent: true });
     } catch (error) {
       console.error("Failed to move order", error);
+      if (isTransitionConflictError(error)) {
+        await fetchBoard({ silent: true });
+        return;
+      }
       toast.error(error.response?.data?.detail || "Failed to update order");
     } finally {
+      updatingOrdersRef.current.delete(updateKey);
       setUpdatingOrderId("");
     }
   };

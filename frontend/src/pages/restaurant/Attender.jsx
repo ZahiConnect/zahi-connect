@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   HiOutlineCheckCircle,
   HiOutlineClipboardCheck,
@@ -28,12 +28,25 @@ const initialBoard = {
   recent_served: [],
 };
 
+const getErrorDetail = (error) => String(error.response?.data?.detail || error.message || "");
+
+const isTransitionConflictError = (error) => {
+  if (error.response?.status !== 400) return false;
+  const detail = getErrorDetail(error);
+  return (
+    detail.startsWith("Cannot transition from") ||
+    detail.startsWith("Cannot claim") ||
+    detail.startsWith("Cannot mark")
+  );
+};
+
 export default function Attender() {
   const [board, setBoard] = useState(initialBoard);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyOrderId, setBusyOrderId] = useState("");
   const [selectedBill, setSelectedBill] = useState(null);
+  const busyActionsRef = useRef(new Set());
 
   const loadBoard = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -68,21 +81,34 @@ export default function Attender() {
   });
 
   const claimOrder = async (orderId) => {
+    const actionKey = `claim:${orderId}`;
+    if (busyActionsRef.current.has(actionKey)) return;
+
     try {
+      busyActionsRef.current.add(actionKey);
       setBusyOrderId(orderId);
       await restaurantService.claimServiceOrder(orderId);
       toast.success("Order claimed for service");
       await loadBoard({ silent: true });
     } catch (error) {
       console.error("Failed to claim order", error);
+      if (isTransitionConflictError(error)) {
+        await loadBoard({ silent: true });
+        return;
+      }
       toast.error(error.response?.data?.detail || "Failed to claim order");
     } finally {
+      busyActionsRef.current.delete(actionKey);
       setBusyOrderId("");
     }
   };
 
   const markServed = async (orderId) => {
+    const actionKey = `served:${orderId}`;
+    if (busyActionsRef.current.has(actionKey)) return;
+
     try {
+      busyActionsRef.current.add(actionKey);
       setBusyOrderId(orderId);
       const servedOrder = await restaurantService.markOrderServed(orderId);
       toast.success(`Sent to accounts as ${servedOrder.bill_number}`);
@@ -90,8 +116,13 @@ export default function Attender() {
       await loadBoard({ silent: true });
     } catch (error) {
       console.error("Failed to mark order served", error);
+      if (isTransitionConflictError(error)) {
+        await loadBoard({ silent: true });
+        return;
+      }
       toast.error(error.response?.data?.detail || "Failed to mark order served");
     } finally {
+      busyActionsRef.current.delete(actionKey);
       setBusyOrderId("");
     }
   };

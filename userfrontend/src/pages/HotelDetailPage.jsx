@@ -1,19 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   FiArrowLeft,
   FiCalendar,
-  FiClock,
   FiMapPin,
   FiPhone,
   FiMail,
   FiShield,
   FiUsers,
-  FiExternalLink
+  FiSend
 } from "react-icons/fi";
 import { MdOutlineHotel, MdOutlineBed, MdChevronLeft, MdChevronRight } from "react-icons/md";
-import { FaWhatsapp, FaCreditCard } from "react-icons/fa";
+import { FaCreditCard } from "react-icons/fa";
 import { BiGlobe } from "react-icons/bi";
 import toast from "react-hot-toast";
 
@@ -21,7 +20,6 @@ import { useAuth } from "../context/AuthContext";
 import useCustomerLocation from "../hooks/useCustomerLocation";
 import { loadRazorpayScript } from "../lib/razorpay";
 import {
-  buildWhatsAppLink,
   formatAddress,
   formatCurrency,
   formatDateRange,
@@ -82,15 +80,51 @@ const sortRooms = (rooms = []) =>
     return lk.label.localeCompare(rk.label, undefined, { numeric: true });
   });
 
-const getRoomModePrice = (roomType, roomMode) => {
-  if (!roomType) return null;
+const positiveAmount = (value) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+};
+
+const getRoomBasePrice = (room) =>
+  positiveAmount(
+    room?.base_price ??
+      room?.basePrice ??
+      room?.pricePerNight ??
+      room?.price_per_night ??
+      room?.nightlyRate ??
+      room?.nightly_rate ??
+      room?.rate
+  );
+
+const getRoomPricingMapPrice = (pricingMap, roomTypeName, roomMode) => {
+  const rates = pricingMap?.[roomTypeName];
+  if (!rates) return null;
+
   const normalizedMode = normalizeRoomMode(roomMode);
-  if (normalizedMode === "AC" && roomType.ac_price != null && roomType.ac_price > 0) return roomType.ac_price;
-  if (normalizedMode === "Non AC" && roomType.non_ac_price != null && roomType.non_ac_price > 0) return roomType.non_ac_price;
-  if (roomType.starting_price != null && roomType.starting_price > 0) return roomType.starting_price;
-  if (roomType.ac_price != null && roomType.ac_price > 0) return roomType.ac_price;
-  if (roomType.non_ac_price != null && roomType.non_ac_price > 0) return roomType.non_ac_price;
-  return null;
+  if (normalizedMode === "AC") return positiveAmount(rates.ac);
+  if (normalizedMode === "Non AC") return positiveAmount(rates.non_ac ?? rates.nonAc);
+
+  const visibleRates = [
+    positiveAmount(rates.ac),
+    positiveAmount(rates.non_ac ?? rates.nonAc),
+  ].filter((rate) => rate != null);
+  return visibleRates.length ? Math.min(...visibleRates) : null;
+};
+
+const getRoomModePrice = (roomType, roomMode, room, pricingMap) => {
+  const mappedPrice = getRoomPricingMapPrice(pricingMap, roomType?.name || room?.type, roomMode);
+  if (mappedPrice != null) return mappedPrice;
+
+  if (!roomType) return getRoomBasePrice(room);
+  const normalizedMode = normalizeRoomMode(roomMode);
+  if (normalizedMode === "AC" && positiveAmount(roomType.ac_price) != null) return positiveAmount(roomType.ac_price);
+  if (normalizedMode === "Non AC" && positiveAmount(roomType.non_ac_price) != null) return positiveAmount(roomType.non_ac_price);
+
+  const roomBasePrice = getRoomBasePrice(room);
+  if (roomBasePrice != null) return roomBasePrice;
+
+  if (positiveAmount(roomType.starting_price) != null) return positiveAmount(roomType.starting_price);
+  return positiveAmount(roomType.ac_price) ?? positiveAmount(roomType.non_ac_price);
 };
 
 const buildRoomGallery = (room) =>
@@ -108,37 +142,6 @@ const getRoomDescription = (room, roomType, hotel) =>
   hotel?.summary?.description ||
   hotel?.settings?.description ||
   "A comfortable, well-appointed room ready for a memorable stay. Contact the hotel for more details.";
-
-const sanitizePhoneNumber = (value) => String(value || "").replace(/\D/g, "");
-
-const buildMailtoLink = (email, subject, body) =>
-  `mailto:${String(email || "").trim()}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-const buildQuoteRequestMessage = ({
-  hotelName,
-  roomNumber,
-  roomType,
-  roomMode,
-  checkIn,
-  checkOut,
-  guests,
-  guestName,
-  guestPhone,
-  specialRequest,
-}) => {
-  const lines = [
-    `Hello, I would like a quote for Room ${roomNumber || "-"} at ${hotelName}.`,
-    `Room type: ${roomType || "Standard"} (${roomMode || "Standard"})`,
-    `Stay: ${formatDateRange(checkIn, checkOut)}`,
-    `Guests: ${guests || 1}`,
-  ];
-
-  if (guestName) lines.push(`Lead guest: ${guestName}`);
-  if (guestPhone) lines.push(`Contact number: ${guestPhone}`);
-  if (specialRequest) lines.push(`Special request: ${specialRequest}`);
-
-  return lines.join("\n");
-};
 
 /* ── FormField ─────────────────────────────────────────── */
 const FormField = ({ label, icon: Icon, children }) => (
@@ -170,6 +173,7 @@ const HotelDetailPage = () => {
   const [hotel, setHotel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [payingNow, setPayingNow] = useState(false);
+  const [requestingBooking, setRequestingBooking] = useState(false);
   const [selectedRoomNumber, setSelectedRoomNumber] = useState("");
   const [activeHeroImageIndex, setActiveHeroImageIndex] = useState(0);
   const [activeRoomImageIndex, setActiveRoomImageIndex] = useState(0);
@@ -276,89 +280,32 @@ const HotelDetailPage = () => {
 
   const selectedRoomDescription = getRoomDescription(selectedRoom, selectedRoomType, hotel);
   const roomNights = useMemo(() => calculateNights(stay.checkIn, stay.checkOut), [stay.checkIn, stay.checkOut]);
+  const selectedDatePricing = hotel?.pricing_calendar?.[stay.checkIn] || null;
+  const hotelDisplayStartingPrice = useMemo(() => {
+    const visiblePrices = sortedRooms
+      .map((room) =>
+        getRoomModePrice(
+          roomTypeMap[room.type] || null,
+          normalizeRoomMode(room.mode),
+          room,
+          selectedDatePricing
+        )
+      )
+      .filter((price) => price != null && price > 0);
+
+    return visiblePrices.length
+      ? Math.min(...visiblePrices)
+      : positiveAmount(hotel?.summary?.starting_price);
+  }, [hotel?.summary?.starting_price, roomTypeMap, selectedDatePricing, sortedRooms]);
   const selectedRoomPrice = useMemo(
-    () => getRoomModePrice(selectedRoomType, selectedRoomMode),
-    [selectedRoomMode, selectedRoomType]
+    () => getRoomModePrice(selectedRoomType, selectedRoomMode, selectedRoom, selectedDatePricing),
+    [selectedDatePricing, selectedRoom, selectedRoomMode, selectedRoomType]
   );
   const stayTotal = useMemo(
     () => (selectedRoomPrice != null ? Number((selectedRoomPrice * roomNights).toFixed(2)) : null),
     [roomNights, selectedRoomPrice]
   );
   const selectedRoomHasPublicPrice = selectedRoomPrice != null && selectedRoomPrice > 0;
-  const hotelContactPhone = hotel?.settings?.phone || hotel?.tenant?.phone || "";
-  const hotelContactEmail = hotel?.settings?.email || hotel?.tenant?.email || "";
-  const quoteRequestSubject = selectedRoom
-    ? `Quote request for Room ${selectedRoom.room_number} at ${hotelName}`
-    : `Quote request for ${hotelName}`;
-  const quoteRequestMessage = useMemo(
-    () =>
-      buildQuoteRequestMessage({
-        hotelName,
-        roomNumber: selectedRoom?.room_number,
-        roomType: selectedRoom?.type,
-        roomMode: selectedRoomMode,
-        checkIn: stay.checkIn,
-        checkOut: stay.checkOut,
-        guests: stay.guests,
-        guestName: guestProfile.guestName.trim(),
-        guestPhone: guestProfile.phone.trim(),
-        specialRequest: specialRequest.trim(),
-      }),
-    [
-      guestProfile.guestName,
-      guestProfile.phone,
-      hotelName,
-      selectedRoom?.room_number,
-      selectedRoom?.type,
-      selectedRoomMode,
-      specialRequest,
-      stay.checkIn,
-      stay.checkOut,
-      stay.guests,
-    ]
-  );
-  const manualQuoteAction = useMemo(() => {
-    if (!selectedRoom) return null;
-
-    const phoneDigits = sanitizePhoneNumber(hotelContactPhone);
-    if (phoneDigits.length >= 10) {
-      return {
-        kind: "whatsapp",
-        href: `https://wa.me/${phoneDigits}?text=${encodeURIComponent(quoteRequestMessage)}`,
-        label: "Request Quote on WhatsApp",
-        helper: "We'll open WhatsApp with your stay details prefilled.",
-        external: true,
-      };
-    }
-
-    if (hotelContactEmail) {
-      return {
-        kind: "email",
-        href: buildMailtoLink(hotelContactEmail, quoteRequestSubject, quoteRequestMessage),
-        label: "Request Quote by Email",
-        helper: `We'll draft an email to ${hotelContactEmail}.`,
-        external: false,
-      };
-    }
-
-    if (phoneDigits.length >= 6) {
-      return {
-        kind: "phone",
-        href: `tel:${phoneDigits}`,
-        label: "Call Hotel for Quote",
-        helper: `Call ${phoneDigits} to confirm the latest room rate.`,
-        external: false,
-      };
-    }
-
-    return {
-      kind: "whatsapp",
-      href: buildWhatsAppLink(quoteRequestMessage),
-      label: "Request Quote",
-      helper: "We'll open the concierge WhatsApp chat with your stay details.",
-      external: true,
-    };
-  }, [hotelContactEmail, hotelContactPhone, quoteRequestMessage, quoteRequestSubject, selectedRoom]);
   const hotelWebsiteHref = useMemo(() => {
     const w = String(hotel?.settings?.website || "").trim();
     if (!w) return "";
@@ -388,41 +335,108 @@ const HotelDetailPage = () => {
     setActiveRoomImageIndex((c) => (c + dir + selectedRoomImages.length) % selectedRoomImages.length);
   };
 
-  const startInstantBooking = async () => {
+  const ensureBookingReady = () => {
     if (!hotel || !selectedRoom) {
       toast.error("Please select a room first.");
-      return;
+      return false;
     }
     if (!selectedRoom.is_available) {
       toast.error("This room is not available. Please choose a different room.");
-      return;
+      return false;
     }
     if (!isAuthenticated) {
       navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
-      return;
+      return false;
     }
     if (!guestProfile.guestName.trim()) {
       toast.error("Please enter the lead guest name.");
-      return;
+      return false;
     }
     if (!guestProfile.phone.trim()) {
       toast.error("Please enter a contact number.");
-      return;
+      return false;
     }
     if (!stay.checkIn || !stay.checkOut) {
       toast.error("Please choose check-in and check-out dates.");
-      return;
+      return false;
     }
     if (new Date(stay.checkIn) >= new Date(stay.checkOut)) {
       toast.error("Check-out date must be after check-in date.");
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const buildHotelBookingMetadata = (effectiveNightlyRate = null, effectiveTotal = null) => ({
+    booking_kind: effectiveNightlyRate ? "confirmed_reservation" : "reservation_request",
+    check_in: stay.checkIn,
+    check_out: stay.checkOut,
+    guests: stay.guests,
+    nights: roomNights,
+    guest_name: guestProfile.guestName.trim(),
+    guest_phone: guestProfile.phone.trim(),
+    special_requests: specialRequest.trim() || null,
+    preferred_room_type: selectedRoom.type,
+    room_type: selectedRoom.type,
+    room_mode: selectedRoomMode,
+    nightly_rate: effectiveNightlyRate,
+    room_total_amount: effectiveTotal,
+    room_type_description: selectedRoomType?.description || null,
+    room_type_image: selectedRoomType?.image_url || null,
+    room_type_images: selectedRoomType?.image_urls || [],
+    selected_room_id: selectedRoom.id || null,
+    selected_room_number: selectedRoom.room_number,
+    selected_room_floor: selectedRoom.floor || null,
+    selected_room_mode: selectedRoomMode,
+    selected_room_status: selectedRoom.status || null,
+    selected_room_notes: selectedRoom.notes || null,
+    selected_room_base_price: getRoomBasePrice(selectedRoom),
+    selected_room_image: selectedRoom.image_url || null,
+    selected_room_images: buildDirectRoomImages(selectedRoom),
+    selected_room_is_available: Boolean(selectedRoom.is_available),
+    selected_room_description: selectedRoomDescription || null,
+    hotel_address: hotel.settings?.address || null,
+    check_in_time: hotel.settings?.check_in_time || "14:00",
+    check_out_time: hotel.settings?.check_out_time || "11:00",
+  });
+
+  const requestBookingWithoutPayment = async () => {
+    if (!ensureBookingReady()) return;
+
+    setRequestingBooking(true);
+    try {
+      await bookingService.createRequest({
+        service_type: "hotel",
+        title: `Booking request for Room ${selectedRoom.room_number} at ${hotelName}`,
+        summary: `Room ${selectedRoom.room_number}, ${selectedRoom.type}, ${roomNights} night${roomNights !== 1 ? "s" : ""}, ${stay.guests} guest${stay.guests !== 1 ? "s" : ""}`,
+        tenant_id: hotel.tenant?.id || null,
+        tenant_slug: hotel.tenant?.slug || null,
+        tenant_name: hotelName || null,
+        total_amount: 0,
+        metadata: buildHotelBookingMetadata(),
+      });
+      toast.success("Booking request sent. You can track it in Activity.");
+      navigate("/activity");
+    } catch (error) {
+      console.error("Failed to request hotel booking", error);
+      toast.error(
+        error.response?.data?.detail ||
+          error.message ||
+          "Could not send the booking request right now."
+      );
+    } finally {
+      setRequestingBooking(false);
+    }
+  };
+
+  const startInstantBooking = async () => {
+    if (!ensureBookingReady()) return;
 
     const effectiveNightlyRate = selectedRoomPrice;
 
     if (!selectedRoomHasPublicPrice || effectiveNightlyRate == null || effectiveNightlyRate <= 0) {
       toast.error(
-        "This room does not have a public rate yet. Use the quote option to contact the hotel first."
+        "This room does not have a public rate yet. Send a booking request instead."
       );
       return;
     }
@@ -439,37 +453,7 @@ const HotelDetailPage = () => {
         tenant_slug: hotel.tenant?.slug || null,
         tenant_name: hotelName || null,
         total_amount: effectiveTotal,
-        metadata: {
-          booking_kind: "confirmed_reservation",
-          check_in: stay.checkIn,
-          check_out: stay.checkOut,
-          guests: stay.guests,
-          nights: roomNights,
-          guest_name: guestProfile.guestName.trim(),
-          guest_phone: guestProfile.phone.trim(),
-          special_requests: specialRequest.trim() || null,
-          preferred_room_type: selectedRoom.type,
-          room_type: selectedRoom.type,
-          room_mode: selectedRoomMode,
-          nightly_rate: effectiveNightlyRate,
-          room_total_amount: effectiveTotal,
-          room_type_description: selectedRoomType?.description || null,
-          room_type_image: selectedRoomType?.image_url || null,
-          room_type_images: selectedRoomType?.image_urls || [],
-          selected_room_id: selectedRoom.id || null,
-          selected_room_number: selectedRoom.room_number,
-          selected_room_floor: selectedRoom.floor || null,
-          selected_room_mode: selectedRoomMode,
-          selected_room_status: selectedRoom.status || null,
-          selected_room_notes: selectedRoom.notes || null,
-          selected_room_image: selectedRoom.image_url || null,
-          selected_room_images: buildDirectRoomImages(selectedRoom),
-          selected_room_is_available: Boolean(selectedRoom.is_available),
-          selected_room_description: selectedRoomDescription || null,
-          hotel_address: hotel.settings?.address || null,
-          check_in_time: hotel.settings?.check_in_time || "14:00",
-          check_out_time: hotel.settings?.check_out_time || "11:00",
-        },
+        metadata: buildHotelBookingMetadata(effectiveNightlyRate, effectiveTotal),
       };
 
       const checkoutData = await bookingService.createPaymentCheckout(bookingPayload);
@@ -564,8 +548,8 @@ const HotelDetailPage = () => {
       </Link>
 
       {/* ── Hero section ── */}
-      <section className="bg-gray-900 rounded-[32px] overflow-hidden grid grid-cols-1 lg:grid-cols-2 min-h-[440px] shadow-2xl relative">
-        <div className="relative overflow-hidden h-[300px] lg:h-auto">
+      <section className="bg-gray-900 rounded-[32px] overflow-hidden grid grid-cols-1 lg:grid-cols-2 shadow-2xl relative">
+        <div className="relative overflow-hidden aspect-[16/10] min-h-[260px] max-h-[420px] lg:aspect-auto lg:h-[560px] lg:max-h-none">
           {currentHeroImage ? (
             <img
               src={currentHeroImage}
@@ -657,7 +641,7 @@ const HotelDetailPage = () => {
             <div className="grid grid-cols-2 gap-3 mb-6">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-1">Starting from</p>
-                <p className="text-white font-bold text-base">{hotel.summary?.starting_price ? formatCurrency(hotel.summary.starting_price) : "Quote on request"}</p>
+                <p className="text-white font-bold text-base">{hotelDisplayStartingPrice ? formatCurrency(hotelDisplayStartingPrice) : "Rate pending"}</p>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-1">Check In/Out</p>
@@ -732,6 +716,8 @@ const HotelDetailPage = () => {
                 const isSelected = String(selectedRoom?.room_number) === String(room.room_number);
                 const directImages = buildDirectRoomImages(room);
                 const previewImage = directImages[0] || null;
+                const roomType = roomTypeMap[room.type] || null;
+                const roomPrice = getRoomModePrice(roomType, normalizeRoomMode(room.mode), room, selectedDatePricing);
 
                 let badgeColor = room.is_available ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700";
                 
@@ -770,6 +756,10 @@ const HotelDetailPage = () => {
                       </div>
                       <p className={`text-xs font-semibold ${isSelected ? "text-indigo-600" : "text-gray-500"}`}>
                          Floor {room.floor || "G"} · {normalizeRoomMode(room.mode)}
+                      </p>
+                      <p className={`mt-2 text-sm font-extrabold ${isSelected ? "text-indigo-900" : "text-gray-900"}`}>
+                        {roomPrice != null ? formatCurrency(roomPrice) : "Rate pending"}
+                        <span className="ml-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">/ night</span>
                       </p>
                     </div>
                   </button>
@@ -842,11 +832,11 @@ const HotelDetailPage = () => {
                 <div className="grid grid-cols-2 gap-3">
                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                      <p className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-1">Nightly rate</p>
-                     <p className="text-base font-extrabold text-gray-900">{selectedRoomHasPublicPrice ? formatCurrency(selectedRoomPrice) : "Quote on request"}</p>
+                     <p className="text-base font-extrabold text-gray-900">{selectedRoomHasPublicPrice ? formatCurrency(selectedRoomPrice) : "Rate pending"}</p>
                    </div>
                    <div className="bg-indigo-50 rounded-2xl p-4 border border-indigo-100">
                      <p className="text-[10px] uppercase tracking-widest font-bold text-indigo-400 mb-1">Stay total</p>
-                     <p className="text-base font-extrabold text-indigo-900">{effectiveDisplayTotal != null ? formatCurrency(effectiveDisplayTotal) : "Quote required"}</p>
+                     <p className="text-base font-extrabold text-indigo-900">{effectiveDisplayTotal != null ? formatCurrency(effectiveDisplayTotal) : "Pending rate"}</p>
                    </div>
                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                      <p className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-1">Availability</p>
@@ -892,7 +882,7 @@ const HotelDetailPage = () => {
                   <div className="flex-1">
                     <p className="font-extrabold text-gray-900 text-lg mb-0.5">Room {selectedRoom?.room_number || "—"}</p>
                     <p className="text-xs text-indigo-600 font-bold mb-2">{selectedRoomMode}</p>
-                    <p className="text-sm font-extrabold">{selectedRoomHasPublicPrice ? formatCurrency(selectedRoomPrice) : "Quote on request"} <span className="text-[10px] font-normal text-gray-400 uppercase">/ night</span></p>
+                    <p className="text-sm font-extrabold">{selectedRoomHasPublicPrice ? formatCurrency(selectedRoomPrice) : "Rate pending"} <span className="text-[10px] font-normal text-gray-400 uppercase">/ night</span></p>
                   </div>
                </div>
 
@@ -923,19 +913,19 @@ const HotelDetailPage = () => {
                </FormField>
                {selectedRoom && !selectedRoomHasPublicPrice && (
                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
-                   <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-700 mb-1">Manual Quote</p>
+                   <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-700 mb-1">Rate pending</p>
                    <p className="text-sm font-bold text-amber-950">
-                     This room is available, but the hotel has not published a public rate yet.
+                     This room is available, but the hotel has not published a payable public rate yet.
                    </p>
                    <p className="text-xs text-amber-800 mt-1">
-                     {manualQuoteAction?.helper || "Use the contact option below to request the latest price."}
+                     Send an in-app booking request and the hotel team can confirm it from their booking board.
                    </p>
                  </div>
                )}
 
                <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 mt-2 flex flex-col items-center text-center">
                   <p className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-400 mb-1">Total Payment</p>
-                  <p className="text-3xl font-extrabold text-indigo-900 mb-1">{effectiveDisplayTotal != null ? formatCurrency(effectiveDisplayTotal) : "Quote required"}</p>
+                  <p className="text-3xl font-extrabold text-indigo-900 mb-1">{effectiveDisplayTotal != null ? formatCurrency(effectiveDisplayTotal) : "Pending rate"}</p>
                   <p className="text-xs text-indigo-600 font-bold">
                     {selectedRoom ? `${roomNights} night${roomNights !== 1 ? "s" : ""} · ${formatDateRange(stay.checkIn, stay.checkOut)}` : "Select room"}
                   </p>
@@ -954,24 +944,23 @@ const HotelDetailPage = () => {
                      </>
                    )}
                  </button>
-               ) : manualQuoteAction && selectedRoom?.is_available ? (
-                 <a
-                   href={manualQuoteAction.href}
-                   target={manualQuoteAction.external ? "_blank" : undefined}
-                   rel={manualQuoteAction.external ? "noreferrer" : undefined}
-                   className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 flex justify-center items-center gap-2 mt-2"
+               ) : selectedRoom?.is_available ? (
+                 <button
+                   type="button"
+                   onClick={requestBookingWithoutPayment}
+                   disabled={requestingBooking || !selectedRoom}
+                   className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 disabled:cursor-not-allowed flex justify-center items-center gap-2 mt-2"
                  >
-                   {manualQuoteAction.kind === "email" ? <FiMail /> : manualQuoteAction.kind === "phone" ? <FiPhone /> : <FaWhatsapp />}
-                   {manualQuoteAction.label}
-                   {manualQuoteAction.external && <FiExternalLink />}
-                 </a>
+                   <FiSend />
+                   {requestingBooking ? "Sending Request..." : "Request Booking"}
+                 </button>
                ) : (
                  <button
                    disabled
                    className="w-full bg-gray-300 text-white font-bold py-4 rounded-xl transition-all disabled:cursor-not-allowed flex justify-center items-center gap-2 mt-2"
                  >
-                   <FiPhone />
-                   Contact Hotel for Quote
+                   <FiShield />
+                   Room Unavailable
                  </button>
                )}
              </div>

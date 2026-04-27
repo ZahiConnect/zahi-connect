@@ -1580,14 +1580,24 @@ const GuestPanel = ({
 
       {/* Footer */}
       {!coOk&&!isRes&&(
-        <div className="flex gap-2 px-6 py-4 border-t border-slate-100">
-          {isOut
-            ? <Btn ch={<><Sparkles size={14}/>Mark Room Ready</>} v="grn" full onClick={markReady}/>
-            : <>
-                <Btn ch={<Ban size={14}/>} v="red" sz="sm"
-                  onClick={async()=>{ if(!window.confirm("Cancel?")) return; await dbs.addAutoIdDocument("history",{...bk,status:"Cancelled",actualCheckOut:new Date().toISOString()}); await dbs.deleteDocument("bookings",bk.id); await dbs.editDocument("rooms",bk.roomNumber,{status:"Available"}); onUpdate(true); onClose(); }}/>
-                <Btn ch={busy?<><RefreshCw size={13} className="animate-spin"/>…</>:"Checkout"} full onClick={checkout} disabled={busy}/>
-              </>}
+        <div className="px-6 py-4 border-t border-slate-100 space-y-2">
+          {!isOut&&bal>0&&(
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
+              <AlertTriangle size={13} className="text-amber-600 shrink-0"/>
+              <p className="text-[11px] font-semibold text-amber-700">
+                Balance of {money(bal)} must be cleared before checkout.
+              </p>
+            </div>
+          )}
+          <div className="flex gap-2">
+            {isOut
+              ? <Btn ch={<><Sparkles size={14}/>Mark Room Ready</>} v="grn" full onClick={markReady}/>
+              : <>
+                  <Btn ch={<Ban size={14}/>} v="red" sz="sm"
+                    onClick={async()=>{ if(!window.confirm("Cancel?")) return; await dbs.addAutoIdDocument("history",{...bk,status:"Cancelled",actualCheckOut:new Date().toISOString()}); await dbs.deleteDocument("bookings",bk.id); await dbs.editDocument("rooms",bk.roomNumber,{status:"Available"}); onUpdate(true); onClose(); }}/>
+                  <Btn ch={busy?<><RefreshCw size={13} className="animate-spin"/>…</>:"Checkout"} full onClick={checkout} disabled={busy||bal>0}/>
+                </>}
+          </div>
         </div>
       )}
 

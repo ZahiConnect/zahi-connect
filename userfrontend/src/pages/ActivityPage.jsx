@@ -43,6 +43,19 @@ const SERVICE_FILTERS = [
   { key: "flight", label: "Flights", icon: MdOutlineFlight },
 ];
 
+const RESTAURANT_ACTIVITY_COPY = {
+  sent_to_kitchen: "Your order has been sent to the kitchen.",
+  new: "Your order has been sent to the kitchen.",
+  preparing: "The kitchen is preparing your order.",
+  ready: "Your order is packed and waiting for delivery handoff.",
+  ready_for_delivery: "Your order is packed and waiting for delivery handoff.",
+  out_for_delivery: "Our delivery person will call you before arriving.",
+  served: "Your order has been delivered.",
+  delivered: "Your order has been delivered.",
+  completed: "Your order is complete.",
+  cancelled: "This restaurant order was cancelled.",
+};
+
 const dateTimeFormatter = new Intl.DateTimeFormat("en-IN", {
   day: "numeric",
   month: "short",
@@ -299,12 +312,27 @@ const extractLocationLine = (request) => {
 const extractReference = (request) => {
   const metadata = request.metadata || {};
   return (
+    metadata.restaurant_order?.order_id ||
     metadata.hotel_reservation?.reservation_doc_id ||
     metadata.flight_booking?.booking_id ||
     metadata.payment?.razorpay_payment_id ||
     metadata.ride_request_id ||
     request.id
   );
+};
+
+const getRestaurantOrderStatus = (request) => {
+  if (request.service_type !== "restaurant") return request.status;
+  return (
+    request.metadata?.restaurant_order?.customer_status ||
+    request.metadata?.restaurant_order?.status ||
+    request.status
+  );
+};
+
+const getRestaurantActivityMessage = (request) => {
+  const status = String(getRestaurantOrderStatus(request) || "").toLowerCase();
+  return RESTAURANT_ACTIVITY_COPY[status] || null;
 };
 
 const hasPaymentDetails = (request) => {
@@ -385,12 +413,14 @@ const buildPrintSections = (request) => {
   }
 
   if (request.service_type === "restaurant") {
+    const restaurantPhone = metadata.restaurant_phone || metadata.tenant_phone || metadata.phone || "";
     sections.push({
       title: "Order details",
       rows: compactRows([
         { label: "Restaurant", value: request.tenant_name },
-        { label: "Diners", value: metadata.diners },
+        { label: "Restaurant contact", value: restaurantPhone },
         { label: "Order note", value: metadata.notes },
+        { label: "Delivery info", value: "Our delivery person will call you before arriving." },
       ]),
     });
   }
@@ -459,7 +489,7 @@ const renderPrintSection = (section) => `
           (row) => `
             <div class="row">
               <div class="label">${escapeHtml(row.label)}</div>
-              <div class="value">${escapeHtml(row.value)}</div>
+              <div class="value">${escapeHtml(String(row.value))}</div>
             </div>
           `
         )
@@ -490,227 +520,66 @@ const buildPrintMarkup = (request) => {
     })
     .join("");
 
+  const deliveryNote = request.service_type === "restaurant"
+    ? `<div class="delivery-note">📞 Our delivery person will call you before arriving.${metadata.restaurant_phone || metadata.tenant_phone || metadata.phone ? ` Restaurant contact: <strong>${escapeHtml(metadata.restaurant_phone || metadata.tenant_phone || metadata.phone)}</strong>` : ""}</div>`
+    : "";
+
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>${escapeHtml(request.title || "Payment details")} - Print</title>
+    <title>${escapeHtml(request.title || "Payment receipt")} - Zahi Connect</title>
     <style>
-      :root {
-        color-scheme: light;
-        --ink: #1f2937;
-        --muted: #667085;
-        --line: #e5e7eb;
-        --soft: #f8fafc;
-        --brand: #ea580c;
-      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: "DM Sans", Arial, Helvetica, sans-serif; color: #1f2937; background: #fff; padding: 20px; font-size: 12px; line-height: 1.5; }
+      .sheet { max-width: 720px; margin: 0 auto; }
 
-      * {
-        box-sizing: border-box;
-      }
+      .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e5e7eb; padding-bottom: 14px; margin-bottom: 14px; }
+      .brand { font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: #ea580c; }
+      .header h1 { font-size: 18px; font-weight: 800; margin-top: 4px; }
+      .header-right { text-align: right; }
+      .header-right .amount { font-size: 22px; font-weight: 900; }
+      .header-right .meta { font-size: 10px; color: #667085; margin-top: 2px; }
 
-      body {
-        margin: 0;
-        padding: 32px;
-        font-family: "DM Sans", Arial, sans-serif;
-        color: var(--ink);
-        background: white;
-      }
+      .section { margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 14px; }
+      .section-title { font-size: 9px; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; color: #ea580c; margin-bottom: 8px; }
 
-      .sheet {
-        max-width: 880px;
-        margin: 0 auto;
-      }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 12px; }
+      .row { padding: 5px 0; border-bottom: 1px solid #f3f4f6; }
+      .row:last-child { border-bottom: 0; }
+      .label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #9ca3af; }
+      .value { font-size: 12px; font-weight: 600; margin-top: 1px; word-break: break-word; }
 
-      .hero {
-        display: flex;
-        justify-content: space-between;
-        gap: 24px;
-        align-items: flex-start;
-        padding: 24px 28px;
-        border: 1px solid var(--line);
-        border-radius: 24px;
-        background: linear-gradient(135deg, #fff7ed 0%, #ffffff 58%, #eff6ff 100%);
-      }
+      .items-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 6px; }
+      .items-table th { text-align: left; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #9a3412; background: #fff7ed; padding: 6px 10px; border-bottom: 1px solid #e5e7eb; }
+      .items-table td { padding: 5px 10px; border-bottom: 1px solid #f3f4f6; }
+      .items-table tr:last-child td { border-bottom: 0; }
 
-      .brand {
-        font-size: 12px;
-        font-weight: 800;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        color: var(--brand);
-      }
+      .delivery-note { margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: #eff6ff; border: 1px solid #dbeafe; font-size: 11px; font-weight: 600; color: #1e40af; }
 
-      h1 {
-        margin: 12px 0 8px;
-        font-size: 30px;
-        line-height: 1.15;
-      }
-
-      .subtitle {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.7;
-        max-width: 56ch;
-      }
-
-      .summary-card {
-        min-width: 220px;
-        border-radius: 20px;
-        padding: 18px 20px;
-        background: rgba(255, 255, 255, 0.9);
-        border: 1px solid rgba(229, 231, 235, 0.95);
-      }
-
-      .summary-card .eyebrow,
-      .section-title,
-      .label {
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-      }
-
-      .summary-card .eyebrow,
-      .label {
-        color: var(--muted);
-      }
-
-      .summary-card .amount {
-        margin-top: 10px;
-        font-size: 28px;
-        font-weight: 900;
-      }
-
-      .meta {
-        margin-top: 8px;
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      .section {
-        margin-top: 22px;
-        border: 1px solid var(--line);
-        border-radius: 22px;
-        padding: 20px 22px;
-      }
-
-      .section-title {
-        color: var(--brand);
-        margin-bottom: 16px;
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 14px 18px;
-      }
-
-      .row {
-        padding: 14px 16px;
-        border-radius: 16px;
-        background: var(--soft);
-        border: 1px solid #eef2f7;
-      }
-
-      .value {
-        margin-top: 8px;
-        font-size: 15px;
-        font-weight: 700;
-        line-height: 1.55;
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-
-      .items-table {
-        width: 100%;
-        border-collapse: collapse;
-        overflow: hidden;
-        border-radius: 18px;
-        border: 1px solid var(--line);
-      }
-
-      .items-table th,
-      .items-table td {
-        padding: 14px 16px;
-        text-align: left;
-        border-bottom: 1px solid var(--line);
-        font-size: 14px;
-      }
-
-      .items-table th {
-        background: #fff7ed;
-        color: #9a3412;
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-      }
-
-      .items-table tr:last-child td {
-        border-bottom: 0;
-      }
-
-      .mono {
-        font-family: "Courier New", monospace;
-      }
+      .footer { margin-top: 14px; text-align: center; font-size: 9px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 10px; }
 
       @media print {
-        body {
-          padding: 0;
-        }
-
-        .sheet {
-          max-width: none;
-        }
-
-        .section,
-        .hero {
-          break-inside: avoid;
-        }
-      }
-
-      @media (max-width: 720px) {
-        body {
-          padding: 20px;
-        }
-
-        .hero {
-          flex-direction: column;
-        }
-
-        .summary-card {
-          width: 100%;
-          min-width: 0;
-        }
-
-        .grid {
-          grid-template-columns: 1fr;
-        }
+        body { padding: 10px; font-size: 11px; }
+        .sheet { max-width: none; }
+        .section { break-inside: avoid; }
       }
     </style>
   </head>
   <body>
     <div class="sheet">
-      <header class="hero">
+      <div class="header">
         <div>
           <div class="brand">Zahi Connect</div>
-          <h1>${escapeHtml(request.title || "Payment details")}</h1>
-          <p class="subtitle">${escapeHtml(
-            request.summary || "Printable payment confirmation for your booking activity."
-          )}</p>
+          <h1>${escapeHtml(request.title || "Payment receipt")}</h1>
         </div>
-        <aside class="summary-card">
-          <div class="eyebrow">Payment amount</div>
+        <div class="header-right">
           <div class="amount">${escapeHtml(
             request.total_amount ? formatCurrency(request.total_amount) : "Reserved"
           )}</div>
-          <div class="meta">
-            ${escapeHtml(capitalizeWords(request.status || "submitted"))}<br />
-            ${escapeHtml(formatServiceLabel(request.service_type))}
-          </div>
-        </aside>
-      </header>
+          <div class="meta">${escapeHtml(capitalizeWords(request.status || "submitted"))} · ${escapeHtml(formatServiceLabel(request.service_type))}</div>
+        </div>
+      </div>
 
       ${sections.map((section) => renderPrintSection(section)).join("")}
 
@@ -736,17 +605,18 @@ const buildPrintMarkup = (request) => {
           `
           : ""
       }
+
+      ${deliveryNote}
+
+      <div class="footer">
+        Generated on ${escapeHtml(formatDateTime(new Date().toISOString()))} · Zahi Connect · zahi.in
+      </div>
     </div>
     <script>
       window.addEventListener("load", function () {
-        window.setTimeout(function () {
-          window.print();
-        }, 180);
+        window.setTimeout(function () { window.print(); }, 180);
       });
-
-      window.addEventListener("afterprint", function () {
-        window.close();
-      });
+      window.addEventListener("afterprint", function () { window.close(); });
     </script>
   </body>
 </html>`;
@@ -803,8 +673,11 @@ const ActivityPage = () => {
     };
 
     loadRequests();
+    const intervalId = window.setInterval(loadRequests, 5000);
+
     return () => {
       active = false;
+      window.clearInterval(intervalId);
     };
   }, []);
 
@@ -1053,6 +926,25 @@ const ActivityPage = () => {
                           </span>
                         ) : null}
                       </div>
+
+                      {request.service_type === "restaurant" && getRestaurantActivityMessage(request) && (
+                        <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 px-4 py-3 flex items-start gap-2.5">
+                          <span className="text-blue-500 mt-0.5 text-base">📞</span>
+                          <div>
+                            <p className="text-xs font-bold text-blue-800">
+                              {getRestaurantActivityMessage(request)}
+                            </p>
+                            {(request.metadata?.restaurant_phone || request.metadata?.tenant_phone || request.metadata?.phone) && (
+                              <p className="text-[11px] text-blue-600 mt-1">
+                                Restaurant contact:{" "}
+                                <span className="font-bold">
+                                  {request.metadata.restaurant_phone || request.metadata.tenant_phone || request.metadata.phone}
+                                </span>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 

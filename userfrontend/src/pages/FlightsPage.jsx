@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -21,12 +21,22 @@ import {
 import { FaGlobeAmericas, FaCreditCard } from "react-icons/fa";
 import toast from "react-hot-toast";
 
-import LocationPicker from "../components/LocationPicker";
 import { useAuth } from "../context/AuthContext";
 import { todayDate, formatCurrency } from "../lib/format";
 import marketplaceService from "../services/marketplaceService";
 import bookingService from "../services/bookingService";
 import { loadRazorpayScript } from "../lib/razorpay";
+import {
+  OURAIRPORTS_CSV_URL,
+  cacheAirportSuggestions,
+  cleanText,
+  filterAirportSuggestions,
+  formatAirportLabel,
+  getCachedAirportSuggestions,
+  mergeAirportSuggestions,
+  parseAirportCode,
+  parseOurAirportsCsv,
+} from "../lib/airportSuggestions";
 
 /* ── Helpers ───────────────────────────────────────────── */
 
@@ -48,6 +58,98 @@ const Input = ({ label, ...props }) => (
     <input className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all font-medium placeholder:text-gray-400 placeholder:font-normal" {...props} />
   </div>
 );
+
+const AirportField = ({ label, icon: Icon, value, onChange, onSelect, onWarmup, suggestions, loading }) => {
+  const [focused, setFocused] = useState(false);
+  const matches = useMemo(
+    () => filterAirportSuggestions(suggestions, value, 8),
+    [suggestions, value]
+  );
+  const showPanel = focused && (loading || matches.length > 0);
+
+  return (
+    <div className="relative">
+      <span className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 px-1">
+        {Icon && <Icon className="text-sky-500" />}
+        {label}
+      </span>
+      <div className="relative">
+        <input
+          type="text"
+          value={value}
+          onFocus={() => {
+            setFocused(true);
+            onWarmup?.();
+          }}
+          onBlur={() => {
+            window.setTimeout(() => setFocused(false), 120);
+            const formatted = formatAirportLabel(value);
+            if (formatted && formatted !== value) onChange(formatted);
+          }}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="City or Airport Code"
+          className={inputStyle}
+        />
+        <Icon className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" />
+      </div>
+
+      {showPanel && (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-40 overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-2xl shadow-sky-900/10">
+          {loading && matches.length === 0 ? (
+            <div className="px-4 py-3 text-xs font-bold text-gray-400">Loading airport suggestions...</div>
+          ) : (
+            matches.map((airport) => (
+              <button
+                key={`${airport.code || airport.value}-${airport.value}`}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onSelect(airport.value);
+                  setFocused(false);
+                }}
+                className="block w-full px-4 py-3 text-left transition-colors hover:bg-sky-50"
+              >
+                <span className="block text-sm font-extrabold text-gray-900">{airport.value}</span>
+                <span className="mt-0.5 block truncate text-[11px] font-semibold text-gray-400">{airport.label}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const routeMatches = (query, city, code) => {
+  const raw = cleanText(query);
+  if (!raw) return true;
+
+  const rawLower = raw.toLowerCase();
+  const airportCode = parseAirportCode(raw).toLowerCase();
+  const candidates = [city, code].map((item) => cleanText(item).toLowerCase()).filter(Boolean);
+
+  return candidates.some((candidate) =>
+    candidate.includes(rawLower) ||
+    (airportCode && (candidate.includes(airportCode) || parseAirportCode(candidate).toLowerCase() === airportCode))
+  );
+};
+
+const parseRouteLabel = (route = "") => {
+  const label = cleanText(route);
+  const separators = [String.fromCharCode(8594), "->", " to "];
+
+  for (const separator of separators) {
+    const index = label.indexOf(separator);
+    if (index > -1) {
+      return {
+        from: cleanText(label.slice(0, index)),
+        to: cleanText(label.slice(index + separator.length)),
+      };
+    }
+  }
+
+  return { from: label, to: "" };
+};
 
 const CabinMap = ({ cabin, travellers, selected = [], onChange }) => {
   const [layout, setLayout] = useState({ rows: [], cols: [] });
@@ -114,6 +216,11 @@ const FlightsPage = () => {
   const [airlines, setAirlines] = useState([]);
   const [allFlights, setAllFlights] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [flightDetailsLoading, setFlightDetailsLoading] = useState(false);
+  const [airportSuggestions, setAirportSuggestions] = useState(() => getCachedAirportSuggestions());
+  const [airportSuggestionsLoading, setAirportSuggestionsLoading] = useState(false);
+  const flightDetailsPromiseRef = useRef(null);
+  const airportWorkerRef = useRef(null);
 
   // Search state
   const [form, setForm] = useState({
@@ -132,20 +239,39 @@ const FlightsPage = () => {
   const [selectedFlightData, setSelectedFlightData] = useState(null);
   const [passengerDetails, setPassengerDetails] = useState({ name: "", phone: "", seats: [] });
 
-  useEffect(() => {
-    let active = true;
-    const fetchFlights = async () => {
-      setLoading(true);
-      try {
-        const tenantSummaries = await marketplaceService.getFlights();
-        if (!active) return;
-        setAirlines(tenantSummaries || []);
-        
-        // Aggregate all flights from all airlines for search
-        const detailsPromises = (tenantSummaries || []).map(t => marketplaceService.getFlight(t.slug));
-        const details = await Promise.all(detailsPromises);
-        
-        let aggregated = [];
+  const setField = (field, value) => setForm(c => ({ ...c, [field]: value }));
+
+  const routeAirportLabels = useMemo(() => {
+    const values = [];
+    airlines.forEach((airline) => {
+      (airline.routes || []).forEach((route) => {
+        const [from, to] = String(route).split("→").map(cleanText);
+        if (from) values.push(from);
+        if (to) values.push(to);
+      });
+    });
+    allFlights.forEach((flight) => {
+      if (flight.from_city) values.push(flight.from_city);
+      if (flight.to_city) values.push(flight.to_city);
+      if (flight.from_code) values.push(flight.from_code);
+      if (flight.to_code) values.push(flight.to_code);
+    });
+    return values;
+  }, [airlines, allFlights]);
+
+  const airportOptions = useMemo(
+    () => mergeAirportSuggestions(airportSuggestions, routeAirportLabels),
+    [airportSuggestions, routeAirportLabels]
+  );
+
+  const loadFlightDetails = useCallback(async (sourceAirlines = airlines) => {
+    if (allFlights.length > 0) return allFlights;
+    if (flightDetailsPromiseRef.current) return flightDetailsPromiseRef.current;
+
+    setFlightDetailsLoading(true);
+    const promise = Promise.all((sourceAirlines || []).map(t => marketplaceService.getFlight(t.slug)))
+      .then((details) => {
+        const aggregated = [];
         details.forEach(d => {
           if (d.flights) {
             const airlineInfo = {
@@ -159,7 +285,81 @@ const FlightsPage = () => {
             });
           }
         });
-        if (active) setAllFlights(aggregated);
+        setAllFlights(aggregated);
+        return aggregated;
+      })
+      .catch((error) => {
+        console.error("Failed to load flight schedules", error);
+        return [];
+      })
+      .finally(() => {
+        setFlightDetailsLoading(false);
+        flightDetailsPromiseRef.current = null;
+      });
+
+    flightDetailsPromiseRef.current = promise;
+    return promise;
+  }, [airlines, allFlights]);
+
+  const warmAirportSuggestions = useCallback(() => {
+    if (airportSuggestions.length > 3 || airportSuggestionsLoading || airportWorkerRef.current) return;
+
+    const cached = getCachedAirportSuggestions();
+    if (cached.length) {
+      setAirportSuggestions(cached);
+      return;
+    }
+
+    setAirportSuggestionsLoading(true);
+
+    if (typeof Worker !== "undefined") {
+      const worker = new Worker(new URL("../workers/airportSuggestions.worker.js", import.meta.url), { type: "module" });
+      airportWorkerRef.current = worker;
+      worker.onmessage = (event) => {
+        if (event.data?.type === "airports-loaded") {
+          const suggestions = event.data.suggestions || [];
+          cacheAirportSuggestions(suggestions);
+          setAirportSuggestions(suggestions);
+        }
+        setAirportSuggestionsLoading(false);
+        worker.terminate();
+        airportWorkerRef.current = null;
+      };
+      worker.onerror = () => {
+        setAirportSuggestionsLoading(false);
+        worker.terminate();
+        airportWorkerRef.current = null;
+      };
+      worker.postMessage({ type: "load-airports" });
+      return;
+    }
+
+    fetch(OURAIRPORTS_CSV_URL)
+      .then((response) => {
+        if (!response.ok) throw new Error("Airport data could not be loaded.");
+        return response.text();
+      })
+      .then((csv) => {
+        const suggestions = parseOurAirportsCsv(csv);
+        cacheAirportSuggestions(suggestions);
+        setAirportSuggestions(suggestions);
+      })
+      .catch(() => {})
+      .finally(() => setAirportSuggestionsLoading(false));
+  }, [airportSuggestions.length, airportSuggestionsLoading]);
+
+  useEffect(() => {
+    let active = true;
+    const fetchFlights = async () => {
+      setLoading(true);
+      try {
+        const tenantSummaries = await marketplaceService.getFlights();
+        if (!active) return;
+        setAirlines(tenantSummaries || []);
+        const runInIdle = window.requestIdleCallback || ((callback) => window.setTimeout(callback, 500));
+        runInIdle(() => {
+          if (active) loadFlightDetails(tenantSummaries || []);
+        });
       } catch (err) {
         console.error("Failed to load flights", err);
       } finally {
@@ -170,19 +370,25 @@ const FlightsPage = () => {
     return () => { active = false; };
   }, []);
 
-  const setField = (field, value) => setForm(c => ({ ...c, [field]: value }));
+  useEffect(() => () => {
+    if (airportWorkerRef.current) airportWorkerRef.current.terminate();
+  }, []);
 
-  const searchFlights = () => {
-    if (!form.from.trim() || !form.to.trim()) {
+  const searchFlights = async (override = {}) => {
+    const criteria = {
+      ...form,
+      ...override,
+    };
+
+    if (!criteria.from.trim() || !criteria.to.trim()) {
       toast.error("Please enter both source and destination cities.");
       return;
     }
-    const fromQuery = form.from.toLowerCase().trim();
-    const toQuery = form.to.toLowerCase().trim();
+    const flights = allFlights.length ? allFlights : await loadFlightDetails();
     
-    const results = allFlights.filter(f => 
-      (f.from_city?.toLowerCase().includes(fromQuery) || f.from_code?.toLowerCase().includes(fromQuery)) && 
-      (f.to_city?.toLowerCase().includes(toQuery) || f.to_code?.toLowerCase().includes(toQuery))
+    const results = flights.filter(f => 
+      routeMatches(criteria.from, f.from_city, f.from_code) &&
+      routeMatches(criteria.to, f.to_city, f.to_code)
     );
     setSearchResults(results);
     setHasSearched(true);
@@ -192,6 +398,15 @@ const FlightsPage = () => {
     } else {
       toast.success(`Found ${results.length} flights!`);
     }
+  };
+
+  const selectRoute = (route) => {
+    const { from, to } = parseRouteLabel(route);
+    if (!from || !to) return;
+
+    setForm((current) => ({ ...current, from, to }));
+    searchFlights({ from, to });
+    window.scrollTo({ top: 400, behavior: "smooth" });
   };
 
   const handleOpenBooking = (flight, price) => {
@@ -411,43 +626,28 @@ const FlightsPage = () => {
 
       {/* Search Bar Container */}
       <section className="bg-gray-50/50 border border-gray-100 rounded-[32px] p-6 mb-12 shadow-inner">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky-600">
-              Your place
-            </p>
-            <p className="mt-1 text-sm font-semibold text-gray-500">
-              Pick a city or use current location to keep Zahi recommendations in sync.
-            </p>
-          </div>
-          <LocationPicker tone="sky" />
-        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-          <FormField label="Departure" icon={MdOutlineFlightTakeoff}>
-            <div className="relative">
-              <input 
-                type="text" 
-                value={form.from} 
-                onChange={e => setField("from", e.target.value)} 
-                placeholder="City or Airport Code" 
-                className={inputStyle} 
-              />
-              <MdOutlineFlightTakeoff className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" />
-            </div>
-          </FormField>
+          <AirportField
+            label="Departure"
+            icon={MdOutlineFlightTakeoff}
+            value={form.from}
+            onChange={(value) => setField("from", value)}
+            onSelect={(value) => setField("from", value)}
+            onWarmup={warmAirportSuggestions}
+            suggestions={airportOptions}
+            loading={airportSuggestionsLoading}
+          />
 
-          <FormField label="Destination" icon={MdOutlineFlightLand}>
-            <div className="relative">
-              <input 
-                type="text" 
-                value={form.to} 
-                onChange={e => setField("to", e.target.value)} 
-                placeholder="City or Airport Code" 
-                className={inputStyle} 
-              />
-              <MdOutlineFlightLand className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" />
-            </div>
-          </FormField>
+          <AirportField
+            label="Destination"
+            icon={MdOutlineFlightLand}
+            value={form.to}
+            onChange={(value) => setField("to", value)}
+            onSelect={(value) => setField("to", value)}
+            onWarmup={warmAirportSuggestions}
+            suggestions={airportOptions}
+            loading={airportSuggestionsLoading}
+          />
 
           <FormField label="Travel Date" icon={FiCalendar}>
             <input 
@@ -485,10 +685,15 @@ const FlightsPage = () => {
 
           <button 
             onClick={searchFlights} 
+            disabled={flightDetailsLoading}
             className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold h-[54px] rounded-2xl shadow-lg shadow-sky-600/20 transition-all active:scale-95 flex items-center justify-center gap-2"
           >
-            <FiSearch className="text-lg" />
-            Search Flights
+            {flightDetailsLoading ? (
+              <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+            ) : (
+              <FiSearch className="text-lg" />
+            )}
+            {flightDetailsLoading ? "Loading..." : "Search Flights"}
           </button>
         </div>
       </section>
@@ -665,8 +870,13 @@ const FlightsPage = () => {
                   <motion.div 
                     key={airline.id} 
                     variants={itemVariants}
+                    onMouseDown={() => navigate(`/flights/${airline.slug}`)}
                     onClick={() => {
+                      navigate(`/flights/${airline.slug}`);
+                      return;
                       if (airline.routes?.length > 0) {
+                        selectRoute(airline.routes[0]);
+                        return;
                         const [from, to] = airline.routes[0].split(" → ");
                         setField("from", from);
                         setField("to", to);
@@ -698,9 +908,19 @@ const FlightsPage = () => {
                         <p className="text-[9px] font-extrabold text-gray-400 uppercase tracking-[0.2em]">Top Connections</p>
                         <div className="flex flex-wrap gap-2">
                           {airline.routes.slice(0, 2).map((route) => (
-                            <span key={route} className="bg-sky-50 text-sky-600 border border-sky-100 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                            <button
+                              key={route}
+                              type="button"
+                              onMouseDown={(event) => event.stopPropagation()}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                const { from, to } = parseRouteLabel(route);
+                                navigate(`/flights/${airline.slug}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+                              }}
+                              className="bg-sky-50 text-sky-600 border border-sky-100 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors hover:bg-sky-100"
+                            >
                               {route}
-                            </span>
+                            </button>
                           ))}
                         </div>
                       </div>

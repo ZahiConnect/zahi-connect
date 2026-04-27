@@ -12,6 +12,7 @@ from database import get_db
 from dependencies import get_current_user, get_tenant_id
 from models.order import Order
 from schemas.order import OrderResponse, ServiceClaimRequest, ServiceServeRequest
+from services.customer_booking_sync import sync_customer_booking_for_order
 from services.order_service import OrderService
 from services.realtime import build_restaurant_event, restaurant_realtime
 
@@ -98,6 +99,9 @@ async def claim_service_order(
     order = await load_order_or_404(db, tenant_id, order_id)
     target_status = "out_for_service" if order.order_type == "dine_in" else "out_for_delivery"
 
+    if order.status == target_status:
+        return order
+
     if not order_service.validate_status_transition(order.status, target_status):
         raise HTTPException(
             status_code=400,
@@ -111,6 +115,7 @@ async def claim_service_order(
         service_assignee=resolve_actor_name(current_user, data.service_assignee),
     )
     hydrated_order = await load_order_or_404(db, tenant_id, order_id)
+    await sync_customer_booking_for_order(db, hydrated_order)
     await restaurant_realtime.broadcast(
         str(tenant_id),
         build_restaurant_event(
@@ -133,6 +138,9 @@ async def mark_order_served(
 ):
     order = await load_order_or_404(db, tenant_id, order_id)
 
+    if order.status == "served":
+        return order
+
     if not order_service.validate_status_transition(order.status, "served"):
         raise HTTPException(
             status_code=400,
@@ -146,6 +154,7 @@ async def mark_order_served(
         service_assignee=resolve_actor_name(current_user, data.service_assignee),
     )
     hydrated_order = await load_order_or_404(db, tenant_id, order_id)
+    await sync_customer_booking_for_order(db, hydrated_order)
     await restaurant_realtime.broadcast(
         str(tenant_id),
         build_restaurant_event(

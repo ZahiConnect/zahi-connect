@@ -16,6 +16,7 @@ from models.user import Tenant
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 
 HOTEL_COLLECTIONS = ("settings", "room_types", "rooms", "pricing_defaults")
+HOTEL_DETAIL_COLLECTIONS = (*HOTEL_COLLECTIONS, "pricing")
 FLIGHT_COLLECTIONS = ("settings", "flights", "flight_types")
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 NOMINATIM_HEADERS = {
@@ -456,6 +457,15 @@ def compute_distance_km(
 def normalize_room(room: dict[str, Any]) -> dict[str, Any]:
     status = clean_text(room.get("status")) or "Available"
     mode = clean_text(room.get("mode")) or "Standard"
+    base_price = to_float(
+        room.get("basePrice")
+        or room.get("base_price")
+        or room.get("pricePerNight")
+        or room.get("price_per_night")
+        or room.get("nightlyRate")
+        or room.get("nightly_rate")
+        or room.get("rate")
+    )
     image_urls = normalize_image_urls(
         room.get("image_urls") or room.get("imageUrls"),
         room.get("image_url") or room.get("imageUrl"),
@@ -468,6 +478,8 @@ def normalize_room(room: dict[str, Any]) -> dict[str, Any]:
         "mode": mode,
         "status": status,
         "notes": clean_text(room.get("notes")),
+        "base_price": base_price,
+        "basePrice": base_price,
         "image_url": image_urls[0] if image_urls else None,
         "image_urls": image_urls,
         "is_available": status.lower() == "available",
@@ -500,6 +512,47 @@ def extract_pricing_defaults(payload: dict[str, Any] | None) -> dict[str, dict[s
     return normalized
 
 
+def extract_pricing_calendar(payloads: list[dict[str, Any]] | None) -> dict[str, dict[str, dict[str, float | None]]]:
+    normalized: dict[str, dict[str, dict[str, float | None]]] = {}
+
+    for payload in payloads or []:
+        date_key = clean_text(payload.get("date") or payload.get("id"))
+        raw_prices = payload.get("prices")
+        if not date_key or not isinstance(raw_prices, dict):
+            continue
+
+        day_prices: dict[str, dict[str, float | None]] = {}
+        for room_type, values in raw_prices.items():
+            room_name = clean_text(room_type)
+            if not room_name:
+                continue
+            values = values if isinstance(values, dict) else {}
+            day_prices[room_name] = {
+                "ac": to_float(values.get("ac")),
+                "non_ac": to_float(values.get("nonAc") or values.get("non_ac")),
+            }
+
+        if day_prices:
+            normalized[date_key] = day_prices
+
+    return normalized
+
+
+def mode_price(prices: dict[str, float | None], mode: Any) -> float | None:
+    normalized_mode = re.sub(r"[\s_-]+", "", str(mode or "").strip().lower())
+    if normalized_mode == "ac":
+        return to_float(prices.get("ac"))
+    if normalized_mode == "nonac":
+        return to_float(prices.get("non_ac"))
+
+    visible_prices = [
+        price
+        for price in [to_float(prices.get("ac")), to_float(prices.get("non_ac"))]
+        if price is not None and price > 0
+    ]
+    return min(visible_prices) if visible_prices else None
+
+
 def build_room_type_summaries(
     room_type_docs: list[dict[str, Any]],
     rooms: list[dict[str, Any]],
@@ -530,7 +583,19 @@ def build_room_type_summaries(
         rates = pricing_defaults.get(room_type, {})
         ac_price = to_float(rates.get("ac"))
         non_ac_price = to_float(rates.get("non_ac"))
-        visible_prices = [price for price in [ac_price, non_ac_price] if price is not None and price > 0]
+        visible_prices: list[float] = []
+        for room in matching_rooms:
+            effective_price = mode_price(rates, room.get("mode"))
+            if effective_price is None or effective_price <= 0:
+                effective_price = to_float(room.get("base_price"))
+            if effective_price is not None and effective_price > 0:
+                visible_prices.append(effective_price)
+        if not visible_prices:
+            visible_prices = [
+                price
+                for price in [ac_price, non_ac_price]
+                if price is not None and price > 0
+            ]
         room_images = normalize_image_urls(
             [
                 url
@@ -613,6 +678,7 @@ async def fetch_menu_payload(
 async def fetch_hotel_documents(
     db: AsyncSession,
     tenant_ids: list[Any],
+    collections: tuple[str, ...] = HOTEL_COLLECTIONS,
 ) -> dict[Any, dict[str, list[dict[str, Any]]]]:
     grouped: dict[Any, dict[str, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
 
@@ -635,7 +701,7 @@ async def fetch_hotel_documents(
     rows = (
         await db.execute(
             docs_stmt,
-            {"tenant_ids": tenant_ids, "collections": list(HOTEL_COLLECTIONS)},
+            {"tenant_ids": tenant_ids, "collections": list(collections)},
         )
     ).mappings().all()
 
@@ -904,6 +970,7 @@ def build_hotel_detail(
         "summary": summary,
         "settings": settings,
         "pricing_defaults": pricing_defaults,
+        "pricing_calendar": extract_pricing_calendar(docs.get("pricing", [])),
         "room_types": room_types,
         "rooms": rooms,
     }
@@ -1125,7 +1192,7 @@ async def get_hotel_detail(
     if not tenant:
         raise HTTPException(status_code=404, detail="Hotel not found.")
 
-    hotel_docs = await fetch_hotel_documents(db, [tenant.id])
+    hotel_docs = await fetch_hotel_documents(db, [tenant.id], HOTEL_DETAIL_COLLECTIONS)
     hotel_docs = await enrich_hotel_documents_with_coordinates([tenant], hotel_docs)
     summary = build_hotel_summary(tenant, hotel_docs.get(tenant.id, {}))
     distance_km = compute_distance_km(

@@ -13,6 +13,7 @@ from database import get_db
 from dependencies import get_current_user, get_tenant_id
 from models.order import Order
 from schemas.order import OrderResponse, PaymentSettlementRequest
+from services.customer_booking_sync import sync_customer_booking_for_order
 from services.order_service import OrderService
 from services.realtime import build_restaurant_event, restaurant_realtime
 
@@ -111,6 +112,7 @@ async def settle_payment(
         payment_reference=data.payment_reference,
     )
     hydrated_order = await load_order_or_404(db, tenant_id, order_id)
+    await sync_customer_booking_for_order(db, hydrated_order)
     await restaurant_realtime.broadcast(
         str(tenant_id),
         build_restaurant_event(

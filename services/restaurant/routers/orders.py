@@ -12,6 +12,7 @@ from database import get_db
 from dependencies import get_current_user, get_tenant_id
 from models.order import Order
 from schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate
+from services.customer_booking_sync import sync_customer_booking_for_order
 from services.order_service import OrderService
 from services.realtime import build_restaurant_event, restaurant_realtime
 
@@ -105,6 +106,9 @@ async def update_order_status(
 ):
     order = await load_order_or_404(db, tenant_id, order_id)
 
+    if order.status == data.status:
+        return order
+
     if not order_service.validate_status_transition(order.status, data.status):
         raise HTTPException(
             status_code=400,
@@ -113,6 +117,7 @@ async def update_order_status(
 
     await order_service.apply_status_update(db, order, data.status)
     hydrated_order = await load_order_or_404(db, tenant_id, order_id)
+    await sync_customer_booking_for_order(db, hydrated_order)
     await restaurant_realtime.broadcast(
         str(tenant_id),
         build_restaurant_event(
@@ -138,6 +143,8 @@ async def cancel_order(
         raise HTTPException(status_code=400, detail="Can only cancel orders with status 'new'")
 
     await order_service.apply_status_update(db, order, "cancelled")
+    cancelled_order = await load_order_or_404(db, tenant_id, order_id)
+    await sync_customer_booking_for_order(db, cancelled_order)
     await restaurant_realtime.broadcast(
         str(tenant_id),
         build_restaurant_event(

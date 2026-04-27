@@ -25,6 +25,7 @@ import { FaCarSide } from "react-icons/fa";
 import toast from "react-hot-toast";
 
 import LocationPicker from "../components/LocationPicker";
+import PlaceAutocompleteInput from "../components/PlaceAutocompleteInput";
 import { useAuth } from "../context/AuthContext";
 import useCustomerLocation from "../hooks/useCustomerLocation";
 import { formatCurrency, formatDistance, formatShortDate, todayDate } from "../lib/format";
@@ -34,6 +35,13 @@ import mobilityService from "../services/mobilityService";
 /* ── Helpers ───────────────────────────────────────────── */
 
 const inputStyle = "w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm outline-none text-gray-900 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 transition-all";
+
+const coordinatesFromSuggestion = (suggestion) => {
+  const latitude = Number(suggestion?.latitude);
+  const longitude = Number(suggestion?.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  return { latitude, longitude };
+};
 
 const FormField = ({ label, icon: Icon, children }) => (
   <label className="block">
@@ -66,6 +74,8 @@ const CabsPage = () => {
   const [nearbyDrivers, setNearbyDrivers] = useState([]);
   const [selectedDriverId, setSelectedDriverId] = useState(null);
   const [confirmedRide, setConfirmedRide] = useState(null);
+  const [selectedPickupPlace, setSelectedPickupPlace] = useState(null);
+  const [selectedDropPlace, setSelectedDropPlace] = useState(null);
   const [form, setForm] = useState({
     pickup: "",
     drop: "",
@@ -76,6 +86,16 @@ const CabsPage = () => {
 
   const setField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handlePickupChange = (value) => {
+    setSelectedPickupPlace(null);
+    setField("pickup", value);
+  };
+
+  const handleDropChange = (value) => {
+    setSelectedDropPlace(null);
+    setField("drop", value);
   };
 
   useEffect(() => {
@@ -152,6 +172,10 @@ const CabsPage = () => {
         travel_date: form.travelDate,
         passengers: form.passengers,
         notes: form.notes || null,
+        pickup_latitude: selectedPickupPlace?.latitude ?? coordinates?.latitude ?? null,
+        pickup_longitude: selectedPickupPlace?.longitude ?? coordinates?.longitude ?? null,
+        drop_latitude: selectedDropPlace?.latitude ?? null,
+        drop_longitude: selectedDropPlace?.longitude ?? null,
         ride_request_id: rideRequest?.id || null,
         estimated_fare: rideRequest?.estimated_fare || null,
         commission_amount: rideRequest?.commission_amount || null,
@@ -177,6 +201,9 @@ const CabsPage = () => {
 
     setSubmitting(true);
     try {
+      const pickupCoordinates = selectedPickupPlace || coordinates;
+      const dropCoordinates = selectedDropPlace;
+
       const rideResponse = await mobilityService.createRideRequest({
         selected_driver_id: selectedDriverId || null,
         customer_user_id: user?.id ? String(user.id) : null,
@@ -185,8 +212,10 @@ const CabsPage = () => {
         customer_phone: user?.mobile || null,
         pickup_label: form.pickup,
         drop_label: form.drop,
-        pickup_latitude: coordinates?.latitude ?? null,
-        pickup_longitude: coordinates?.longitude ?? null,
+        pickup_latitude: pickupCoordinates?.latitude ?? null,
+        pickup_longitude: pickupCoordinates?.longitude ?? null,
+        drop_latitude: dropCoordinates?.latitude ?? null,
+        drop_longitude: dropCoordinates?.longitude ?? null,
         passengers: form.passengers,
         notes: `Travel date: ${form.travelDate}${form.notes ? ` | ${form.notes}` : ""}`,
         source: "customer_app",
@@ -319,29 +348,25 @@ const CabsPage = () => {
           <div className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField label="Pickup Location" icon={FiMapPin}>
-                <div className="relative">
-                  <input 
-                    type="text" 
-                    value={form.pickup} 
-                    onChange={e => setField("pickup", e.target.value)} 
-                    placeholder="Search pickup point" 
-                    className={inputStyle} 
-                  />
-                  <FiMapPin className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" />
-                </div>
+                <PlaceAutocompleteInput
+                  value={form.pickup}
+                  onChange={handlePickupChange}
+                  onSelect={(suggestion) => setSelectedPickupPlace(coordinatesFromSuggestion(suggestion))}
+                  placeholder="Search pickup point"
+                  className={inputStyle}
+                  icon={<FiMapPin size={16} />}
+                />
               </FormField>
 
               <FormField label="Drop Destination" icon={FiNavigation}>
-                <div className="relative">
-                  <input 
-                    type="text" 
-                    value={form.drop} 
-                    onChange={e => setField("drop", e.target.value)} 
-                    placeholder="Search destination" 
-                    className={inputStyle} 
-                  />
-                  <FiNavigation className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" />
-                </div>
+                <PlaceAutocompleteInput
+                  value={form.drop}
+                  onChange={handleDropChange}
+                  onSelect={(suggestion) => setSelectedDropPlace(coordinatesFromSuggestion(suggestion))}
+                  placeholder="Search destination"
+                  className={inputStyle}
+                  icon={<FiNavigation size={16} />}
+                />
               </FormField>
             </div>
 

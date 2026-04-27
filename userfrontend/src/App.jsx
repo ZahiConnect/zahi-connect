@@ -10,6 +10,7 @@ import { useAuth } from "./context/AuthContext";
 import ActivityPage from "./pages/ActivityPage";
 import CabsPage from "./pages/CabsPage";
 import EditProfilePage from "./pages/EditProfilePage";
+import FlightPartnerPage from "./pages/FlightPartnerPage";
 import FlightsPage from "./pages/FlightsPage";
 import HotelDetailPage from "./pages/HotelDetailPage";
 import HotelsPage from "./pages/HotelsPage";
@@ -278,6 +279,7 @@ function App() {
           <Route path="/restaurants/:slug" element={<RestaurantDetailPage />} />
           <Route path="/cabs" element={<CabsPage />} />
           <Route path="/flights" element={<FlightsPage />} />
+          <Route path="/flights/:slug" element={<FlightPartnerPage />} />
           <Route
             path="/activity"
             element={

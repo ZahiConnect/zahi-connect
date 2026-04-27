@@ -21,8 +21,8 @@ const RestaurantDetailPage = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated } = useAuth();
-  const { coordinates } = useCustomerLocation(true);
+  const { isAuthenticated, user } = useAuth();
+  const { coordinates, locationLabel } = useCustomerLocation(true);
   const coordinateKey = coordinates
     ? `${coordinates.latitude.toFixed(5)}:${coordinates.longitude.toFixed(5)}`
     : "no-location";
@@ -261,6 +261,10 @@ const RestaurantDetailPage = () => {
           subtotal: cartSubtotal,
           delivery_fee: deliveryFee,
           notes,
+          delivery_address: user?.address || locationLabel || "",
+          customer_phone: user?.mobile || "",
+          location_label: locationLabel || "",
+          restaurant_phone: restaurant?.profile?.phone || restaurant?.summary?.phone || "",
           items: cartLines.map((line) => ({
             id: line.id,
             name: line.name,
@@ -305,6 +309,10 @@ const RestaurantDetailPage = () => {
           subtotal: cartSubtotal,
           delivery_fee: deliveryFee,
           notes,
+          delivery_address: user?.address || locationLabel || "",
+          customer_phone: user?.mobile || "",
+          location_label: locationLabel || "",
+          restaurant_phone: restaurant?.profile?.phone || restaurant?.summary?.phone || "",
           items: cartLines.map((line) => ({
             id: line.id,
             name: line.name,

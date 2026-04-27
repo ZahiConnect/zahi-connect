@@ -10,7 +10,7 @@ from decimal import Decimal
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select, text
+from sqlalchemy import bindparam, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
@@ -27,6 +27,16 @@ from schemas import (
 
 STARTUP_DB_RETRIES = 15
 STARTUP_DB_RETRY_DELAY_SECONDS = 2
+
+RESTAURANT_BOOKING_STATUS_BY_ORDER_STATUS = {
+    "new": "sent_to_kitchen",
+    "preparing": "preparing",
+    "ready": "ready_for_delivery",
+    "out_for_delivery": "out_for_delivery",
+    "served": "delivered",
+    "completed": "completed",
+    "cancelled": "cancelled",
+}
 
 
 def serialize_booking(record: BookingRequest) -> dict:
@@ -95,6 +105,247 @@ def to_float(value) -> float | None:
         return float(str(value).strip())
     except (TypeError, ValueError):
         return None
+
+
+def restaurant_customer_status(order_status: str | None) -> str:
+    return RESTAURANT_BOOKING_STATUS_BY_ORDER_STATUS.get(
+        clean_text(order_status) or "",
+        "sent_to_kitchen",
+    )
+
+
+def parse_uuid(value, *, field_name: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(str(value))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name}.") from exc
+
+
+async def fetch_customer_delivery_profile(db: AsyncSession, customer: CustomerContext) -> dict:
+    row = (
+        await db.execute(
+            text("SELECT mobile, address FROM users WHERE id = :user_id"),
+            {"user_id": customer.user_id},
+        )
+    ).mappings().first()
+    return dict(row or {})
+
+
+async def create_restaurant_order_for_booking(
+    db: AsyncSession,
+    *,
+    booking_request: BookingRequest,
+    customer: CustomerContext,
+    metadata: dict,
+) -> dict:
+    if not booking_request.tenant_id:
+        raise HTTPException(status_code=400, detail="Restaurant order is missing a restaurant workspace.")
+
+    tenant = (
+        await db.execute(
+            text("SELECT business_type FROM tenants WHERE id = :tenant_id"),
+            {"tenant_id": booking_request.tenant_id},
+        )
+    ).mappings().first()
+    if not tenant or tenant["business_type"] != "restaurant":
+        raise HTTPException(status_code=400, detail="This request is not linked to a restaurant workspace.")
+
+    cart_items = metadata.get("items") if isinstance(metadata, dict) else None
+    if not isinstance(cart_items, list) or not cart_items:
+        raise HTTPException(status_code=400, detail="Restaurant order needs at least one menu item.")
+
+    item_quantities: dict[uuid.UUID, int] = {}
+    item_notes: dict[uuid.UUID, str | None] = {}
+    for item in cart_items:
+        if not isinstance(item, dict):
+            continue
+        menu_item_id = parse_uuid(
+            item.get("menu_item_id") or item.get("id"),
+            field_name="restaurant menu item",
+        )
+        quantity = int(to_float(item.get("quantity")) or 1)
+        if quantity < 1:
+            raise HTTPException(status_code=400, detail="Restaurant item quantity must be at least 1.")
+        item_quantities[menu_item_id] = item_quantities.get(menu_item_id, 0) + quantity
+        item_notes[menu_item_id] = clean_text(item.get("special_instructions") or item.get("notes"))
+
+    if not item_quantities:
+        raise HTTPException(status_code=400, detail="Restaurant order needs at least one menu item.")
+
+    menu_query = text(
+        """
+        SELECT id, name, is_available, dine_in_price, delivery_price
+        FROM menu_items
+        WHERE tenant_id = :tenant_id AND id IN :item_ids
+        """
+    ).bindparams(bindparam("item_ids", expanding=True))
+    menu_rows = (
+        await db.execute(
+            menu_query,
+            {"tenant_id": booking_request.tenant_id, "item_ids": list(item_quantities.keys())},
+        )
+    ).mappings().all()
+    menu_items = {row["id"]: row for row in menu_rows}
+
+    missing_ids = [str(item_id) for item_id in item_quantities if item_id not in menu_items]
+    if missing_ids:
+        raise HTTPException(status_code=404, detail=f"Menu items not found: {', '.join(missing_ids)}")
+
+    order_id = uuid.uuid4()
+    profile = await fetch_customer_delivery_profile(db, customer)
+    customer_name = clean_text(customer.username) or clean_text(booking_request.user_name) or customer.email
+    customer_phone = (
+        clean_text(metadata.get("customer_phone"))
+        or clean_text(metadata.get("phone"))
+        or clean_text(profile.get("mobile"))
+    )
+    if customer_phone:
+        customer_phone = customer_phone[:15]
+    delivery_address = (
+        clean_text(metadata.get("delivery_address"))
+        or clean_text(metadata.get("customer_address"))
+        or clean_text(metadata.get("location_label"))
+        or clean_text(profile.get("address"))
+        or "Customer delivery address not provided"
+    )
+    special_instructions = clean_text(metadata.get("notes"))
+    if special_instructions:
+        special_instructions = f"{special_instructions}\nCustomer booking: {booking_request.id}"
+    else:
+        special_instructions = f"Customer booking: {booking_request.id}"
+
+    total = Decimal("0")
+    order_lines = []
+    for menu_item_id, quantity in item_quantities.items():
+        menu_item = menu_items[menu_item_id]
+        if not menu_item["is_available"]:
+            raise HTTPException(status_code=400, detail=f"'{menu_item['name']}' is currently unavailable.")
+
+        unit_price = menu_item["delivery_price"] if menu_item["delivery_price"] is not None else menu_item["dine_in_price"]
+        unit_price = Decimal(str(unit_price or 0))
+        total += unit_price * quantity
+        order_lines.append(
+            {
+                "id": uuid.uuid4(),
+                "menu_item_id": menu_item_id,
+                "item_name": menu_item["name"],
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "special_instructions": item_notes.get(menu_item_id),
+            }
+        )
+
+    delivery_fee = Decimal(str(to_float(metadata.get("delivery_fee")) or 0))
+    total += delivery_fee
+
+    await db.execute(
+        text(
+            """
+            INSERT INTO orders (
+                id, tenant_id, table_id, order_type, status, customer_name,
+                customer_phone, delivery_address, total_amount, special_instructions,
+                created_at, updated_at
+            )
+            VALUES (
+                :id, :tenant_id, NULL, 'delivery', 'new', :customer_name,
+                :customer_phone, :delivery_address, :total_amount, :special_instructions,
+                NOW(), NOW()
+            )
+            """
+        ),
+        {
+            "id": order_id,
+            "tenant_id": booking_request.tenant_id,
+            "customer_name": customer_name,
+            "customer_phone": customer_phone,
+            "delivery_address": delivery_address,
+            "total_amount": total,
+            "special_instructions": special_instructions,
+        },
+    )
+
+    for line in order_lines:
+        await db.execute(
+            text(
+                """
+                INSERT INTO order_items (
+                    id, order_id, menu_item_id, item_name, quantity,
+                    unit_price, special_instructions, created_at
+                )
+                VALUES (
+                    :id, :order_id, :menu_item_id, :item_name, :quantity,
+                    :unit_price, :special_instructions, NOW()
+                )
+                """
+            ),
+            {
+                **line,
+                "order_id": order_id,
+            },
+        )
+
+    return {
+        "order_id": str(order_id),
+        "status": "new",
+        "customer_status": restaurant_customer_status("new"),
+        "order_type": "delivery",
+        "delivery_address": delivery_address,
+        "delivery_fee": float(delivery_fee),
+        "total_amount": float(total),
+    }
+
+
+async def hydrate_restaurant_order_statuses(
+    db: AsyncSession,
+    serialized_records: list[dict],
+) -> list[dict]:
+    order_ids = []
+    for record in serialized_records:
+        order_id = (record.get("metadata") or {}).get("restaurant_order", {}).get("order_id")
+        if not order_id:
+            continue
+        try:
+            order_ids.append(uuid.UUID(str(order_id)))
+        except ValueError:
+            continue
+
+    if not order_ids:
+        return serialized_records
+
+    order_query = text(
+        """
+        SELECT id, status, service_assignee, bill_number, updated_at
+        FROM orders
+        WHERE id IN :order_ids
+        """
+    ).bindparams(bindparam("order_ids", expanding=True))
+    order_rows = (
+        await db.execute(order_query, {"order_ids": list(dict.fromkeys(order_ids))})
+    ).mappings().all()
+    orders_by_id = {str(row["id"]): row for row in order_rows}
+
+    for record in serialized_records:
+        metadata = dict(record.get("metadata") or {})
+        restaurant_order = dict(metadata.get("restaurant_order") or {})
+        order = orders_by_id.get(str(restaurant_order.get("order_id")))
+        if not order:
+            continue
+
+        customer_status = restaurant_customer_status(order["status"])
+        restaurant_order.update(
+            {
+                "status": order["status"],
+                "customer_status": customer_status,
+                "service_assignee": order["service_assignee"],
+                "bill_number": order["bill_number"],
+                "updated_at": order["updated_at"].isoformat() if order["updated_at"] else None,
+            }
+        )
+        metadata["restaurant_order"] = restaurant_order
+        record["metadata"] = metadata
+        record["status"] = customer_status
+
+    return serialized_records
 
 
 async def upsert_hotel_document(
@@ -236,12 +487,23 @@ def build_hotel_reservation_payload(
         or selected_room_notes
     )
 
+    check_in_date = clean_text(metadata.get("check_in")) or ""
+    check_out_date = clean_text(metadata.get("check_out")) or ""
+    check_in_time = clean_text(metadata.get("check_in_time")) or "14:00"
+    check_out_time = clean_text(metadata.get("check_out_time")) or "11:00"
+
+    # Append hotel times to date-only values so admin dashboard shows proper datetimes
+    if check_in_date and "T" not in check_in_date:
+        check_in_date = f"{check_in_date}T{check_in_time}"
+    if check_out_date and "T" not in check_out_date:
+        check_out_date = f"{check_out_date}T{check_out_time}"
+
     payload = {
         "guestName": guest_name,
         "phone": guest_phone,
         "mode": room_mode,
-        "checkIn": clean_text(metadata.get("check_in")),
-        "checkOut": clean_text(metadata.get("check_out")),
+        "checkIn": check_in_date,
+        "checkOut": check_out_date,
         "idFront": "",
         "idBack": "",
         "members": json.dumps([]),
@@ -262,7 +524,7 @@ def build_hotel_reservation_payload(
         "roomNumber": selected_room_number or "TBD",
         "roomType": room_type,
         "pricePerNight": nightly_rate,
-        "status": "Reserved",
+        "status": "Occupied",
         "source": "customer_portal",
         "bookingSource": "customer_portal",
         "customerBookingId": str(payment_order.id),
@@ -353,10 +615,21 @@ async def sync_hotel_booking_documents(
     await upsert_hotel_document(
         db,
         tenant_id=payment_order.tenant_id,
-        collection="reservations",
+        collection="bookings",
         doc_id=reservation_doc_id,
         payload=reservation_payload,
     )
+
+    # Mark the selected room as Occupied so the admin dashboard reflects the paid stay.
+    selected_room_number = clean_text(metadata.get("selected_room_number"))
+    if selected_room_number and room_payload:
+        await upsert_hotel_document(
+            db,
+            tenant_id=payment_order.tenant_id,
+            collection="rooms",
+            doc_id=selected_room_number,
+            payload={"status": "Occupied"},
+        )
 
     return {
         "reservation_doc_id": reservation_doc_id,
@@ -609,7 +882,8 @@ async def list_booking_requests(
         stmt = stmt.where(BookingRequest.service_type == service_type)
 
     records = (await db.execute(stmt)).scalars().all()
-    return [serialize_booking(record) for record in records]
+    serialized_records = [serialize_booking(record) for record in records]
+    return await hydrate_restaurant_order_statuses(db, serialized_records)
 
 
 @app.post("/booking/requests", response_model=BookingRequestResponse, status_code=201)
@@ -631,8 +905,28 @@ async def create_booking_request(
         tenant_slug=tenant_slug,
         tenant_name=tenant_name,
     )
-    db.add(booking_request)
-    await db.commit()
+
+    try:
+        db.add(booking_request)
+        await db.flush()
+
+        if payload.service_type == "restaurant":
+            metadata = dict(booking_request.details or {})
+            restaurant_order = await create_restaurant_order_for_booking(
+                db,
+                booking_request=booking_request,
+                customer=customer,
+                metadata=metadata,
+            )
+            metadata["restaurant_order"] = restaurant_order
+            booking_request.details = metadata
+            booking_request.status = restaurant_order["customer_status"]
+
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
     await db.refresh(booking_request)
     return serialize_booking(booking_request)
 
@@ -844,13 +1138,31 @@ async def verify_booking_payment(
         status_value="paid",
         metadata=paid_payload.metadata,
     )
-    db.add(booking_request)
-    await db.flush()
 
-    payment_order.booking_request_id = booking_request.id
-    payment_order.razorpay_payment_id = payload.razorpay_payment_id
-    payment_order.status = "paid"
+    try:
+        db.add(booking_request)
+        await db.flush()
 
-    await db.commit()
+        if payment_order.service_type == "restaurant":
+            metadata = dict(booking_request.details or {})
+            restaurant_order = await create_restaurant_order_for_booking(
+                db,
+                booking_request=booking_request,
+                customer=customer,
+                metadata=metadata,
+            )
+            metadata["restaurant_order"] = restaurant_order
+            booking_request.details = metadata
+            booking_request.status = restaurant_order["customer_status"]
+
+        payment_order.booking_request_id = booking_request.id
+        payment_order.razorpay_payment_id = payload.razorpay_payment_id
+        payment_order.status = "paid"
+
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
     await db.refresh(booking_request)
     return serialize_booking(booking_request)

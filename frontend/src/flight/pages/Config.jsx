@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   FiPlus, FiTrash2, FiEdit3, FiX, FiRefreshCw, FiSearch, 
   FiChevronDown, FiCheck, FiUpload, FiEye, FiClock, FiMapPin
@@ -6,8 +6,13 @@ import {
 import { MdFlightTakeoff, MdOutlineEventSeat } from "react-icons/md";
 import { HiOutlineInformationCircle } from "react-icons/hi2";
 import dbs from "../api/db";
+import { REFERENCE_AIRPORTS, formatAirportLabel, parseAirportCode } from "../lib/workspace";
 
 const BRAND = "#037ffc";
+const OURAIRPORTS_CSV_URL = "https://davidmegginson.github.io/ourairports-data/airports.csv";
+const AIRPORT_SUGGESTIONS_CACHE_KEY = "zahi.flight.airportSuggestions.v1";
+const AIRPORT_SUGGESTIONS_CACHE_MS = 7 * 24 * 60 * 60 * 1000;
+const AIRPORT_TYPES = new Set(["large_airport", "medium_airport", "small_airport", "seaplane_base"]);
 
 const STATUSES = [
   { value: "Active",    label: "Active",    bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-100", dot: "bg-emerald-500" },
@@ -31,6 +36,196 @@ const Input = ({ label, required, ...props }) => (
   <div className="space-y-1">
     {label && <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest flex gap-1">{label} {required && <span className="text-[#037ffc]">*</span>}</label>}
     <input className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-[#037ffc] focus:ring-4 focus:ring-[#037ffc]/10 transition-all placeholder:text-slate-300" {...props} />
+  </div>
+);
+
+const cleanText = (value) => String(value || "").trim();
+
+const buildAirportValue = (airport) => `${airport.code} - ${airport.city}`;
+
+const parseCsvRows = (csvText = "") => {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < csvText.length; i += 1) {
+    const char = csvText[i];
+    const next = csvText[i + 1];
+
+    if (char === "\"") {
+      if (inQuotes && next === "\"") {
+        field += "\"";
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(field);
+      field = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") i += 1;
+      row.push(field);
+      if (row.some((cell) => cell !== "")) rows.push(row);
+      row = [];
+      field = "";
+      continue;
+    }
+
+    field += char;
+  }
+
+  if (field || row.length) {
+    row.push(field);
+    if (row.some((cell) => cell !== "")) rows.push(row);
+  }
+
+  return rows;
+};
+
+const parseOurAirportsCsv = (csvText = "") => {
+  const [headers = [], ...rows] = parseCsvRows(csvText);
+  const index = Object.fromEntries(headers.map((header, idx) => [header, idx]));
+  const seen = new Set();
+
+  return rows
+    .map((row) => {
+      const iata = cleanText(row[index.iata_code]).toUpperCase();
+      const icao = cleanText(row[index.icao_code]).toUpperCase();
+      const type = cleanText(row[index.type]);
+      if (!iata || seen.has(iata) || !AIRPORT_TYPES.has(type)) return null;
+      seen.add(iata);
+
+      const city = cleanText(row[index.municipality]);
+      const name = cleanText(row[index.name]);
+      const country = cleanText(row[index.iso_country]);
+      const scheduled = cleanText(row[index.scheduled_service]).toLowerCase() === "yes";
+
+      return {
+        value: `${iata} - ${city || name}`,
+        label: [name, country, icao].filter(Boolean).join(", "),
+        code: iata,
+        scheduled,
+        type,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => {
+      if (left.scheduled !== right.scheduled) return left.scheduled ? -1 : 1;
+      return left.value.localeCompare(right.value);
+    });
+};
+
+const getCachedAirportSuggestions = () => {
+  try {
+    const cached = JSON.parse(window.localStorage.getItem(AIRPORT_SUGGESTIONS_CACHE_KEY) || "null");
+    if (!cached?.storedAt || !Array.isArray(cached.data)) return [];
+    if (Date.now() - cached.storedAt > AIRPORT_SUGGESTIONS_CACHE_MS) return [];
+    return cached.data;
+  } catch {
+    return [];
+  }
+};
+
+const cacheAirportSuggestions = (suggestions) => {
+  try {
+    window.localStorage.setItem(
+      AIRPORT_SUGGESTIONS_CACHE_KEY,
+      JSON.stringify({ storedAt: Date.now(), data: suggestions })
+    );
+  } catch {
+    // Local storage can fail in private windows or under quota pressure.
+  }
+};
+
+const fetchAirportSuggestions = async () => {
+  const cached = getCachedAirportSuggestions();
+  if (cached.length) return cached;
+
+  const response = await fetch(OURAIRPORTS_CSV_URL);
+  if (!response.ok) throw new Error("Airport data could not be loaded.");
+  const suggestions = parseOurAirportsCsv(await response.text());
+  cacheAirportSuggestions(suggestions);
+  return suggestions;
+};
+
+const buildLocationSuggestions = (flights = [], externalAirports = []) => {
+  const suggestions = new Map();
+  const addSuggestion = (value, meta = {}) => {
+    const raw = cleanText(value);
+    if (!raw) return;
+
+    const code = cleanText(meta.code || parseAirportCode(raw)).toUpperCase();
+    const city = cleanText(meta.city);
+    const label = code && city ? `${code} - ${city}` : formatAirportLabel(raw);
+    const key = (code || label).toUpperCase();
+
+    if (!key || suggestions.has(key)) return;
+
+    const detail = cleanText(
+      meta.name && meta.country
+        ? `${meta.name}, ${meta.country}`
+        : meta.name || meta.country || raw
+    );
+
+    suggestions.set(key, {
+      value: label,
+      label: detail && detail !== label ? detail : label,
+    });
+  };
+
+  REFERENCE_AIRPORTS.forEach((airport) => {
+    addSuggestion(buildAirportValue(airport), airport);
+  });
+
+  externalAirports.forEach((airport) => {
+    addSuggestion(airport.value, {
+      code: airport.code,
+      name: airport.label,
+    });
+  });
+
+  flights.forEach((flight) => {
+    addSuggestion(flight.from);
+    addSuggestion(flight.to);
+  });
+
+  return [...suggestions.values()].sort((left, right) =>
+    left.value.localeCompare(right.value)
+  );
+};
+
+const LocationInput = ({ id, label, value, onChange, suggestions = [], ...props }) => (
+  <div className="space-y-1">
+    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest flex gap-1">
+      {label} {props.required && <span className="text-[#037ffc]">*</span>}
+    </label>
+    <input
+      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-[#037ffc] focus:ring-4 focus:ring-[#037ffc]/10 transition-all placeholder:text-slate-300"
+      list={id}
+      value={value}
+      onChange={onChange}
+      onBlur={(event) => {
+        const formatted = formatAirportLabel(event.target.value);
+        if (formatted && formatted !== event.target.value) {
+          onChange({ target: { value: formatted } });
+        }
+      }}
+      {...props}
+    />
+    <datalist id={id}>
+      {suggestions.map((item) => (
+        <option key={item.value} value={item.value}>
+          {item.label}
+        </option>
+      ))}
+    </datalist>
   </div>
 );
 
@@ -165,7 +360,7 @@ const FareClasses = ({ toast }) => {
 // SCHEDULE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const FlightModal = ({ open, existing, onClose, onSave }) => {
+const FlightModal = ({ open, existing, onClose, onSave, locationSuggestions = [] }) => {
   const [f, setF] = useState({
     flightNumber: "", from: "", to: "", departTime: "08:00", arriveTime: "10:00",
     durationMin: 120, daysOfWeek: [1, 2, 3, 4, 5, 6, 7],
@@ -229,8 +424,8 @@ const FlightModal = ({ open, existing, onClose, onSave }) => {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <Input label="Flight Number" value={f.flightNumber} onChange={e => setF({ ...f, flightNumber: e.target.value })} placeholder="AI-101" required />
-              <Input label="Origin (IATA)" value={f.from} onChange={e => setF({ ...f, from: e.target.value })} placeholder="BOM" required />
-              <Input label="Destination (IATA)" value={f.to} onChange={e => setF({ ...f, to: e.target.value })} placeholder="DEL" required />
+              <LocationInput id="flight-origin-options" label="Origin" value={f.from} onChange={e => setF({ ...f, from: e.target.value })} placeholder="BOM or Mumbai" suggestions={locationSuggestions} required />
+              <LocationInput id="flight-destination-options" label="Destination" value={f.to} onChange={e => setF({ ...f, to: e.target.value })} placeholder="DEL or New Delhi" suggestions={locationSuggestions} required />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -311,6 +506,11 @@ const Schedule = ({ toast }) => {
   const [modOpen, setModOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
+  const [airportSuggestions, setAirportSuggestions] = useState([]);
+  const locationSuggestions = useMemo(
+    () => buildLocationSuggestions(flights, airportSuggestions),
+    [airportSuggestions, flights]
+  );
 
   const fetch = async () => {
     setLoading(true);
@@ -319,6 +519,17 @@ const Schedule = ({ toast }) => {
     setLoading(false);
   };
   useEffect(() => { fetch(); }, []);
+  useEffect(() => {
+    let active = true;
+    fetchAirportSuggestions()
+      .then((suggestions) => {
+        if (active) setAirportSuggestions(suggestions);
+      })
+      .catch(() => {
+        if (active) setAirportSuggestions([]);
+      });
+    return () => { active = false; };
+  }, []);
 
   const del = async id => {
     await dbs.deleteDocument("flights", id);
@@ -414,7 +625,7 @@ const Schedule = ({ toast }) => {
         )}
       </div>
 
-      <FlightModal open={modOpen} existing={editing} onClose={() => setModOpen(false)} onSave={() => { setModOpen(false); fetch(); toast("Schedule updated."); }} />
+      <FlightModal open={modOpen} existing={editing} locationSuggestions={locationSuggestions} onClose={() => setModOpen(false)} onSave={() => { setModOpen(false); fetch(); toast("Schedule updated."); }} />
     </div>
   );
 };
