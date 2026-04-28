@@ -11,7 +11,9 @@ from config import settings
 
 class FoodSearchInput(BaseModel):
     query: str = Field(description="The name of the food or category the user wants to search for.")
-    location: str = Field(default="", description="The city or area the user is in. Leave empty if unknown.")
+    location: str = Field(default="", description="The text city or area the user is in.")
+    lat: float | None = Field(default=None, description="The user's GPS latitude if they shared it.")
+    lon: float | None = Field(default=None, description="The user's GPS longitude if they shared it.")
 
 class WhatsAppRestaurantAgent:
     def __init__(self):
@@ -41,17 +43,27 @@ class WhatsAppRestaurantAgent:
                 return False
         return True
 
-    def _search_food_tool_logic(self, query: str, location: str = "") -> str:
+    def _search_food_tool_logic(self, query: str, location: str = "", lat: float | None = None, lon: float | None = None) -> str:
         """Searches the database for food items"""
-        print(f"[ACTION] Searching DB for: '{query}' in '{location}'")
+        print(f"[ACTION] Searching DB for: '{query}' in '{location}', GPS: {lat},{lon}")
         if not self._init_database():
             return "Database unavailable."
 
-        location_filter = ""
-        if location:
-            location_filter = f" AND t.address ILIKE '%{location}%'"
+        # Base query joining menu_items, tenants, and restaurant_profiles
+        select_clause = "SELECT m.id, m.name, m.description, m.dine_in_price, m.is_available, t.slug, t.name as restaurant_name"
+        from_clause = "FROM menu_items m JOIN tenants t ON m.tenant_id = t.id LEFT JOIN restaurant_profiles rp ON t.id = rp.tenant_id"
+        where_clause = f"WHERE m.name ILIKE '%{query}%' AND m.is_available = true"
+        order_clause = ""
+        
+        # If we have GPS coordinates, calculate distance in km
+        if lat is not None and lon is not None:
+            # Haversine formula in Postgres
+            select_clause += f", (6371 * acos(cos(radians({lat})) * cos(radians(rp.latitude)) * cos(radians(rp.longitude) - radians({lon})) + sin(radians({lat})) * sin(radians(rp.latitude)))) as distance_km"
+            order_clause = "ORDER BY distance_km ASC"
+        elif location:
+            where_clause += f" AND (t.address ILIKE '%{location}%' OR rp.city ILIKE '%{location}%' OR rp.area_name ILIKE '%{location}%')"
 
-        sql = f"SELECT m.id, m.name, m.description, m.dine_in_price, m.is_available, t.slug, t.name as restaurant_name FROM menu_items m JOIN tenants t ON m.tenant_id = t.id WHERE m.name ILIKE '%{query}%' AND m.is_available = true{location_filter} LIMIT 5;"
+        sql = f"{select_clause} {from_clause} {where_clause} {order_clause} LIMIT 5;"
         
         try:
             result = self.db.run(sql)
@@ -75,16 +87,22 @@ class WhatsAppRestaurantAgent:
         ]
 
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are Zahi Connect's WhatsApp Assistant.
-            Your job is to help users find food from our restaurant menu.
-            - Always use the search_food tool when they ask for food.
-            - If they ask for "nearest" food, politely ask them which city or area they are in right now.
-            - Once you know their location, pass it into the search_food tool.
+            ("system", """You are Zahi Connect's AI Assistant, a friendly and intelligent conversational agent.
+            We provide 4 services: Restaurants, Hotels, Cabs, and Flights.
+
+            CONVERSATIONAL RULES:
+            - You CAN answer casual questions related to food, travel, hotels, and cabs naturally (e.g., "Is Mandi good for health?", "What is a good place to visit?"). Be helpful and conversational!
+            - If the user asks OUT-OF-SCOPE questions (e.g., "Who is the president?", "Write code"), politely refuse and say you only assist with Zahi Connect's food and travel services.
+
+            ORDERING FOOD RULES:
+            - ONLY when the user explicitly wants to FIND, BUY, or ORDER food, follow these steps:
+              1. Do you know their city/area OR their GPS coordinates? 
+              2. If NO: politely ask "Which city or area are you in? You can also send me your location using the WhatsApp 📎 Paperclip -> Location feature!" and do not search yet.
+              3. If YES: use the `search_food` tool, passing their query and location/GPS.
             - When you find food, ALWAYS give them the direct link to buy it.
-            - Mention the name of the restaurant in your reply.
+            - If the search results include 'distance_km', tell the user how many km away the restaurant is (e.g. "This is just 2.5 km from you!").
             - The link format is: http://127.0.0.1:5174/restaurants/<slug>?focus=<id>&add=1
-            - Keep your answers short, friendly, and use emojis.
-            - If they ask general questions, just say you only handle restaurant orders right now.
+            - Keep your tone friendly, human-like, and use emojis!
             """),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),
@@ -99,10 +117,18 @@ class WhatsAppRestaurantAgent:
             verbose=True
         )
 
-    async def process_query(self, user_query: str, phone_number: str, memory: ConversationBufferMemory) -> str:
+    async def process_query(self, user_query: str, phone_number: str, memory: ConversationBufferMemory, lat: str | None = None, lon: str | None = None) -> str:
         try:
+            # If user sent a Pin Drop, Body might be empty
+            if not user_query.strip() and lat and lon:
+                user_query = "Here is my location pin."
+                
             print(f"\n[AGENT START] Message from {phone_number}: {user_query}")
             
+            # Inject GPS into the user's message if they sent a pin
+            if lat and lon:
+                user_query += f"\n[SYSTEM: User shared WhatsApp GPS Location. Latitude: {lat}, Longitude: {lon}. Use these in the search tool!]"
+                
             # Pass memory variables to the agent
             response = await self.agent_executor.ainvoke({
                 "input": user_query,

@@ -90,7 +90,7 @@ const FormField = ({ label, icon: Icon, children }) => (
 const CabsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { coordinates, locationLabel } = useCustomerLocation(true);
   const lastLocationPickupRef = useRef("");
 
@@ -105,21 +105,17 @@ const CabsPage = () => {
   const [selectedPickupPlace, setSelectedPickupPlace] = useState(null);
   const [selectedDropPlace, setSelectedDropPlace] = useState(null);
   const [nearbyDrivers, setNearbyDrivers] = useState([]);
-  const [selectedDriverId, setSelectedDriverId] = useState(null);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
   const [paying, setPaying] = useState(false);
 
   const selectedTier = useMemo(
-    () => TIER_OPTIONS.find((tier) => tier.key === selectedTierKey) || TIER_OPTIONS[0],
+    () => getCabTier(selectedTierKey),
     [selectedTierKey]
   );
+  const passengerOptions = useMemo(() => buildPassengerOptions(selectedTier), [selectedTier]);
 
   const pickupCoordinates = selectedPickupPlace || coordinates;
   const pickupCoordinateKey = coordinateKeyFrom(pickupCoordinates);
-  const selectedDriver = useMemo(
-    () => nearbyDrivers.find((item) => item?.driver?.id === selectedDriverId) || nearbyDrivers[0] || null,
-    [nearbyDrivers, selectedDriverId]
-  );
 
   const tripDistanceKm = useMemo(
     () => calculateDistanceKm(pickupCoordinates, selectedDropPlace),
@@ -141,7 +137,7 @@ const CabsPage = () => {
     if (paying) return "Processing payment...";
     if (!isAuthenticated) return "Sign in to pay";
     if (!estimatedFare) return "Calculate Fare & Pay";
-    return `Pay ${formatCurrency(estimatedFare)} & Request Ride`;
+    return `Pay ${formatCurrency(estimatedFare)} & Choose Driver`;
   }, [estimatedFare, isAuthenticated, loadingDrivers, paying]);
 
   const setField = (field, value) => {
@@ -175,7 +171,6 @@ const CabsPage = () => {
     const loadNearbyDrivers = async () => {
       if (!pickupCoordinates) {
         setNearbyDrivers([]);
-        setSelectedDriverId(null);
         return;
       }
 
@@ -185,23 +180,18 @@ const CabsPage = () => {
           latitude: pickupCoordinates.latitude,
           longitude: pickupCoordinates.longitude,
           radius_km: DRIVER_SEARCH_RADIUS_KM,
+          passengers: form.passengers,
+          tier_key: selectedTier.key,
           limit: 20,
         });
         if (!active) return;
 
         const rankedDrivers = sortNearbyDrivers(Array.isArray(data) ? data : []);
         setNearbyDrivers(rankedDrivers);
-        setSelectedDriverId((current) => {
-          if (current && rankedDrivers.some((item) => item?.driver?.id === current)) {
-            return current;
-          }
-          return rankedDrivers[0]?.driver?.id || null;
-        });
       } catch (error) {
         console.error("Failed to load nearby cab count", error);
         if (active) {
           setNearbyDrivers([]);
-          setSelectedDriverId(null);
         }
       } finally {
         if (active) setLoadingDrivers(false);
@@ -212,7 +202,7 @@ const CabsPage = () => {
     return () => {
       active = false;
     };
-  }, [pickupCoordinateKey]);
+  }, [form.passengers, pickupCoordinateKey, selectedTier.key]);
 
   const ensureReadyForPayment = () => {
     if (!isAuthenticated) {
@@ -257,66 +247,15 @@ const CabsPage = () => {
     billable_distance_km: billableDistanceKm,
     tier_key: selectedTier.key,
     tier_label: selectedTier.label,
+    tier_min_passengers: selectedTier.minPassengers,
+    tier_max_passengers: selectedTier.maxPassengers,
     tier_per_km_rate: selectedTier.perKmRate,
     tier_fare: selectedTier.perKmRate,
     estimated_fare: estimatedFare,
-    requested_driver_id: selectedDriver?.driver?.id || null,
-    requested_driver_name: selectedDriver?.driver?.full_name || null,
-    requested_driver_distance_km: selectedDriver?.distance_km ?? null,
-    ride_status: "payment_pending",
+    ride_status: "driver_selection_pending",
     source: "mobility_marketplace",
     ...extra,
   });
-
-  const createDriverRequest = async (bookingRecord) => {
-    const customerUserId = bookingRecord?.user_id ? String(bookingRecord.user_id) : user?.id ? String(user.id) : null;
-    const preferredDriver =
-      (nearbyDrivers.find((item) => item?.driver?.id === selectedDriverId) || nearbyDrivers[0])
-        ?.driver || null;
-    const requestPayload = {
-      booking_request_id: bookingRecord?.id ? String(bookingRecord.id) : null,
-      selected_driver_id: preferredDriver?.id || null,
-      customer_user_id: customerUserId,
-      customer_name: bookingRecord?.user_name || user?.username || user?.email || null,
-      customer_email: bookingRecord?.user_email || user?.email || null,
-      customer_phone: user?.mobile || null,
-      pickup_label: form.pickup,
-      drop_label: form.drop,
-      pickup_latitude: pickupCoordinates?.latitude ?? null,
-      pickup_longitude: pickupCoordinates?.longitude ?? null,
-      drop_latitude: selectedDropPlace?.latitude ?? null,
-      drop_longitude: selectedDropPlace?.longitude ?? null,
-      passengers: form.passengers,
-      tier_key: selectedTier.key,
-      tier_label: selectedTier.label,
-      tier_fare: selectedTier.perKmRate,
-      trip_distance_km: tripDistanceKm,
-      estimated_fare: estimatedFare,
-      notes: `Paid cab request | Travel date: ${form.travelDate}${form.notes ? ` | ${form.notes}` : ""}`,
-      source: "customer_app",
-    };
-
-    try {
-      return await mobilityService.createRideRequest(requestPayload);
-    } catch (error) {
-      const detail = String(error.response?.data?.detail || "");
-      const canRetryWithoutSelectedDriver =
-        requestPayload.selected_driver_id &&
-        (error.response?.status === 404 ||
-          detail.toLowerCase().includes("selected driver") ||
-          detail.toLowerCase().includes("another driver"));
-
-      if (!canRetryWithoutSelectedDriver) {
-        throw error;
-      }
-
-      return mobilityService.createRideRequest({
-        ...requestPayload,
-        selected_driver_id: null,
-        notes: `${requestPayload.notes} | Preferred driver unavailable; sent to nearby driver pool.`,
-      });
-    }
-  };
 
   const startPaymentAndRequest = async () => {
     if (!ensureReadyForPayment()) return;
@@ -346,7 +285,7 @@ const CabsPage = () => {
         ...checkout,
         theme: { color: "#ea580c" },
         handler: async (response) => {
-          const requestToast = toast.loading("Confirming payment and sending cab request...");
+          const requestToast = toast.loading("Confirming payment...");
           try {
             const bookingRecord = await bookingService.verifyPayment({
               payment_order_id,
@@ -355,16 +294,17 @@ const CabsPage = () => {
               razorpay_signature: response.razorpay_signature,
             });
 
-            await createDriverRequest(bookingRecord);
             toast.dismiss(requestToast);
-            toast.success("Payment done. Cab request sent to Zahi Driver.");
-            navigate("/activity");
+            toast.success("Payment done. Choose your driver.");
+            navigate(`/cabs/select-driver/${bookingRecord.id}`, {
+              state: { booking: bookingRecord },
+            });
           } catch (error) {
             console.error("Cab payment/request failed", error);
             toast.dismiss(requestToast);
             toast.error(
               error.response?.data?.detail ||
-                "Payment confirmed, but cab request could not be sent. Please contact support."
+                "Payment confirmed, but we could not open driver selection. Please contact support."
             );
             setPaying(false);
           }
@@ -570,16 +510,19 @@ const CabsPage = () => {
               </FormField>
 
               <FormField label="Passengers" icon={FiUsers}>
-                <input
-                  type="number"
-                  min={1}
-                  max={MAX_PASSENGERS}
+                <select
                   value={form.passengers}
                   onChange={(event) =>
-                    setField("passengers", clampPassengerCount(event.target.value))
+                    setField("passengers", clampPassengerCountForTier(event.target.value, selectedTier))
                   }
                   className={inputStyle}
-                />
+                >
+                  {passengerOptions.map((count) => (
+                    <option key={count} value={count}>
+                      {count} passenger{count === 1 ? "" : "s"}
+                    </option>
+                  ))}
+                </select>
               </FormField>
             </div>
 
@@ -589,13 +532,16 @@ const CabsPage = () => {
                 Ride Tier
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
-                {TIER_OPTIONS.map((tier) => {
+                {CAB_TIER_OPTIONS.map((tier) => {
                   const selected = tier.key === selectedTierKey;
                   return (
                     <button
                       key={tier.key}
                       type="button"
-                      onClick={() => setSelectedTierKey(tier.key)}
+                      onClick={() => {
+                        setSelectedTierKey(tier.key);
+                        setField("passengers", clampPassengerCountForTier(form.passengers, tier));
+                      }}
                       className={`rounded-2xl border p-4 text-left transition-all ${
                         selected
                           ? "border-orange-300 bg-orange-50 shadow-lg shadow-orange-500/10"
@@ -612,6 +558,9 @@ const CabsPage = () => {
                       </p>
                       <p className="mt-1 text-xs font-semibold text-gray-500">
                         {tier.description}
+                      </p>
+                      <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-orange-500">
+                        {tier.minPassengers}-{tier.maxPassengers} seats
                       </p>
                     </button>
                   );
@@ -633,10 +582,10 @@ const CabsPage = () => {
               <div className="mb-2 flex items-center justify-between gap-3 px-1">
                 <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500">
                   <FiShield className="text-orange-500" />
-                  Nearby drivers
+                  Eligible nearby drivers
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-orange-500">
-                  Nearest first
+                  Choose after payment
                 </span>
               </div>
 
@@ -650,19 +599,12 @@ const CabsPage = () => {
                   <div className="grid gap-3">
                     {nearbyDrivers.slice(0, 5).map((item, index) => {
                       const driver = item.driver || {};
-                      const selected = (selectedDriver?.driver?.id || selectedDriver?.id) === driver.id;
                       const vehicle = driver.vehicle || {};
 
                       return (
-                        <button
+                        <article
                           key={driver.id || index}
-                          type="button"
-                          onClick={() => setSelectedDriverId(driver.id)}
-                          className={`w-full rounded-2xl border p-4 text-left transition-all ${
-                            selected
-                              ? "border-orange-300 bg-orange-50 shadow-lg shadow-orange-500/10"
-                              : "border-gray-100 bg-gray-50 hover:border-orange-200 hover:bg-white"
-                          }`}
+                          className="w-full rounded-2xl border border-gray-100 bg-gray-50 p-4 text-left transition-all"
                         >
                           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex min-w-0 gap-3">
@@ -711,13 +653,11 @@ const CabsPage = () => {
                                 </div>
                               </div>
                             </div>
-                            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${
-                              selected ? "bg-orange-600 text-white" : "bg-white text-gray-500"
-                            }`}>
+                            <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-gray-500">
                               Rank #{index + 1}
                             </span>
                           </div>
-                        </button>
+                        </article>
                       );
                     })}
                   </div>
@@ -726,7 +666,7 @@ const CabsPage = () => {
                     <MdOutlineLocalTaxi className="mx-auto mb-3 text-3xl text-gray-300" />
                     <p className="text-sm font-black text-gray-700">No nearby drivers found</p>
                     <p className="mt-1 text-xs font-semibold text-gray-400">
-                      Choose another pickup location to search within 30 km.
+                      Choose another pickup location or passenger tier to search within 30 km.
                     </p>
                   </div>
                 )}

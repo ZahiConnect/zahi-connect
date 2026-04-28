@@ -311,6 +311,9 @@ const extractLocationLine = (request) => {
     if (metadata.driver_name) {
       return `${metadata.driver_name}${metadata.driver_phone ? ` - ${metadata.driver_phone}` : ""}`;
     }
+    if (metadata.ride_status === "driver_selection_pending") {
+      return "Choose a driver";
+    }
     if (metadata.requested_driver_name) {
       return `Waiting for ${metadata.requested_driver_name}`;
     }
@@ -655,7 +658,12 @@ const getCtaLink = (request) => {
   if (request.service_type === "restaurant" && request.tenant_slug) {
     return `/restaurants/${request.tenant_slug}`;
   }
-  if (request.service_type === "cab") return "/cabs";
+  if (request.service_type === "cab") {
+    if (request.metadata?.ride_status === "driver_selection_pending" && !request.metadata?.ride_request_id) {
+      return `/cabs/select-driver/${request.id}`;
+    }
+    return "/cabs";
+  }
   if (request.service_type === "flight") return "/flights";
   return null;
 };
@@ -1051,7 +1059,11 @@ const ActivityPage = () => {
                               <p className={`text-xs font-black uppercase tracking-[0.16em] ${
                                 request.metadata?.driver_name ? "text-green-700" : "text-amber-700"
                               }`}>
-                                {request.metadata?.driver_name ? "Driver accepted" : "Waiting for driver"}
+                                {request.metadata?.driver_name
+                                  ? "Driver accepted"
+                                  : request.metadata?.ride_status === "driver_selection_pending"
+                                    ? "Choose driver"
+                                    : "Waiting for driver"}
                               </p>
                               {request.metadata?.driver_name ? (
                                 <div className="mt-2 space-y-1 text-sm text-gray-700">
@@ -1066,7 +1078,9 @@ const ActivityPage = () => {
                                 </div>
                               ) : (
                                 <p className="mt-2 text-sm leading-6 text-amber-800">
-                                  Payment is complete. Your cab request is waiting in Zahi Driver for acceptance.
+                                  {request.metadata?.ride_status === "driver_selection_pending"
+                                    ? "Payment is complete. Choose a nearby driver to send the request."
+                                    : "Payment is complete. Your cab request is waiting in Zahi Driver for acceptance."}
                                 </p>
                               )}
                             </div>

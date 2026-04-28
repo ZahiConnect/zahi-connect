@@ -13,10 +13,17 @@ sessions = {}
 agent = WhatsAppRestaurantAgent()
 
 @router.post("/whatsapp")
-async def whatsapp_webhook(Body: str = Form(...), From: str = Form(...)):
+async def whatsapp_webhook(
+    Body: str = Form(default=""),
+    From: str = Form(...),
+    Latitude: str | None = Form(default=None),
+    Longitude: str | None = Form(default=None)
+):
     print(f"\n--- New WhatsApp Message ---")
     print(f"From: {From}")
     print(f"User said: {Body}")
+    if Latitude and Longitude:
+        print(f"User Location: {Latitude}, {Longitude}")
     print(f"--------------------------\n")
     
     # Get or create memory for this phone number
@@ -26,7 +33,7 @@ async def whatsapp_webhook(Body: str = Form(...), From: str = Form(...)):
     memory = sessions[From]
     
     # Process with LangChain Agent
-    ai_response = await agent.process_query(Body, From, memory)
+    ai_response = await agent.process_query(Body, From, memory, Latitude, Longitude)
 
     # Create a Twilio Response
     resp = MessagingResponse()

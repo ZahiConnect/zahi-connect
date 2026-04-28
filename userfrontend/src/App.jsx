@@ -8,6 +8,7 @@ import { DesktopAccountMenu, MobileAccountPanel, ThemeToggleButton } from "./com
 import LocationPicker from "./components/LocationPicker";
 import { useAuth } from "./context/AuthContext";
 import ActivityPage from "./pages/ActivityPage";
+import CabDriverSelectionPage from "./pages/CabDriverSelectionPage";
 import CabsPage from "./pages/CabsPage";
 import EditProfilePage from "./pages/EditProfilePage";
 import FlightPartnerPage from "./pages/FlightPartnerPage";
@@ -278,6 +279,14 @@ function App() {
           <Route path="/restaurants" element={<RestaurantsPage />} />
           <Route path="/restaurants/:slug" element={<RestaurantDetailPage />} />
           <Route path="/cabs" element={<CabsPage />} />
+          <Route
+            path="/cabs/select-driver/:bookingId"
+            element={
+              <ProtectedRoute>
+                <CabDriverSelectionPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/flights" element={<FlightsPage />} />
           <Route path="/flights/:slug" element={<FlightPartnerPage />} />
           <Route
