@@ -1,3 +1,3 @@
-from .chat import router
+from .whatsapp import router
 
 __all__ = ["router"]

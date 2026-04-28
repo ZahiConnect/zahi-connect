@@ -22,6 +22,7 @@ export const mobilityService = {
   getMe: () => getPayload("/mobility/auth/me"),
   getDashboard: () => getPayload("/mobility/driver/dashboard"),
   getRideRequests: (limit = 12) => getPayload("/mobility/driver/ride-requests", { params: { limit } }),
+  acceptRideRequest: (rideRequestId) => sendPayload("post", `/mobility/driver/ride-requests/${rideRequestId}/accept`),
   updateProfile: (payload) => sendPayload("patch", "/mobility/driver/profile", payload),
   updateVehicle: (payload) => sendPayload("put", "/mobility/driver/vehicle", payload),
   updateStatus: (payload) => sendPayload("patch", "/mobility/driver/status", payload),

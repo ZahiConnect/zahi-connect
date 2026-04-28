@@ -12,6 +12,7 @@ const postPayload = async (url, payload) => {
 
 export const bookingService = {
   getRequests: (params = {}) => getPayload("/booking/requests", { params }),
+  getRequest: (requestId) => getPayload(`/booking/requests/${requestId}`),
   createRequest: (payload) => postPayload("/booking/requests", payload),
   createPaymentCheckout: (payload) => postPayload("/booking/payments/checkout", payload),
   verifyPayment: (payload) => postPayload("/booking/payments/verify", payload),

@@ -20,7 +20,7 @@ const LandingPage = () => {
               Take the wheel.<br/>Own your routes.
             </h1>
             <p className="mt-8 max-w-2xl text-lg leading-relaxed text-slate-500 font-medium">
-              Join the elite Zahi Drive network. Register your vehicle, securely manage operational documents, and unlock exclusive high-tier dispatch visibility only when you're online.
+              Join the Zahi Drive network. Register your vehicle, securely manage operational documents, and receive paid ride requests from nearby customers.
             </p>
 
             <div className="mt-10 flex flex-wrap gap-4 items-center">
@@ -51,8 +51,8 @@ const LandingPage = () => {
               },
               {
                 icon: MapPinned,
-                title: "Algorithmic Precision",
-                body: "Toggle your ops status instantly. High-fidelity dispatch visibility matches you exactly where customers are clustered.",
+                title: "Location Precision",
+                body: "Save your accurate operating area so paid cab requests can be matched to the right nearby drivers.",
               },
               {
                 icon: ShieldCheck,
@@ -86,8 +86,8 @@ const LandingPage = () => {
             body: "Create your verified driver asset tag. Bind your primary vehicle and execute document vaults to clear dispatch security protocols.",
           },
           {
-            title: "Command Status",
-            body: "Go operational straight from your tactical dashboard. The dispatch matrix instantly pairs your GPS vectors with pending customer signals.",
+            title: "Request Matching",
+            body: "Your saved location and vehicle profile help route customer cab requests to the right driver workspace.",
           },
           {
             title: "Asset Telemetry",

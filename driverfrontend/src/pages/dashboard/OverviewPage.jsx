@@ -18,7 +18,7 @@ const StatCard = ({ label, value, sub, icon: Icon, accent, isDark }) => (
 );
 
 const OverviewPage = () => {
-  const { driver, dashboard, rideRequests, loading, toggleOnline, switchingOnline, locationLabel, locStatus, theme } = useDashboard();
+  const { driver, dashboard, loading, theme } = useDashboard();
   const isDark = theme === "dark";
 
   if (loading) {
@@ -42,32 +42,12 @@ const OverviewPage = () => {
         <div>
           <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? "text-zinc-500" : "text-slate-400"}`}>Dashboard</p>
           <h1 className={`mt-1 font-display text-3xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-            Welcome back, {driver?.full_name?.split(" ")[0] || "Driver"} 👋
+            Welcome back, {driver?.full_name?.split(" ")[0] || "Driver"}
           </h1>
           <p className={`mt-1 text-sm ${isDark ? "text-zinc-500" : "text-slate-500"}`}>
-            {driver?.is_online ? (
-              <span className="inline-flex items-center gap-1.5 text-emerald-400 font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                You are online
-                {locationLabel && ` · ${locationLabel}`}
-              </span>
-            ) : (
-              <span className="text-zinc-500">You are currently offline. Go online to receive ride requests.</span>
-            )}
+            Track customer-paid ride requests, vehicle details, and your latest receipts.
           </p>
         </div>
-        <button
-          onClick={toggleOnline}
-          disabled={switchingOnline}
-          className={`mt-3 sm:mt-0 inline-flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold transition-all disabled:opacity-60 ${
-            driver?.is_online
-              ? "bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
-              : "bg-[#facc15] text-zinc-900 hover:bg-[#eab308]"
-          }`}
-        >
-          {switchingOnline ? <RefreshCcw size={15} className="animate-spin" /> : <Zap size={15} />}
-          {driver?.is_online ? "Go Offline" : "Go Online"}
-        </button>
       </div>
 
       {/* Stats */}
@@ -76,7 +56,7 @@ const OverviewPage = () => {
           isDark={isDark}
           label="Total Rides"
           value={stats.paid_customers ?? 0}
-          sub="Completed trips"
+          sub="Accepted trips"
           icon={Users}
           accent={isDark ? "bg-blue-500/15 text-blue-400" : "bg-blue-50 text-blue-600"}
         />
@@ -116,15 +96,9 @@ const OverviewPage = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-base font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{driver.vehicle.vehicle_name}</p>
-              <p className={`text-xs ${isDark ? "text-zinc-400" : "text-slate-500"}`}>{driver.vehicle.brand} · {driver.vehicle.plate_number} · {driver.vehicle.color}</p>
+              <p className={`text-xs ${isDark ? "text-zinc-400" : "text-slate-500"}`}>{driver.vehicle.brand} - {driver.vehicle.plate_number} - {driver.vehicle.color}</p>
             </div>
             <div className="flex flex-wrap gap-3 text-xs">
-              <span className={`rounded-xl px-3 py-1.5 font-semibold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-slate-100 text-slate-700"}`}>
-                Base: {formatCurrency(driver.vehicle.base_fare)}
-              </span>
-              <span className={`rounded-xl px-3 py-1.5 font-semibold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-slate-100 text-slate-700"}`}>
-                {formatCurrency(driver.vehicle.per_km_rate)}/km
-              </span>
               <span className={`rounded-xl px-3 py-1.5 font-semibold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-slate-100 text-slate-700"}`}>
                 {driver.vehicle.seat_capacity} seats
               </span>
@@ -143,7 +117,7 @@ const OverviewPage = () => {
           <div className={`rounded-2xl border p-10 text-center ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
             <Zap size={28} className={`mx-auto mb-3 ${isDark ? "text-zinc-600" : "text-slate-300"}`} />
             <p className={`text-sm font-semibold ${isDark ? "text-zinc-400" : "text-slate-500"}`}>No completed rides yet</p>
-            <p className={`mt-1 text-xs ${isDark ? "text-zinc-600" : "text-slate-400"}`}>Go online to start receiving ride requests.</p>
+            <p className={`mt-1 text-xs ${isDark ? "text-zinc-600" : "text-slate-400"}`}>Accepted and completed rides will appear here.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -156,7 +130,7 @@ const OverviewPage = () => {
                   <p className={`text-sm font-bold truncate ${isDark ? "text-white" : "text-slate-900"}`}>{ride.customer_name || "Anonymous"}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <MapPin size={11} className={`flex-shrink-0 ${isDark ? "text-zinc-500" : "text-slate-400"}`} />
-                    <p className={`text-xs truncate ${isDark ? "text-zinc-500" : "text-slate-500"}`}>{ride.pickup_label} → {ride.drop_label}</p>
+                    <p className={`text-xs truncate ${isDark ? "text-zinc-500" : "text-slate-500"}`}>{ride.pickup_label} -&gt; {ride.drop_label}</p>
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">

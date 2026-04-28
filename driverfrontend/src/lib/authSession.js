@@ -12,6 +12,15 @@ const normalizeOptionalString = (value) => {
   return trimmed;
 };
 
+const normalizeUrlList = (urls = [], fallbackUrl = null) => {
+  const values = Array.isArray(urls) ? urls : [];
+  const normalized = [fallbackUrl, ...values]
+    .map(normalizeOptionalString)
+    .filter(Boolean);
+
+  return [...new Set(normalized)];
+};
+
 const normalizeVehicle = (vehicle = {}) => ({
   id: vehicle.id ?? null,
   vehicle_name: normalizeOptionalString(vehicle.vehicle_name),
@@ -26,6 +35,9 @@ const normalizeVehicle = (vehicle = {}) => ({
   photo_url: normalizeOptionalString(vehicle.photo_url),
   rc_image_url: normalizeOptionalString(vehicle.rc_image_url),
   insurance_image_url: normalizeOptionalString(vehicle.insurance_image_url),
+  photo_urls: normalizeUrlList(vehicle.photo_urls, vehicle.photo_url),
+  rc_image_urls: normalizeUrlList(vehicle.rc_image_urls, vehicle.rc_image_url),
+  insurance_image_urls: normalizeUrlList(vehicle.insurance_image_urls, vehicle.insurance_image_url),
   availability_notes: normalizeOptionalString(vehicle.availability_notes),
   base_fare: typeof vehicle.base_fare === "number" ? vehicle.base_fare : 250,
   per_km_rate: typeof vehicle.per_km_rate === "number" ? vehicle.per_km_rate : 18,

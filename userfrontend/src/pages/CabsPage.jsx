@@ -1,40 +1,52 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { 
-  FiMapPin, 
-  FiClock, 
-  FiArrowRight, 
-  FiUsers, 
-  FiPhone,
-  FiNavigation,
-  FiCheckCircle,
-  FiShield,
-  FiInfo,
-  FiSearch,
+import { useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import {
+  FiArrowRight,
   FiCalendar,
-  FiZap
+  FiCheckCircle,
+  FiCreditCard,
+  FiInfo,
+  FiMapPin,
+  FiNavigation,
+  FiPhone,
+  FiStar,
+  FiShield,
+  FiUsers,
+  FiZap,
 } from "react-icons/fi";
-import { 
-  MdOutlineLocalTaxi, 
+import {
   MdOutlineDirectionsCar,
+  MdOutlineLocalTaxi,
+  MdOutlineRoute,
   MdOutlineSpeed,
-  MdOutlineRoute
 } from "react-icons/md";
 import { FaCarSide } from "react-icons/fa";
 import toast from "react-hot-toast";
 
-import LocationPicker from "../components/LocationPicker";
 import PlaceAutocompleteInput from "../components/PlaceAutocompleteInput";
 import { useAuth } from "../context/AuthContext";
 import useCustomerLocation from "../hooks/useCustomerLocation";
-import { formatCurrency, formatDistance, formatShortDate, todayDate } from "../lib/format";
+import {
+  calculateDistanceKm,
+  formatCurrency,
+  formatDistance,
+  formatShortDate,
+  todayDate,
+} from "../lib/format";
+import {
+  CAB_TIER_OPTIONS,
+  buildPassengerOptions,
+  clampPassengerCountForTier,
+  getCabTier,
+} from "../lib/cabTiers";
+import { loadRazorpayScript } from "../lib/razorpay";
 import bookingService from "../services/bookingService";
 import mobilityService from "../services/mobilityService";
 
-/* ── Helpers ───────────────────────────────────────────── */
-
-const inputStyle = "w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm outline-none text-gray-900 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 transition-all";
+const DRIVER_SEARCH_RADIUS_KM = 30;
+const inputStyle =
+  "w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm text-gray-900 outline-none transition-all focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10";
 
 const coordinatesFromSuggestion = (suggestion) => {
   const latitude = Number(suggestion?.latitude);
@@ -43,10 +55,32 @@ const coordinatesFromSuggestion = (suggestion) => {
   return { latitude, longitude };
 };
 
+const coordinateKeyFrom = (coordinates) => {
+  if (!coordinates) return "missing";
+  return `${Number(coordinates.latitude).toFixed(5)}:${Number(coordinates.longitude).toFixed(5)}`;
+};
+
+const sortNearbyDrivers = (items = []) =>
+  [...items].sort((a, b) => {
+    const distanceA = Number.isFinite(Number(a?.distance_km)) ? Number(a.distance_km) : 999999;
+    const distanceB = Number.isFinite(Number(b?.distance_km)) ? Number(b.distance_km) : 999999;
+    if (distanceA !== distanceB) return distanceA - distanceB;
+
+    const ratingA = Number.isFinite(Number(a?.driver?.rating)) ? Number(a.driver.rating) : 0;
+    const ratingB = Number.isFinite(Number(b?.driver?.rating)) ? Number(b.driver.rating) : 0;
+    return ratingB - ratingA;
+  });
+
+const formatTripDistance = (value) => {
+  const distance = Number(value);
+  if (!Number.isFinite(distance)) return "Select route";
+  return `${distance.toFixed(distance < 10 ? 2 : 1)} km`;
+};
+
 const FormField = ({ label, icon: Icon, children }) => (
   <label className="block">
-    <span className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 px-1">
-      {Icon && <Icon className="text-orange-500" />}
+    <span className="mb-2 flex items-center gap-1.5 px-1 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+      {Icon ? <Icon className="text-orange-500" /> : null}
       {label}
     </span>
     {children}
@@ -57,32 +91,58 @@ const CabsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, user } = useAuth();
-  const {
-    coordinates,
-    locationLabel,
-  } = useCustomerLocation(true);
-  
-  const coordinateKey = coordinates
-    ? `${coordinates.latitude.toFixed(5)}:${coordinates.longitude.toFixed(5)}`
-    : "no-location";
-    
-  const driverAppUrl = import.meta.env.VITE_DRIVER_APP_URL || "http://localhost:5175";
+  const { coordinates, locationLabel } = useCustomerLocation(true);
   const lastLocationPickupRef = useRef("");
 
-  const [submitting, setSubmitting] = useState(false);
-  const [loadingDrivers, setLoadingDrivers] = useState(true);
-  const [nearbyDrivers, setNearbyDrivers] = useState([]);
-  const [selectedDriverId, setSelectedDriverId] = useState(null);
-  const [confirmedRide, setConfirmedRide] = useState(null);
-  const [selectedPickupPlace, setSelectedPickupPlace] = useState(null);
-  const [selectedDropPlace, setSelectedDropPlace] = useState(null);
   const [form, setForm] = useState({
     pickup: "",
     drop: "",
     travelDate: todayDate(),
-    passengers: 2,
+    passengers: 1,
     notes: "",
   });
+  const [selectedTierKey, setSelectedTierKey] = useState("tier_1");
+  const [selectedPickupPlace, setSelectedPickupPlace] = useState(null);
+  const [selectedDropPlace, setSelectedDropPlace] = useState(null);
+  const [nearbyDrivers, setNearbyDrivers] = useState([]);
+  const [selectedDriverId, setSelectedDriverId] = useState(null);
+  const [loadingDrivers, setLoadingDrivers] = useState(false);
+  const [paying, setPaying] = useState(false);
+
+  const selectedTier = useMemo(
+    () => TIER_OPTIONS.find((tier) => tier.key === selectedTierKey) || TIER_OPTIONS[0],
+    [selectedTierKey]
+  );
+
+  const pickupCoordinates = selectedPickupPlace || coordinates;
+  const pickupCoordinateKey = coordinateKeyFrom(pickupCoordinates);
+  const selectedDriver = useMemo(
+    () => nearbyDrivers.find((item) => item?.driver?.id === selectedDriverId) || nearbyDrivers[0] || null,
+    [nearbyDrivers, selectedDriverId]
+  );
+
+  const tripDistanceKm = useMemo(
+    () => calculateDistanceKm(pickupCoordinates, selectedDropPlace),
+    [pickupCoordinates, selectedDropPlace]
+  );
+
+  const billableDistanceKm = useMemo(
+    () => (Number.isFinite(tripDistanceKm) ? Math.max(1, tripDistanceKm) : null),
+    [tripDistanceKm]
+  );
+
+  const estimatedFare = useMemo(() => {
+    if (!Number.isFinite(billableDistanceKm)) return null;
+    return Math.ceil(billableDistanceKm * selectedTier.perKmRate);
+  }, [billableDistanceKm, selectedTier.perKmRate]);
+
+  const actionLabel = useMemo(() => {
+    if (loadingDrivers) return "Finding nearby drivers...";
+    if (paying) return "Processing payment...";
+    if (!isAuthenticated) return "Sign in to pay";
+    if (!estimatedFare) return "Calculate Fare & Pay";
+    return `Pay ${formatCurrency(estimatedFare)} & Request Ride`;
+  }, [estimatedFare, isAuthenticated, loadingDrivers, paying]);
 
   const setField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -111,27 +171,37 @@ const CabsPage = () => {
 
   useEffect(() => {
     let active = true;
+
     const loadNearbyDrivers = async () => {
+      if (!pickupCoordinates) {
+        setNearbyDrivers([]);
+        setSelectedDriverId(null);
+        return;
+      }
+
       setLoadingDrivers(true);
       try {
-        const data = await mobilityService.getNearbyDrivers(
-          coordinates
-            ? {
-                latitude: coordinates.latitude,
-                longitude: coordinates.longitude,
-                radius_km: 30,
-                limit: 10,
-              }
-            : { limit: 10 }
-        );
-
+        const data = await mobilityService.getNearbyDrivers({
+          latitude: pickupCoordinates.latitude,
+          longitude: pickupCoordinates.longitude,
+          radius_km: DRIVER_SEARCH_RADIUS_KM,
+          limit: 20,
+        });
         if (!active) return;
-        const normalized = Array.isArray(data) ? data : [];
-        setNearbyDrivers(normalized);
+
+        const rankedDrivers = sortNearbyDrivers(Array.isArray(data) ? data : []);
+        setNearbyDrivers(rankedDrivers);
+        setSelectedDriverId((current) => {
+          if (current && rankedDrivers.some((item) => item?.driver?.id === current)) {
+            return current;
+          }
+          return rankedDrivers[0]?.driver?.id || null;
+        });
       } catch (error) {
+        console.error("Failed to load nearby cab count", error);
         if (active) {
-            console.error("Failed to load nearby drivers", error);
-            setNearbyDrivers([]);
+          setNearbyDrivers([]);
+          setSelectedDriverId(null);
         }
       } finally {
         if (active) setLoadingDrivers(false);
@@ -139,106 +209,176 @@ const CabsPage = () => {
     };
 
     loadNearbyDrivers();
-    return () => { active = false; };
-  }, [coordinateKey]);
+    return () => {
+      active = false;
+    };
+  }, [pickupCoordinateKey]);
 
-  const selectedDriver = useMemo(
-    () => nearbyDrivers.find((item) => item.driver?.id === selectedDriverId) || null,
-    [nearbyDrivers, selectedDriverId]
-  );
-
-  const fareStartingAt = useMemo(() => {
-    if (!nearbyDrivers.length) return null;
-    return nearbyDrivers.reduce((lowest, item) => {
-      const nextValue = Number(item.driver?.vehicle?.base_fare);
-      if (!Number.isFinite(nextValue)) return lowest;
-      if (lowest === null || nextValue < lowest) return nextValue;
-      return lowest;
-    }, null);
-  }, [nearbyDrivers]);
-
-  const saveToCustomerAccount = async (rideResponse) => {
-    const assignedDriver = rideResponse?.assigned_driver;
-    const rideRequest = rideResponse?.ride_request;
-
-    await bookingService.createRequest({
-      service_type: "cab",
-      title: `Cab ride: ${form.pickup} → ${form.drop}`,
-      summary: `${form.passengers} passenger(s) · ${formatShortDate(form.travelDate)}`,
-      total_amount: rideRequest?.estimated_fare || null,
-      metadata: {
-        pickup: form.pickup,
-        drop: form.drop,
-        travel_date: form.travelDate,
-        passengers: form.passengers,
-        notes: form.notes || null,
-        pickup_latitude: selectedPickupPlace?.latitude ?? coordinates?.latitude ?? null,
-        pickup_longitude: selectedPickupPlace?.longitude ?? coordinates?.longitude ?? null,
-        drop_latitude: selectedDropPlace?.latitude ?? null,
-        drop_longitude: selectedDropPlace?.longitude ?? null,
-        ride_request_id: rideRequest?.id || null,
-        estimated_fare: rideRequest?.estimated_fare || null,
-        commission_amount: rideRequest?.commission_amount || null,
-        driver_name: assignedDriver?.full_name || null,
-        driver_phone: assignedDriver?.phone || null,
-        vehicle_name: assignedDriver?.vehicle?.vehicle_name || null,
-        plate_number: assignedDriver?.vehicle?.plate_number || null,
-        source: "mobility_marketplace",
-      },
-    });
-  };
-
-  const submitInterest = async () => {
+  const ensureReadyForPayment = () => {
     if (!isAuthenticated) {
       navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
-      return;
+      return false;
     }
 
     if (!form.pickup.trim() || !form.drop.trim()) {
-      toast.error("Add both pickup and drop locations.");
-      return;
+      toast.error("Add pickup and destination.");
+      return false;
     }
 
-    setSubmitting(true);
-    try {
-      const pickupCoordinates = selectedPickupPlace || coordinates;
-      const dropCoordinates = selectedDropPlace;
+    if (!pickupCoordinates || !selectedDropPlace) {
+      toast.error("Select pickup and destination from suggestions so distance can be calculated.");
+      return false;
+    }
 
-      const rideResponse = await mobilityService.createRideRequest({
-        selected_driver_id: selectedDriverId || null,
-        customer_user_id: user?.id ? String(user.id) : null,
-        customer_name: user?.username || user?.email || null,
-        customer_email: user?.email || null,
-        customer_phone: user?.mobile || null,
-        pickup_label: form.pickup,
-        drop_label: form.drop,
-        pickup_latitude: pickupCoordinates?.latitude ?? null,
-        pickup_longitude: pickupCoordinates?.longitude ?? null,
-        drop_latitude: dropCoordinates?.latitude ?? null,
-        drop_longitude: dropCoordinates?.longitude ?? null,
-        passengers: form.passengers,
-        notes: `Travel date: ${form.travelDate}${form.notes ? ` | ${form.notes}` : ""}`,
-        source: "customer_app",
+    if (!estimatedFare || estimatedFare <= 0) {
+      toast.error("Could not calculate the cab fare.");
+      return false;
+    }
+
+    if (!loadingDrivers && nearbyDrivers.length === 0) {
+      toast.error("No nearby drivers are available right now. Try another pickup area.");
+      return false;
+    }
+
+    return true;
+  };
+
+  const buildCabMetadata = (extra = {}) => ({
+    pickup: form.pickup,
+    drop: form.drop,
+    travel_date: form.travelDate,
+    passengers: form.passengers,
+    notes: form.notes || null,
+    pickup_latitude: pickupCoordinates?.latitude ?? null,
+    pickup_longitude: pickupCoordinates?.longitude ?? null,
+    drop_latitude: selectedDropPlace?.latitude ?? null,
+    drop_longitude: selectedDropPlace?.longitude ?? null,
+    trip_distance_km: tripDistanceKm,
+    billable_distance_km: billableDistanceKm,
+    tier_key: selectedTier.key,
+    tier_label: selectedTier.label,
+    tier_per_km_rate: selectedTier.perKmRate,
+    tier_fare: selectedTier.perKmRate,
+    estimated_fare: estimatedFare,
+    requested_driver_id: selectedDriver?.driver?.id || null,
+    requested_driver_name: selectedDriver?.driver?.full_name || null,
+    requested_driver_distance_km: selectedDriver?.distance_km ?? null,
+    ride_status: "payment_pending",
+    source: "mobility_marketplace",
+    ...extra,
+  });
+
+  const createDriverRequest = async (bookingRecord) => {
+    const customerUserId = bookingRecord?.user_id ? String(bookingRecord.user_id) : user?.id ? String(user.id) : null;
+    const preferredDriver =
+      (nearbyDrivers.find((item) => item?.driver?.id === selectedDriverId) || nearbyDrivers[0])
+        ?.driver || null;
+    const requestPayload = {
+      booking_request_id: bookingRecord?.id ? String(bookingRecord.id) : null,
+      selected_driver_id: preferredDriver?.id || null,
+      customer_user_id: customerUserId,
+      customer_name: bookingRecord?.user_name || user?.username || user?.email || null,
+      customer_email: bookingRecord?.user_email || user?.email || null,
+      customer_phone: user?.mobile || null,
+      pickup_label: form.pickup,
+      drop_label: form.drop,
+      pickup_latitude: pickupCoordinates?.latitude ?? null,
+      pickup_longitude: pickupCoordinates?.longitude ?? null,
+      drop_latitude: selectedDropPlace?.latitude ?? null,
+      drop_longitude: selectedDropPlace?.longitude ?? null,
+      passengers: form.passengers,
+      tier_key: selectedTier.key,
+      tier_label: selectedTier.label,
+      tier_fare: selectedTier.perKmRate,
+      trip_distance_km: tripDistanceKm,
+      estimated_fare: estimatedFare,
+      notes: `Paid cab request | Travel date: ${form.travelDate}${form.notes ? ` | ${form.notes}` : ""}`,
+      source: "customer_app",
+    };
+
+    try {
+      return await mobilityService.createRideRequest(requestPayload);
+    } catch (error) {
+      const detail = String(error.response?.data?.detail || "");
+      const canRetryWithoutSelectedDriver =
+        requestPayload.selected_driver_id &&
+        (error.response?.status === 404 ||
+          detail.toLowerCase().includes("selected driver") ||
+          detail.toLowerCase().includes("another driver"));
+
+      if (!canRetryWithoutSelectedDriver) {
+        throw error;
+      }
+
+      return mobilityService.createRideRequest({
+        ...requestPayload,
+        selected_driver_id: null,
+        notes: `${requestPayload.notes} | Preferred driver unavailable; sent to nearby driver pool.`,
+      });
+    }
+  };
+
+  const startPaymentAndRequest = async () => {
+    if (!ensureReadyForPayment()) return;
+
+    setPaying(true);
+    try {
+      const paymentPayload = {
+        service_type: "cab",
+        title: `Cab ride: ${form.pickup} to ${form.drop}`,
+        summary: `${selectedTier.label} at ${formatCurrency(
+          selectedTier.perKmRate
+        )}/km on ${formatShortDate(form.travelDate)}`,
+        total_amount: estimatedFare,
+        currency: "INR",
+        metadata: buildCabMetadata(),
+      };
+
+      const { payment_order_id, checkout } = await bookingService.createPaymentCheckout(
+        paymentPayload
+      );
+      const razorpayLoaded = await loadRazorpayScript();
+      if (!razorpayLoaded || !window.Razorpay) {
+        throw new Error("Razorpay checkout could not be loaded.");
+      }
+
+      const razorpay = new window.Razorpay({
+        ...checkout,
+        theme: { color: "#ea580c" },
+        handler: async (response) => {
+          const requestToast = toast.loading("Confirming payment and sending cab request...");
+          try {
+            const bookingRecord = await bookingService.verifyPayment({
+              payment_order_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+
+            await createDriverRequest(bookingRecord);
+            toast.dismiss(requestToast);
+            toast.success("Payment done. Cab request sent to Zahi Driver.");
+            navigate("/activity");
+          } catch (error) {
+            console.error("Cab payment/request failed", error);
+            toast.dismiss(requestToast);
+            toast.error(
+              error.response?.data?.detail ||
+                "Payment confirmed, but cab request could not be sent. Please contact support."
+            );
+            setPaying(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setPaying(false),
+        },
       });
 
-      setConfirmedRide(rideResponse);
-
-      try {
-        await saveToCustomerAccount(rideResponse);
-      } catch (accountError) {
-        console.error("Ride created but account sync failed", accountError);
-      }
-
-      if (rideResponse?.assigned_driver?.full_name) {
-        toast.success(`Driver matched: ${rideResponse.assigned_driver.full_name}`);
-      } else {
-        toast.success("Ride request saved. We will assign the nearest active driver.");
-      }
-      navigate("/activity");
+      razorpay.open();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Could not confirm the cab request.");
-    } finally {
-      setSubmitting(false);
+      console.error("Failed to start cab payment", error);
+      toast.error(error.response?.data?.detail || error.message || "Could not start payment.");
+      setPaying(false);
     }
   };
 
@@ -246,112 +386,159 @@ const CabsPage = () => {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
+      transition: { staggerChildren: 0.1 },
+    },
   };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 15 },
-    show: { opacity: 1, y: 0 }
+    show: { opacity: 1, y: 0 },
   };
 
   return (
-    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden mb-12 flex flex-col pt-6 pb-20 px-4 md:px-8 max-w-7xl mx-auto">
-      
-      {/* Hero Header */}
-      <motion.section 
+    <div className="mx-auto mb-12 flex min-h-[80vh] max-w-7xl flex-col overflow-hidden rounded-[32px] border border-gray-100 bg-white px-4 pb-20 pt-6 shadow-sm sm:rounded-[40px] md:px-8">
+      <motion.section
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-12 relative"
+        className="relative mb-12"
       >
-        <div className="bg-white rounded-[32px] md:rounded-[40px] p-8 md:p-14 lg:p-16 border-2 border-orange-50 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)] relative overflow-hidden">
-          {/* Animated Background Elements */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-             <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[60%] bg-gradient-to-bl from-orange-200/50 via-orange-100/30 to-transparent rounded-full blur-3xl mix-blend-multiply" />
-             <div className="absolute bottom-[-10%] left-[-5%] w-[50%] h-[50%] bg-gradient-to-tr from-yellow-200/40 via-orange-50/20 to-transparent rounded-full blur-3xl mix-blend-multiply" />
+        <div className="relative overflow-hidden rounded-[32px] border-2 border-orange-50 bg-white p-8 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)] md:rounded-[40px] md:p-14 lg:p-16">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute right-[-5%] top-[-10%] h-[60%] w-[40%] rounded-full bg-gradient-to-bl from-orange-200/50 via-orange-100/30 to-transparent blur-3xl mix-blend-multiply" />
+            <div className="absolute bottom-[-10%] left-[-5%] h-[50%] w-[50%] rounded-full bg-gradient-to-tr from-yellow-200/40 via-orange-50/20 to-transparent blur-3xl mix-blend-multiply" />
           </div>
 
-          {/* Floating Icons */}
-          <div className="absolute inset-0 pointer-events-none hidden md:block">
-            <motion.div 
-              animate={{ y: [0, -15, 0], x: [0, 10, 0], rotate: [0, 5, 0] }} 
+          <div className="pointer-events-none absolute inset-0 hidden md:block">
+            <motion.div
+              animate={{ y: [0, -15, 0], x: [0, 10, 0], rotate: [0, 5, 0] }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute top-[10%] right-[15%] text-orange-200 opacity-60 drop-shadow-xl"
+              className="absolute right-[15%] top-[10%] text-orange-200 opacity-60 drop-shadow-xl"
             >
-              <MdOutlineLocalTaxi className="w-24 h-24 rotate-12" />
+              <MdOutlineLocalTaxi className="h-24 w-24 rotate-12" />
             </motion.div>
-            <motion.div 
-              animate={{ y: [0, 20, 0], rotate: [0, -10, 0] }} 
+            <motion.div
+              animate={{ y: [0, 20, 0], rotate: [0, -10, 0] }}
               transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1 }}
               className="absolute bottom-[20%] right-[5%] text-yellow-200 opacity-50 drop-shadow-lg"
             >
-              <MdOutlineRoute className="w-16 h-16" />
+              <MdOutlineRoute className="h-16 w-16" />
             </motion.div>
-            <motion.div 
-              animate={{ y: [0, -10, 0], x: [0, -10, 0] }} 
+            <motion.div
+              animate={{ y: [0, -10, 0], x: [0, -10, 0] }}
               transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-              className="absolute top-[30%] left-[8%] text-slate-200 opacity-40 drop-shadow-md"
+              className="absolute left-[8%] top-[30%] text-slate-200 opacity-40 drop-shadow-md"
             >
-              <MdOutlineDirectionsCar className="w-12 h-12 -rotate-12" />
+              <MdOutlineDirectionsCar className="h-12 w-12 -rotate-12" />
             </motion.div>
           </div>
-          
+
           <div className="relative z-10 max-w-2xl">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <span className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 border border-orange-100 px-5 py-2 rounded-full text-xs font-bold tracking-[0.2em] uppercase mb-6 shadow-sm">
+              <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-orange-100 bg-orange-50 px-5 py-2 text-xs font-bold uppercase tracking-[0.2em] text-orange-600 shadow-sm">
                 <FaCarSide className="animate-bounce" /> Smart Mobility
               </span>
             </motion.div>
 
-            <motion.h1 
+            <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.05] text-slate-800 mb-6 drop-shadow-sm"
+              className="mb-6 text-5xl font-extrabold leading-[1.05] tracking-tight text-slate-800 drop-shadow-sm md:text-6xl lg:text-7xl"
             >
-              Every route, <br className="hidden md:block"/> 
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-yellow-500">reimagined.</span>
+              Every route,
+              <br className="hidden md:block" />
+              <span className="bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
+                reimagined.
+              </span>
             </motion.h1>
 
-            <motion.p 
+            <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="text-slate-500 text-lg md:text-xl leading-relaxed max-w-xl mb-12"
+              className="mb-10 max-w-xl text-lg leading-relaxed text-slate-500 md:text-xl"
             >
-              Connect with the nearest verified drivers in real-time. Transparent fares, direct contact, and zero subscription fees.
+              Choose your route, see transparent tier pricing, and send a paid cab request
+              to verified Zahi drivers nearby.
             </motion.p>
 
-
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="grid max-w-xl gap-3 sm:grid-cols-3"
+            >
+              <div className="rounded-2xl border border-orange-100 bg-white/80 px-4 py-3 shadow-sm backdrop-blur">
+                <FiShield className="mb-2 text-orange-500" />
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                  Within 30 km
+                </p>
+                <p className="mt-1 text-sm font-black text-gray-900">
+                  {loadingDrivers
+                    ? "Checking"
+                    : nearbyDrivers.length
+                      ? `${nearbyDrivers.length} nearby`
+                      : "No nearby"}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-orange-100 bg-white/80 px-4 py-3 shadow-sm backdrop-blur">
+                <MdOutlineSpeed className="mb-2 text-orange-500" />
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                  Distance
+                </p>
+                <p className="mt-1 text-sm font-black text-gray-900">
+                  {formatTripDistance(tripDistanceKm)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-orange-100 bg-white/80 px-4 py-3 shadow-sm backdrop-blur">
+                <FiCreditCard className="mb-2 text-orange-500" />
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                  Fare
+                </p>
+                <p className="mt-1 text-sm font-black text-gray-900">
+                  {estimatedFare ? formatCurrency(estimatedFare) : "After route"}
+                </p>
+              </div>
+            </motion.div>
           </div>
         </div>
       </motion.section>
 
-      <div className="max-w-3xl mx-auto w-full pb-10">
-        
-        {/* Left Side: Booking Form */}
-        <section className="bg-gray-50/50 border border-gray-100 rounded-[32px] p-8">
-          <div className="flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 shadow-sm shadow-orange-500/10">
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-3xl pb-10"
+      >
+        <motion.section
+          variants={itemVariants}
+          className="rounded-[32px] border border-gray-100 bg-gray-50/50 p-6 sm:p-8"
+        >
+          <div className="mb-10 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-100 text-orange-600 shadow-sm shadow-orange-500/10">
               <MdOutlineDirectionsCar className="text-2xl" />
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-orange-600 font-bold mb-0.5">Customer Dispatch</p>
+              <p className="mb-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-orange-600">
+                Customer Dispatch
+              </p>
               <h3 className="text-2xl font-extrabold text-gray-900">Request your ride</h3>
             </div>
           </div>
 
           <div className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <FormField label="Pickup Location" icon={FiMapPin}>
                 <PlaceAutocompleteInput
                   value={form.pickup}
                   onChange={handlePickupChange}
-                  onSelect={(suggestion) => setSelectedPickupPlace(coordinatesFromSuggestion(suggestion))}
+                  onSelect={(suggestion) =>
+                    setSelectedPickupPlace(coordinatesFromSuggestion(suggestion))
+                  }
                   placeholder="Search pickup point"
                   className={inputStyle}
                   icon={<FiMapPin size={16} />}
@@ -362,7 +549,9 @@ const CabsPage = () => {
                 <PlaceAutocompleteInput
                   value={form.drop}
                   onChange={handleDropChange}
-                  onSelect={(suggestion) => setSelectedDropPlace(coordinatesFromSuggestion(suggestion))}
+                  onSelect={(suggestion) =>
+                    setSelectedDropPlace(coordinatesFromSuggestion(suggestion))
+                  }
                   placeholder="Search destination"
                   className={inputStyle}
                   icon={<FiNavigation size={16} />}
@@ -370,102 +559,242 @@ const CabsPage = () => {
               </FormField>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <FormField label="Travel Date" icon={FiCalendar}>
-                <input 
-                  type="date" 
-                  value={form.travelDate} 
-                  onChange={e => setField("travelDate", e.target.value)} 
-                  className={inputStyle} 
+                <input
+                  type="date"
+                  value={form.travelDate}
+                  onChange={(event) => setField("travelDate", event.target.value)}
+                  className={inputStyle}
                 />
               </FormField>
+
               <FormField label="Passengers" icon={FiUsers}>
-                <input 
-                  type="number" 
-                  min={1} 
-                  max={12} 
-                  value={form.passengers} 
-                  onChange={e => setField("passengers", Number(e.target.value) || 1)} 
-                  className={inputStyle} 
+                <input
+                  type="number"
+                  min={1}
+                  max={MAX_PASSENGERS}
+                  value={form.passengers}
+                  onChange={(event) =>
+                    setField("passengers", clampPassengerCount(event.target.value))
+                  }
+                  className={inputStyle}
                 />
               </FormField>
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center gap-1.5 px-1 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                <FiZap className="text-orange-500" />
+                Ride Tier
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {TIER_OPTIONS.map((tier) => {
+                  const selected = tier.key === selectedTierKey;
+                  return (
+                    <button
+                      key={tier.key}
+                      type="button"
+                      onClick={() => setSelectedTierKey(tier.key)}
+                      className={`rounded-2xl border p-4 text-left transition-all ${
+                        selected
+                          ? "border-orange-300 bg-orange-50 shadow-lg shadow-orange-500/10"
+                          : "border-gray-200 bg-white hover:border-orange-200 hover:bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-black text-gray-900">{tier.label}</span>
+                        {selected ? <FiCheckCircle className="text-orange-600" /> : null}
+                      </div>
+                      <p className="mt-2 text-2xl font-black text-gray-900">
+                        {formatCurrency(tier.perKmRate)}
+                        <span className="ml-1 text-xs font-bold text-gray-400">/km</span>
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-gray-500">
+                        {tier.description}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <FormField label="Trip Notes" icon={FiInfo}>
-              <textarea 
-                value={form.notes} 
-                onChange={e => setField("notes", e.target.value)} 
-                placeholder="Luggage count, gate number, or special requests..." 
-                rows={3} 
-                className={`${inputStyle} resize-none`} 
+              <textarea
+                value={form.notes}
+                onChange={(event) => setField("notes", event.target.value)}
+                placeholder="Luggage count, gate number, or special requests..."
+                rows={3}
+                className={`${inputStyle} resize-none`}
               />
             </FormField>
 
-            <div className="flex flex-wrap gap-3 py-2">
-              <LocationPicker tone="orange" />
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3 px-1">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                  <FiShield className="text-orange-500" />
+                  Nearby drivers
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-orange-500">
+                  Nearest first
+                </span>
+              </div>
+
+              <div className="rounded-3xl border border-orange-100 bg-white p-4 shadow-sm">
+                {loadingDrivers ? (
+                  <div className="flex items-center justify-center gap-3 py-8 text-sm font-bold text-gray-400">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-orange-200 border-t-orange-500" />
+                    Finding nearby drivers...
+                  </div>
+                ) : nearbyDrivers.length ? (
+                  <div className="grid gap-3">
+                    {nearbyDrivers.slice(0, 5).map((item, index) => {
+                      const driver = item.driver || {};
+                      const selected = (selectedDriver?.driver?.id || selectedDriver?.id) === driver.id;
+                      const vehicle = driver.vehicle || {};
+
+                      return (
+                        <button
+                          key={driver.id || index}
+                          type="button"
+                          onClick={() => setSelectedDriverId(driver.id)}
+                          className={`w-full rounded-2xl border p-4 text-left transition-all ${
+                            selected
+                              ? "border-orange-300 bg-orange-50 shadow-lg shadow-orange-500/10"
+                              : "border-gray-100 bg-gray-50 hover:border-orange-200 hover:bg-white"
+                          }`}
+                        >
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex min-w-0 gap-3">
+                              {vehicle.photo_url ? (
+                                <img
+                                  src={vehicle.photo_url}
+                                  alt={vehicle.vehicle_name || "Cab"}
+                                  className="h-14 w-14 rounded-2xl object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
+                                  <MdOutlineLocalTaxi className="text-2xl" />
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-black text-gray-900">
+                                    {driver.full_name || "Zahi Driver"}
+                                  </p>
+                                  {index === 0 ? (
+                                    <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-green-700">
+                                      Nearest
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="mt-1 truncate text-xs font-semibold text-gray-500">
+                                  {[vehicle.vehicle_name, vehicle.vehicle_type, vehicle.plate_number]
+                                    .filter(Boolean)
+                                    .join(" - ") || "Cab details available after acceptance"}
+                                </p>
+                                <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold text-gray-500">
+                                  <span className="inline-flex items-center gap-1">
+                                    <FiMapPin className="text-orange-500" />
+                                    {formatDistance(item.distance_km)}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1">
+                                    <FiStar className="text-orange-500" />
+                                    {Number(driver.rating || 0).toFixed(1)}
+                                  </span>
+                                  {item.contact_phone ? (
+                                    <span className="inline-flex items-center gap-1">
+                                      <FiPhone className="text-orange-500" />
+                                      Phone shared after accept
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+                            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${
+                              selected ? "bg-orange-600 text-white" : "bg-white text-gray-500"
+                            }`}>
+                              Rank #{index + 1}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl bg-gray-50 px-4 py-8 text-center">
+                    <MdOutlineLocalTaxi className="mx-auto mb-3 text-3xl text-gray-300" />
+                    <p className="text-sm font-black text-gray-700">No nearby drivers found</p>
+                    <p className="mt-1 text-xs font-semibold text-gray-400">
+                      Choose another pickup location to search within 30 km.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <AnimatePresence>
-              {confirmedRide?.assigned_driver && (
-                <motion.div 
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="bg-green-50 border border-green-100 rounded-3xl p-6 mt-4"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 text-green-600 mb-3">
-                         <FiCheckCircle className="text-lg" />
-                         <span className="text-[10px] font-bold uppercase tracking-widest">Matched with Driver</span>
-                      </div>
-                      <h4 className="text-2xl font-black text-gray-900">{confirmedRide.assigned_driver.full_name}</h4>
-                      <p className="text-sm font-bold text-gray-500 mt-1">
-                        {confirmedRide.assigned_driver.vehicle?.vehicle_name} · <span className="text-indigo-600">{confirmedRide.assigned_driver.vehicle?.plate_number}</span>
-                      </p>
-                      <p className="text-xs font-bold text-green-700 mt-2 bg-green-100 w-fit px-3 py-1 rounded-full">
-                        Estimated Fare: {formatCurrency(confirmedRide.ride_request?.estimated_fare)}
-                      </p>
-                    </div>
-                    <a 
-                      href={`tel:${confirmedRide.assigned_driver.phone}`}
-                      className="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-gray-900 px-6 py-4 font-bold text-white no-underline shadow-lg transition-all hover:bg-black focus:outline-none focus:ring-4 focus:ring-gray-900/10"
-                      style={{ color: "#ffffff" }}
-                      aria-label={`Call driver ${confirmedRide.assigned_driver.full_name}`}
-                    >
-                      <FiPhone className="text-white" />
-                      <span className="text-white">Call Driver</span>
-                    </a>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <div className="rounded-3xl border border-orange-100 bg-white p-5 shadow-sm">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                    Distance
+                  </p>
+                  <p className="mt-1 text-lg font-black text-gray-900">
+                    {formatTripDistance(tripDistanceKm)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                    Rate
+                  </p>
+                  <p className="mt-1 text-lg font-black text-gray-900">
+                    {formatCurrency(selectedTier.perKmRate)}/km
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-orange-600">
+                    Payable
+                  </p>
+                  <p className="mt-1 text-2xl font-black text-gray-900">
+                    {estimatedFare ? formatCurrency(estimatedFare) : "--"}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-4 text-xs font-semibold leading-5 text-gray-500">
+                Driver details are shown in Activity after payment and driver acceptance. Minimum
+                billing distance is 1 km. Your money is refunded if no vehicle is available.
+              </p>
+            </div>
 
             <button
-              onClick={submitInterest}
-              disabled={submitting}
-              className={`w-full h-16 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-3 shadow-xl ${
-                submitting 
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
-                  : "bg-gray-900 text-white hover:bg-black shadow-gray-900/10 active:scale-95"
+              type="button"
+              onClick={startPaymentAndRequest}
+              disabled={paying || loadingDrivers}
+              className={`flex h-16 w-full items-center justify-center gap-3 rounded-2xl text-lg font-black shadow-xl transition-all ${
+                paying || loadingDrivers
+                  ? "cursor-not-allowed bg-gray-100 text-gray-400"
+                  : "bg-gray-900 text-white shadow-gray-900/10 hover:bg-black active:scale-95"
               }`}
             >
-              {submitting ? (
+              {paying || loadingDrivers ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                  Confirming ride...
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+                  {actionLabel}
                 </>
               ) : (
                 <>
-                  {isAuthenticated ? "Book Your Ride" : "Sign in to request"}
-                  <FiArrowRight className="text-xl" />
+                  {actionLabel}
+                  {isAuthenticated ? (
+                    <FiCreditCard className="text-xl" />
+                  ) : (
+                    <FiArrowRight className="text-xl" />
+                  )}
                 </>
               )}
             </button>
           </div>
-        </section>
-
-
-      </div>
+        </motion.section>
+      </motion.div>
     </div>
   );
 };

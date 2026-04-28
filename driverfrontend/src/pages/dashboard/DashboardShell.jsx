@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-  CarFront, ChevronRight, LayoutDashboard, LogOut, MapPin,
-  Menu, Moon, Settings, Sun, User, X, Zap,
+  CarFront, LayoutDashboard, LogOut,
+  MapPin, Menu, Moon, Settings, Sun, User, X, Zap,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -14,41 +14,17 @@ const NAV_ITEMS = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard, end: true },
   { to: "/dashboard/profile", label: "My Profile", icon: User },
   { to: "/dashboard/vehicle", label: "My Vehicle", icon: CarFront },
-  { to: "/dashboard/rides", label: "Ride History", icon: Zap },
+  { to: "/dashboard/location", label: "Location", icon: MapPin },
+  { to: "/dashboard/rides", label: "Requests", icon: Zap },
   { to: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
-const OnlineToggle = () => {
-  const { driver, toggleOnline, switchingOnline, locationLabel, locStatus, theme } = useDashboard();
-  const isOnline = driver?.is_online;
-  const isDark = theme === "dark";
-  return (
-    <button
-      onClick={toggleOnline}
-      disabled={switchingOnline}
-      className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold transition-all ${
-        isOnline
-          ? isDark ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
-          : isDark ? "bg-zinc-800 text-zinc-400 hover:bg-zinc-700" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-      } disabled:opacity-60`}
-    >
-      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isOnline ? "bg-emerald-400 animate-pulse" : "bg-zinc-500"}`} />
-      <div className="flex-1 text-left min-w-0">
-        <p className="leading-none">{isOnline ? "Online" : "Offline"}</p>
-        {locStatus === "ready" && locationLabel && (
-          <p className="mt-0.5 text-[10px] font-normal opacity-60 truncate">{locationLabel}</p>
-        )}
-      </div>
-      <ChevronRight className="h-4 w-4 opacity-40 flex-shrink-0" />
-    </button>
-  );
-};
-
 const Sidebar = ({ onClose }) => {
-  const { driver, theme } = useDashboard();
+  const { driver, theme, rideRequests } = useDashboard();
   const { logout } = useAuth();
   const navigate = useNavigate();
   const isDark = theme === "dark";
+  const pendingRequests = rideRequests.filter((ride) => ride.status === "pending" || ride.status === "requested").length;
 
   const handleLogout = async () => {
     try { await mobilityService.logoutDriver(); } catch {}
@@ -90,9 +66,6 @@ const Sidebar = ({ onClose }) => {
             <p className={`mt-0.5 text-[11px] truncate ${isDark ? "text-zinc-500" : "text-slate-500"}`}>{driver?.email}</p>
           </div>
         </div>
-        <div className="mt-3">
-          <OnlineToggle />
-        </div>
       </div>
 
       {/* Navigation */}
@@ -115,7 +88,14 @@ const Sidebar = ({ onClose }) => {
             }
           >
             <Icon size={17} className="flex-shrink-0" />
-            {label}
+            <span className="min-w-0 flex-1 truncate">{label}</span>
+            {to === "/dashboard/rides" && pendingRequests > 0 ? (
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                isDark ? "bg-zinc-950/30 text-current" : "bg-white/70 text-current"
+              }`}>
+                {pendingRequests}
+              </span>
+            ) : null}
           </NavLink>
         ))}
       </nav>

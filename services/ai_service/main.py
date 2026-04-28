@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers.chat import router as restaurant_chat_router
+from routers.whatsapp import router as whatsapp_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -33,7 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(restaurant_chat_router, prefix="/ai")
+app.include_router(whatsapp_router, prefix="/ai")
 
 
 @app.get("/ai")

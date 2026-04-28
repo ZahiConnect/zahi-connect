@@ -13,6 +13,7 @@ const postPayload = async (url, payload) => {
 export const mobilityService = {
   getNearbyDrivers: (params = {}) => getPayload("/mobility/public/drivers/nearby", { params }),
   createRideRequest: (payload) => postPayload("/mobility/public/ride-requests", payload),
+  getRideRequestStatus: (rideRequestId) => getPayload(`/mobility/public/ride-requests/${rideRequestId}`),
 };
 
 export default mobilityService;

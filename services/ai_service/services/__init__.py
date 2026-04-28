@@ -1,3 +1,3 @@
-from .chat_agent import RestaurantChatAgent
+from .whatsapp_agent import WhatsAppRestaurantAgent
 
-__all__ = ["RestaurantChatAgent"]
+__all__ = ["WhatsAppRestaurantAgent"]

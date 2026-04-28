@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
@@ -48,6 +48,11 @@ class MobilityDriver(Base):
     ride_leads: Mapped[list["MobilityRideLead"]] = relationship(
         "MobilityRideLead",
         back_populates="driver",
+        foreign_keys="MobilityRideLead.assigned_driver_id",
+    )
+    requested_ride_leads: Mapped[list["MobilityRideLead"]] = relationship(
+        "MobilityRideLead",
+        foreign_keys="MobilityRideLead.requested_driver_id",
     )
 
 
@@ -77,6 +82,9 @@ class MobilityVehicle(Base):
     photo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     rc_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     insurance_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    photo_urls: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    rc_image_urls: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    insurance_image_urls: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     availability_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     base_fare: Mapped[float] = mapped_column(Float, nullable=False, default=250.0)
     per_km_rate: Mapped[float] = mapped_column(Float, nullable=False, default=18.0)
@@ -95,6 +103,12 @@ class MobilityRideLead(Base):
     __tablename__ = "mobility_ride_leads"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    requested_driver_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("mobility_drivers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     assigned_driver_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("mobility_drivers.id", ondelete="SET NULL"),
@@ -112,12 +126,18 @@ class MobilityRideLead(Base):
     drop_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     drop_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     passengers: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    tier_key: Mapped[str] = mapped_column(String(40), nullable=False, default="tier_1")
+    tier_label: Mapped[str] = mapped_column(String(80), nullable=False, default="Tier 1")
+    tier_radius_km: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    tier_fare: Mapped[float] = mapped_column(Float, nullable=False, default=20.0)
+    trip_distance_km: Mapped[float | None] = mapped_column(Float, nullable=True)
     estimated_fare: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     commission_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     payment_status: Mapped[str] = mapped_column(String(40), nullable=False, default="paid")
     status: Mapped[str] = mapped_column(String(40), nullable=False, default="paid")
     source: Mapped[str] = mapped_column(String(80), nullable=False, default="customer_app")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -126,4 +146,12 @@ class MobilityRideLead(Base):
         onupdate=datetime.utcnow,
     )
 
-    driver: Mapped[MobilityDriver | None] = relationship("MobilityDriver", back_populates="ride_leads")
+    driver: Mapped[MobilityDriver | None] = relationship(
+        "MobilityDriver",
+        back_populates="ride_leads",
+        foreign_keys=[assigned_driver_id],
+    )
+    requested_driver: Mapped[MobilityDriver | None] = relationship(
+        "MobilityDriver",
+        foreign_keys=[requested_driver_id],
+    )

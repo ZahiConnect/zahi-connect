@@ -47,13 +47,6 @@ const ProfilePage = () => {
             <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${isDark ? "bg-zinc-800 text-zinc-400" : "bg-slate-100 text-slate-500"}`}>
               {driver?.status || "active"}
             </span>
-            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
-              driver?.is_online 
-                ? isDark ? "bg-emerald-500/15 text-emerald-400" : "bg-emerald-50 text-emerald-600"
-                : isDark ? "bg-zinc-800 text-zinc-400" : "bg-slate-100 text-slate-500"
-            }`}>
-              {driver?.is_online ? "Online" : "Offline"}
-            </span>
           </div>
         </div>
       </div>
@@ -85,10 +78,6 @@ const ProfilePage = () => {
           <label className="block">
             <span className={`field-label ${isDark ? "text-zinc-400" : "text-slate-500"}`}>Emergency Phone</span>
             <input value={profileForm.emergency_contact_phone} onChange={(e) => setField("emergency_contact_phone", e.target.value)} className={`field-input ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-100" : "bg-white border-slate-200 text-slate-900"}`} placeholder="+91 98765 43210" />
-          </label>
-          <label className="block sm:col-span-2">
-            <span className={`field-label ${isDark ? "text-zinc-400" : "text-slate-500"}`}>Operating Area</span>
-            <input value={profileForm.current_area_label} onChange={(e) => setField("current_area_label", e.target.value)} className={`field-input ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-100" : "bg-white border-slate-200 text-slate-900"}`} placeholder="Area / landmark / zone" />
           </label>
         </div>
       </div>

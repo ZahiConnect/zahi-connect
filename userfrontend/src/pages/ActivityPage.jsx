@@ -11,6 +11,7 @@ import {
   FiCreditCard,
   FiLayers,
   FiMapPin,
+  FiPhone,
   FiPrinter,
   FiTrendingUp,
 } from "react-icons/fi";
@@ -28,6 +29,7 @@ import {
   formatShortDate,
 } from "../lib/format";
 import bookingService from "../services/bookingService";
+import mobilityService from "../services/mobilityService";
 
 const VIEW_TABS = [
   { key: "all", label: "All Activity", icon: FiLayers },
@@ -179,7 +181,7 @@ const getServiceTheme = (serviceType) => {
 
 const getStatusStyles = (status) => {
   const normalized = String(status || "").toLowerCase();
-  if (normalized.includes("paid") || normalized.includes("confirm") || normalized.includes("success")) {
+  if (normalized.includes("paid") || normalized.includes("confirm") || normalized.includes("success") || normalized.includes("accepted")) {
     return "bg-green-50 text-green-700 border-green-100";
   }
   if (normalized.includes("cancel") || normalized.includes("fail") || normalized.includes("refund")) {
@@ -280,7 +282,14 @@ const extractMetaLine = (request) => {
     return `${metadata.items?.length || 0} item(s) - ${metadata.diners || 1} diner(s)`;
   }
   if (request.service_type === "cab") {
-    return `${metadata.pickup || "Pickup"} -> ${metadata.drop || "Drop"}`;
+    const tier = metadata.tier_label ? `${metadata.tier_label} - ` : "";
+    const rate = hasValue(metadata.tier_per_km_rate || metadata.tier_fare)
+      ? ` @ ${formatCurrency(metadata.tier_per_km_rate || metadata.tier_fare)}/km`
+      : "";
+    const fare = hasValue(metadata.estimated_fare)
+      ? ` - ${formatCurrency(metadata.estimated_fare)}`
+      : "";
+    return `${tier}${metadata.pickup || "Pickup"} -> ${metadata.drop || "Drop"}${rate}${fare}`;
   }
   if (request.service_type === "flight") {
     const origin = metadata.origin_code || metadata.origin || "Origin";
@@ -299,9 +308,13 @@ const extractLocationLine = (request) => {
     return request.tenant_name || "Restaurant order";
   }
   if (request.service_type === "cab") {
-    return metadata.driver_name
-      ? `${metadata.driver_name}${metadata.vehicle_name ? ` - ${metadata.vehicle_name}` : ""}`
-      : "Ride request saved";
+    if (metadata.driver_name) {
+      return `${metadata.driver_name}${metadata.driver_phone ? ` - ${metadata.driver_phone}` : ""}`;
+    }
+    if (metadata.requested_driver_name) {
+      return `Waiting for ${metadata.requested_driver_name}`;
+    }
+    return "Waiting for driver acceptance";
   }
   if (request.service_type === "flight") {
     return metadata.airline || request.tenant_name || "Flight booking";
@@ -433,6 +446,18 @@ const buildPrintSections = (request) => {
         { label: "Drop", value: metadata.drop },
         { label: "Travel date", value: metadata.travel_date },
         { label: "Passengers", value: metadata.passengers },
+        { label: "Ride status", value: capitalizeWords(metadata.ride_status || request.status) },
+        { label: "Tier", value: metadata.tier_label },
+        {
+          label: "Tier rate",
+          value: hasValue(metadata.tier_per_km_rate || metadata.tier_fare)
+            ? `${formatCurrency(metadata.tier_per_km_rate || metadata.tier_fare)}/km`
+            : null,
+        },
+        {
+          label: "Trip distance",
+          value: hasValue(metadata.trip_distance_km) ? `${metadata.trip_distance_km} km` : null,
+        },
         {
           label: "Estimated fare",
           value: hasValue(metadata.estimated_fare) ? formatCurrency(metadata.estimated_fare) : null,
@@ -440,6 +465,7 @@ const buildPrintSections = (request) => {
         { label: "Driver", value: metadata.driver_name },
         { label: "Driver phone", value: metadata.driver_phone },
         { label: "Vehicle", value: metadata.vehicle_name },
+        { label: "Vehicle color", value: metadata.vehicle_color },
         { label: "Plate number", value: metadata.plate_number },
         { label: "Ride note", value: metadata.notes },
       ]),
@@ -648,6 +674,72 @@ const sortRequests = (items, activeView) => {
   });
 };
 
+const mergeCabRideStatus = (request, ridePayload) => {
+  const rideRequest = ridePayload?.ride_request;
+  if (!rideRequest) return request;
+
+  const assignedDriver = ridePayload?.assigned_driver || rideRequest.assigned_driver || null;
+  const vehicle = assignedDriver?.vehicle || null;
+  const metadata = {
+    ...(request.metadata || {}),
+    ride_status: rideRequest.status || request.metadata?.ride_status || "pending",
+    ride_accepted_at: rideRequest.accepted_at || request.metadata?.ride_accepted_at || null,
+    requested_driver_id: rideRequest.requested_driver_id || request.metadata?.requested_driver_id || null,
+    driver_id: assignedDriver?.id || request.metadata?.driver_id || null,
+    driver_name: assignedDriver?.full_name || request.metadata?.driver_name || null,
+    driver_phone: assignedDriver?.phone || request.metadata?.driver_phone || null,
+    driver_rating: assignedDriver?.rating ?? request.metadata?.driver_rating ?? null,
+    vehicle_name: vehicle?.vehicle_name || request.metadata?.vehicle_name || null,
+    vehicle_type: vehicle?.vehicle_type || request.metadata?.vehicle_type || null,
+    vehicle_brand: vehicle?.brand || request.metadata?.vehicle_brand || null,
+    vehicle_model: vehicle?.model || request.metadata?.vehicle_model || null,
+    vehicle_color: vehicle?.color || request.metadata?.vehicle_color || null,
+    vehicle_photo_url: vehicle?.photo_url || request.metadata?.vehicle_photo_url || null,
+    plate_number: vehicle?.plate_number || request.metadata?.plate_number || null,
+    tier_key: rideRequest.tier_key || request.metadata?.tier_key || null,
+    tier_label: rideRequest.tier_label || request.metadata?.tier_label || null,
+    tier_radius_km: rideRequest.tier_radius_km ?? request.metadata?.tier_radius_km ?? null,
+    tier_per_km_rate: rideRequest.tier_fare ?? request.metadata?.tier_per_km_rate ?? null,
+    tier_fare: rideRequest.tier_fare ?? request.metadata?.tier_fare ?? null,
+    trip_distance_km: rideRequest.trip_distance_km ?? request.metadata?.trip_distance_km ?? null,
+    estimated_fare: rideRequest.estimated_fare ?? request.metadata?.estimated_fare ?? null,
+  };
+
+  const accepted = metadata.ride_status === "accepted" && assignedDriver;
+  return {
+    ...request,
+    status: accepted ? "accepted" : request.status,
+    summary: accepted
+      ? `Driver accepted - ${assignedDriver.full_name}`
+      : request.summary,
+    total_amount: metadata.estimated_fare ?? request.total_amount,
+    metadata,
+  };
+};
+
+const hydrateCabRideStatuses = async (items) => {
+  const cabRequests = items.filter(
+    (request) => request.service_type === "cab" && request.metadata?.ride_request_id
+  );
+
+  if (!cabRequests.length) return items;
+
+  const settled = await Promise.all(
+    cabRequests.map(async (request) => {
+      try {
+        const ridePayload = await mobilityService.getRideRequestStatus(request.metadata.ride_request_id);
+        return [request.id, mergeCabRideStatus(request, ridePayload)];
+      } catch (error) {
+        console.error("Failed to hydrate cab ride status", error);
+        return [request.id, request];
+      }
+    })
+  );
+
+  const hydratedById = new Map(settled);
+  return items.map((request) => hydratedById.get(request.id) || request);
+};
+
 const ActivityPage = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -661,7 +753,9 @@ const ActivityPage = () => {
       try {
         const data = await bookingService.getRequests();
         if (active) {
-          setRequests(Array.isArray(data) ? data : []);
+          const normalized = Array.isArray(data) ? data : [];
+          const hydrated = await hydrateCabRideStatuses(normalized);
+          if (active) setRequests(hydrated);
         }
       } catch (error) {
         console.error("Failed to load booking activity", error);
@@ -929,7 +1023,7 @@ const ActivityPage = () => {
 
                       {request.service_type === "restaurant" && getRestaurantActivityMessage(request) && (
                         <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 px-4 py-3 flex items-start gap-2.5">
-                          <span className="text-blue-500 mt-0.5 text-base">📞</span>
+                          <FiPhone className="mt-0.5 text-blue-500" />
                           <div>
                             <p className="text-xs font-bold text-blue-800">
                               {getRestaurantActivityMessage(request)}
@@ -942,6 +1036,49 @@ const ActivityPage = () => {
                                 </span>
                               </p>
                             )}
+                          </div>
+                        </div>
+                      )}
+
+                      {request.service_type === "cab" && (
+                        <div className={`mt-4 rounded-2xl border px-4 py-3 ${
+                          request.metadata?.driver_name
+                            ? "border-green-100 bg-green-50"
+                            : "border-amber-100 bg-amber-50"
+                        }`}>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className={`text-xs font-black uppercase tracking-[0.16em] ${
+                                request.metadata?.driver_name ? "text-green-700" : "text-amber-700"
+                              }`}>
+                                {request.metadata?.driver_name ? "Driver accepted" : "Waiting for driver"}
+                              </p>
+                              {request.metadata?.driver_name ? (
+                                <div className="mt-2 space-y-1 text-sm text-gray-700">
+                                  <p className="font-bold text-gray-900">{request.metadata.driver_name}</p>
+                                  <p>
+                                    {request.metadata.vehicle_name || "Vehicle"}{" "}
+                                    {request.metadata.plate_number ? `- ${request.metadata.plate_number}` : ""}
+                                  </p>
+                                  {request.metadata.driver_phone ? (
+                                    <p className="font-bold text-green-700">{request.metadata.driver_phone}</p>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <p className="mt-2 text-sm leading-6 text-amber-800">
+                                  Payment is complete. Your cab request is waiting in Zahi Driver for acceptance.
+                                </p>
+                              )}
+                            </div>
+                            {request.metadata?.driver_phone ? (
+                              <a
+                                href={`tel:${request.metadata.driver_phone}`}
+                                className="inline-flex items-center justify-center gap-2 rounded-full bg-gray-900 px-4 py-2.5 text-sm font-bold !text-white visited:!text-white hover:bg-black hover:!text-white focus-visible:!text-white"
+                              >
+                                <FiPhone />
+                                Call driver
+                              </a>
+                            ) : null}
                           </div>
                         </div>
                       )}

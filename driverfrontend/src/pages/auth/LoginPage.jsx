@@ -44,7 +44,7 @@ const LoginPage = () => {
     <AuthShell
       eyebrow="Commission-first driver onboarding"
       title="Sign in to your driver space."
-      description="Manage your cab, update documents, switch online when you are ready for bookings, and keep an eye on the latest paid riders."
+      description="Manage your cab, update documents, and keep an eye on the latest paid riders."
       footer={
         <p>
           New to Zahi Drive?{" "}

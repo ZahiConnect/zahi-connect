@@ -132,10 +132,15 @@ export const useDriverLocation = (enabled = true) => {
               latitude: position.coords.latitude,
               longitude: position.coords.longitude,
             };
-            const label = await reverseGeocode(
-              nextCoordinates.latitude,
-              nextCoordinates.longitude
-            );
+            let label = "Current location";
+            try {
+              label = await reverseGeocode(
+                nextCoordinates.latitude,
+                nextCoordinates.longitude
+              );
+            } catch {
+              label = "Current location";
+            }
             window.localStorage.setItem(STORAGE_KEY, label);
             window.localStorage.setItem(COORDINATES_STORAGE_KEY, JSON.stringify(nextCoordinates));
             if (label !== locationLabelRef.current) {
@@ -145,7 +150,7 @@ export const useDriverLocation = (enabled = true) => {
               setCoordinates(nextCoordinates);
             }
             setStatus("ready");
-            resolve(true);
+            resolve({ label, coordinates: nextCoordinates });
           } catch {
             setStatus("error");
             resolve(false);
@@ -163,12 +168,29 @@ export const useDriverLocation = (enabled = true) => {
           resolve(false);
         },
         {
-          enableHighAccuracy: false,
-          timeout: 10000,
-          maximumAge: 300000,
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 30000,
         }
       );
     });
+  }, []);
+
+  const setManualLocation = useCallback((place) => {
+    const label = cleanAreaName(place?.shortLabel || place?.label);
+    const latitude = Number(place?.latitude);
+    const longitude = Number(place?.longitude);
+    if (!label || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return false;
+    }
+
+    const nextCoordinates = { latitude, longitude };
+    window.localStorage.setItem(STORAGE_KEY, label);
+    window.localStorage.setItem(COORDINATES_STORAGE_KEY, JSON.stringify(nextCoordinates));
+    setLocationLabel(label);
+    setCoordinates(nextCoordinates);
+    setStatus("ready");
+    return true;
   }, []);
 
   useEffect(() => {
@@ -225,6 +247,7 @@ export const useDriverLocation = (enabled = true) => {
     locationLabel,
     status,
     requestLocation,
+    setManualLocation,
   };
 };
 

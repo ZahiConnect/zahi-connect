@@ -886,6 +886,28 @@ async def list_booking_requests(
     return await hydrate_restaurant_order_statuses(db, serialized_records)
 
 
+@app.get("/booking/requests/{request_id}", response_model=BookingRequestResponse)
+async def get_booking_request(
+    request_id: str,
+    db: AsyncSession = Depends(get_db),
+    customer: CustomerContext = Depends(get_customer_context),
+):
+    booking_request_id = parse_uuid(request_id, field_name="booking request id")
+    record = (
+        await db.execute(
+            select(BookingRequest).where(
+                BookingRequest.id == booking_request_id,
+                BookingRequest.user_id == customer.user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=404, detail="Booking request not found.")
+
+    hydrated = await hydrate_restaurant_order_statuses(db, [serialize_booking(record)])
+    return hydrated[0]
+
+
 @app.post("/booking/requests", response_model=BookingRequestResponse, status_code=201)
 async def create_booking_request(
     payload: BookingRequestCreate,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -20,6 +20,7 @@ import useDriverLocation from "../../hooks/useDriverLocation";
 import AuthShell from "./AuthShell";
 import mobilityService from "../../services/mobilityService";
 import GoogleAuthButton from "../../components/GoogleAuthButton";
+import PlaceAutocompleteInput from "../../components/PlaceAutocompleteInput";
 
 const emptyToNull = (value) => {
   if (value === null || value === undefined) return null;
@@ -30,11 +31,6 @@ const emptyToNull = (value) => {
 
 const parseInteger = (value, fallback = null) => {
   const parsed = Number.parseInt(String(value), 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-const parseFloatNumber = (value, fallback = null) => {
-  const parsed = Number.parseFloat(String(value));
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
@@ -57,7 +53,14 @@ const UploadItem = ({ label, file, onChange }) => (
 const RegisterPage = () => {
   const { applySession } = useAuth();
   const navigate = useNavigate();
-  const { coordinates, locationLabel, status, requestLocation } = useDriverLocation(true);
+  const {
+    coordinates,
+    locationLabel,
+    status,
+    requestLocation,
+    setManualLocation,
+  } = useDriverLocation(true);
+  const lastAutoLocationLabelRef = useRef("");
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -77,8 +80,6 @@ const RegisterPage = () => {
     color: "",
     year: "",
     seat_capacity: 4,
-    base_fare: 250,
-    per_km_rate: 18,
     availability_notes: "",
     air_conditioned: true,
   });
@@ -93,13 +94,19 @@ const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [selectedOperatingPlace, setSelectedOperatingPlace] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!locationLabel) return;
-    setForm((current) =>
-      current.current_area_label ? current : { ...current, current_area_label: locationLabel }
-    );
+    setForm((current) => {
+      const shouldReplaceOperatingArea =
+        !current.current_area_label ||
+        current.current_area_label === lastAutoLocationLabelRef.current;
+      if (!shouldReplaceOperatingArea) return current;
+      lastAutoLocationLabelRef.current = locationLabel;
+      return { ...current, current_area_label: locationLabel };
+    });
   }, [locationLabel]);
 
   const fileCount = useMemo(
@@ -109,6 +116,30 @@ const RegisterPage = () => {
 
   const setField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleOperatingAreaChange = (value) => {
+    setSelectedOperatingPlace(null);
+    setField("current_area_label", value);
+  };
+
+  const handleOperatingAreaSelect = (suggestion) => {
+    const label = suggestion.shortLabel || suggestion.label;
+    setSelectedOperatingPlace({
+      label,
+      latitude: suggestion.latitude,
+      longitude: suggestion.longitude,
+    });
+    setField("current_area_label", label);
+    setManualLocation(suggestion);
+  };
+
+  const handleUseCurrentLocation = async () => {
+    const updated = await requestLocation();
+    if (updated) {
+      setSelectedOperatingPlace(null);
+      setField("current_area_label", updated.label || locationLabel || "");
+    }
   };
 
   const uploadSelectedFiles = async () => {
@@ -138,6 +169,7 @@ const RegisterPage = () => {
     setLoading(true);
     try {
       const uploaded = await uploadSelectedFiles();
+      const operatingCoordinates = selectedOperatingPlace || coordinates;
       const response = await mobilityService.registerDriver({
         full_name: form.full_name,
         email: form.email,
@@ -151,8 +183,8 @@ const RegisterPage = () => {
         emergency_contact_name: emptyToNull(form.emergency_contact_name),
         emergency_contact_phone: emptyToNull(form.emergency_contact_phone),
         current_area_label: emptyToNull(form.current_area_label) || locationLabel || null,
-        current_latitude: coordinates?.latitude ?? null,
-        current_longitude: coordinates?.longitude ?? null,
+        current_latitude: operatingCoordinates?.latitude ?? null,
+        current_longitude: operatingCoordinates?.longitude ?? null,
         vehicle: {
           vehicle_name: form.vehicle_name,
           vehicle_type: form.vehicle_type,
@@ -167,8 +199,6 @@ const RegisterPage = () => {
           rc_image_url: uploaded.rc_image_url || null,
           insurance_image_url: uploaded.insurance_image_url || null,
           availability_notes: emptyToNull(form.availability_notes),
-          base_fare: parseFloatNumber(form.base_fare, 250) || 250,
-          per_km_rate: parseFloatNumber(form.per_km_rate, 18) || 18,
         },
       });
 
@@ -186,7 +216,7 @@ const RegisterPage = () => {
     <AuthShell
       eyebrow="Fleet onboarding made simple"
       title="Register yourself and your cab."
-      description="Add your Aadhaar, licence, vehicle photos, and location once. After that you can go online anytime and customers will only see you when you are available."
+      description="Add your Aadhaar, licence, vehicle photos, and accurate operating location once. Zahi uses those details to match paid cab requests."
       footer={
         <p>
           Already registered?{" "}
@@ -202,7 +232,7 @@ const RegisterPage = () => {
         </span>
         <h2 className="font-display mt-2 text-4xl font-bold tracking-tight text-zinc-900">Create your Zahi Drive profile</h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-500 font-medium">
-          No monthly product fee. Your cab becomes visible in the customer app only when you go online.
+          No monthly product fee. Your cab profile is used for customer-paid request matching.
         </p>
       </div>
 
@@ -279,13 +309,16 @@ const RegisterPage = () => {
 
             <label className="block">
               <span className="field-label">Current operating area</span>
-              <input
-                type="text"
+              <PlaceAutocompleteInput
                 value={form.current_area_label}
-                onChange={(event) => setField("current_area_label", event.target.value)}
-                placeholder="Area or landmark"
+                onChange={handleOperatingAreaChange}
+                onSelect={handleOperatingAreaSelect}
+                placeholder="Search exact area, landmark, or town"
                 className="field-input"
               />
+              <p className="mt-2 text-xs font-medium leading-5 text-slate-400">
+                Pick a suggestion to save accurate driver coordinates.
+              </p>
             </label>
 
             <label className="block">
@@ -337,7 +370,7 @@ const RegisterPage = () => {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Cab details</p>
-              <h3 className="font-display text-2xl font-bold text-zinc-900">Vehicle and fare setup</h3>
+              <h3 className="font-display text-2xl font-bold text-zinc-900">Vehicle setup</h3>
             </div>
           </div>
 
@@ -433,27 +466,6 @@ const RegisterPage = () => {
               />
             </label>
 
-            <label className="block">
-              <span className="field-label">Base fare</span>
-              <input
-                type="number"
-                min="0"
-                value={form.base_fare}
-                onChange={(event) => setField("base_fare", event.target.value)}
-                className="field-input"
-              />
-            </label>
-
-            <label className="block">
-              <span className="field-label">Per km rate</span>
-              <input
-                type="number"
-                min="0"
-                value={form.per_km_rate}
-                onChange={(event) => setField("per_km_rate", event.target.value)}
-                className="field-input"
-              />
-            </label>
           </div>
 
           <label className="block">
@@ -546,21 +558,22 @@ const RegisterPage = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {status === "ready" && locationLabel ? (
+            {form.current_area_label ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-900">
                 <MapPin className="h-3.5 w-3.5" />
-                Operating near {locationLabel}
+                Selected area {form.current_area_label}
               </span>
-            ) : (
-              <button
-                type="button"
-                onClick={requestLocation}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-600"
-              >
-                <MapPin className="h-3.5 w-3.5" />
-                Use current location
-              </button>
-            )}
+            ) : null}
+
+            <button
+              type="button"
+              onClick={handleUseCurrentLocation}
+              disabled={status === "loading"}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              {status === "loading" ? "Updating precise location" : "Use precise current location"}
+            </button>
 
             <span className="rounded-full bg-amber-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">
               {fileCount} document{fileCount === 1 ? "" : "s"} selected

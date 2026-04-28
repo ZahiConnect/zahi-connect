@@ -14,6 +14,9 @@ class VehicleUpsertSchema(BaseModel):
     photo_url: str | None = None
     rc_image_url: str | None = None
     insurance_image_url: str | None = None
+    photo_urls: list[str] = Field(default_factory=list, max_length=12)
+    rc_image_urls: list[str] = Field(default_factory=list, max_length=12)
+    insurance_image_urls: list[str] = Field(default_factory=list, max_length=12)
     availability_notes: str | None = None
     base_fare: float = 250.0
     per_km_rate: float = 18.0
@@ -69,6 +72,7 @@ class DriverStatusSchema(BaseModel):
 
 
 class RideRequestCreateSchema(BaseModel):
+    booking_request_id: str | None = None
     selected_driver_id: str | None = None
     customer_user_id: str | None = None
     customer_name: str | None = None
@@ -80,7 +84,13 @@ class RideRequestCreateSchema(BaseModel):
     pickup_longitude: float | None = None
     drop_latitude: float | None = None
     drop_longitude: float | None = None
-    passengers: int = 1
+    passengers: int = Field(default=1, ge=1, le=8)
+    tier_key: str = "tier_1"
+    tier_label: str | None = None
+    tier_radius_km: float | None = None
+    tier_fare: float | None = None
+    trip_distance_km: float | None = None
+    estimated_fare: float | None = None
     notes: str | None = None
     source: str = "customer_app"
 
@@ -90,3 +100,5 @@ class NearbyDriversQuery(BaseModel):
     longitude: float | None = None
     radius_km: float = 25.0
     limit: int = 8
+    passengers: int = Field(default=1, ge=1, le=8)
+    tier_key: str | None = None

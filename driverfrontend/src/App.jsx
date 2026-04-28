@@ -16,6 +16,7 @@ import DashboardShell from "./pages/dashboard/DashboardShell";
 import OverviewPage from "./pages/dashboard/OverviewPage";
 import ProfilePage from "./pages/dashboard/ProfilePage";
 import VehiclePage from "./pages/dashboard/VehiclePage";
+import LocationPage from "./pages/dashboard/LocationPage";
 import RidesPage from "./pages/dashboard/RidesPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import LandingPage from "./pages/LandingPage";
@@ -275,6 +276,7 @@ function App() {
           <Route index element={<OverviewPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="vehicle" element={<VehiclePage />} />
+          <Route path="location" element={<LocationPage />} />
           <Route path="rides" element={<RidesPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
