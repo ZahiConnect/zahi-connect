@@ -218,12 +218,18 @@ services:
     container_name: zahi_booking
     volumes:
       - ./services/booking:/app
-    command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8008 --reload --reload-dir /app"
+    command: sh -c "pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8008"
     restart: always
     ports:
       - "8008:8008"
     env_file:
-      - ./services/accounts/.env
+      - ./services/booking/.env
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/booking', timeout=3).read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
       db:
         condition: service_healthy
@@ -242,13 +248,20 @@ services:
       - "8080:80"
     restart: always
     depends_on:
-      - accounts
-      - hotel
-      - restaurant
-      - mobility
-      - flight
-      - ai_service
-      - booking
+      accounts:
+        condition: service_started
+      hotel:
+        condition: service_started
+      restaurant:
+        condition: service_started
+      mobility:
+        condition: service_started
+      flight:
+        condition: service_started
+      ai_service:
+        condition: service_started
+      booking:
+        condition: service_healthy
 
 
 volumes:

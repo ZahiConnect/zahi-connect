@@ -35,6 +35,12 @@ async def whatsapp_webhook(
     # Process with LangChain Agent
     ai_response = await agent.process_query(Body, From, memory, Latitude, Longitude)
 
+    # Sanitize response to prevent Twilio XML crashes
+    if "<function=" in ai_response:
+        ai_response = ai_response.split("<function=")[0].strip()
+    if not ai_response:
+        ai_response = "I encountered a glitch while thinking. Can you please rephrase that?"
+
     # Create a Twilio Response
     resp = MessagingResponse()
     resp.message(ai_response)

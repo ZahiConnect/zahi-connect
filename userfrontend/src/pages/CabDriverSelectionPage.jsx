@@ -44,6 +44,49 @@ const vehiclePhotosFrom = (vehicle = {}) => {
   return [...new Set([vehicle.photo_url, ...photos].filter(Boolean))];
 };
 
+const VehiclePhotoPreview = ({ photos, title, onOpen }) => {
+  if (!photos.length) {
+    return (
+      <div className="mt-4 flex h-28 items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50 text-xs font-black uppercase tracking-widest text-gray-300">
+        No vehicle photos
+      </div>
+    );
+  }
+
+  const visiblePhotos = photos.slice(0, 3);
+  const hiddenCount = Math.max(photos.length - visiblePhotos.length, 0);
+  const gridColumns =
+    visiblePhotos.length === 1
+      ? "grid-cols-1"
+      : visiblePhotos.length === 2
+        ? "grid-cols-2"
+        : "grid-cols-3";
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`mt-4 grid h-32 w-full ${gridColumns} gap-2 overflow-hidden rounded-2xl bg-gray-50 p-1 text-left transition-all hover:ring-4 hover:ring-orange-100`}
+      aria-label={`Open vehicle photos for ${title}`}
+    >
+      {visiblePhotos.map((photo, photoIndex) => (
+        <div key={`${photo}-${photoIndex}`} className="relative h-full overflow-hidden rounded-xl bg-gray-100">
+          <img
+            src={photo}
+            alt={`${title} vehicle photo ${photoIndex + 1}`}
+            className="h-full w-full object-cover"
+          />
+          {photoIndex === visiblePhotos.length - 1 && hiddenCount > 0 ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-950/55 text-sm font-black text-white">
+              +{hiddenCount}
+            </div>
+          ) : null}
+        </div>
+      ))}
+    </button>
+  );
+};
+
 const CabDriverSelectionPage = () => {
   const { bookingId } = useParams();
   const navigate = useNavigate();
@@ -197,6 +240,7 @@ const CabDriverSelectionPage = () => {
             const driver = item.driver || {};
             const vehicle = driver.vehicle || {};
             const photos = vehiclePhotosFrom(vehicle);
+            const vehicleTitle = vehicle.vehicle_name || "Vehicle";
             const selecting = selectingDriverId === driver.id;
 
             return (
@@ -207,56 +251,66 @@ const CabDriverSelectionPage = () => {
                 transition={{ delay: Math.min(index * 0.04, 0.24) }}
                 className="rounded-[30px] border border-gray-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-gray-900/5"
               >
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex min-w-0 gap-4">
-                    {driver.profile_photo_url ? (
-                      <img src={driver.profile_photo_url} alt={driver.full_name || "Driver"} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
+                <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 gap-4">
+                      {photos[0] ? (
+                        <img src={photos[0]} alt={vehicleTitle} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
+                      ) : driver.profile_photo_url ? (
+                        <img src={driver.profile_photo_url} alt={driver.full_name || "Driver"} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
                     ) : (
                       <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
                         <MdOutlineLocalTaxi className="text-3xl" />
                       </div>
                     )}
 
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-xl font-black text-gray-900">{driver.full_name || "Zahi Driver"}</h2>
-                        {index === 0 ? (
-                          <span className="rounded-full bg-green-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-green-700">Nearest</span>
-                        ) : null}
-                        <span className="rounded-full bg-gray-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500">Rank #{index + 1}</span>
-                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-xl font-black text-gray-900">{driver.full_name || "Zahi Driver"}</h2>
+                          {index === 0 ? (
+                            <span className="rounded-full bg-green-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-green-700">Nearest</span>
+                          ) : null}
+                          <span className="rounded-full bg-gray-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500">Rank #{index + 1}</span>
+                        </div>
 
-                      <p className="mt-2 text-sm font-semibold text-gray-500">
-                        {[vehicle.vehicle_name, vehicle.vehicle_type, vehicle.plate_number].filter(Boolean).join(" - ") || "Vehicle details available after acceptance"}
-                      </p>
+                        <p className="mt-2 text-sm font-semibold text-gray-500">
+                          {[vehicle.vehicle_name, vehicle.vehicle_type, vehicle.plate_number].filter(Boolean).join(" - ") || "Vehicle details available after acceptance"}
+                        </p>
 
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-gray-500">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1.5">
-                          <FiMapPin className="text-orange-500" />
-                          {formatDistance(item.distance_km)}
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1.5">
-                          <FiStar className="text-orange-500" />
-                          {Number(driver.rating || 0).toFixed(1)}
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1.5">
-                          <FiUsers className="text-orange-500" />
-                          {vehicle.seat_capacity || passengers} seats
-                        </span>
-                        {item.contact_phone ? (
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-gray-500">
                           <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1.5">
-                            <FiPhone className="text-orange-500" />
-                            Shared after accept
+                            <FiMapPin className="text-orange-500" />
+                            {formatDistance(item.distance_km)}
                           </span>
-                        ) : null}
+                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1.5">
+                            <FiStar className="text-orange-500" />
+                            {Number(driver.rating || 0).toFixed(1)}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1.5">
+                            <FiUsers className="text-orange-500" />
+                            {vehicle.seat_capacity || passengers} seats
+                          </span>
+                          {item.contact_phone ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1.5">
+                              <FiPhone className="text-orange-500" />
+                              Shared after accept
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
+
+                    <VehiclePhotoPreview
+                      photos={photos}
+                      title={vehicleTitle}
+                      onOpen={() => setGallery({ title: vehicleTitle, photos })}
+                    />
                   </div>
 
                   <div className="flex flex-wrap gap-3 lg:justify-end">
                     <button
                       type="button"
-                      onClick={() => setGallery({ title: vehicle.vehicle_name || "Vehicle photos", photos })}
+                      onClick={() => setGallery({ title: vehicleTitle, photos })}
                       disabled={!photos.length}
                       className="inline-flex items-center justify-center gap-2 rounded-full border border-orange-100 bg-orange-50 px-5 py-3 text-sm font-black text-orange-700 transition-all hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >

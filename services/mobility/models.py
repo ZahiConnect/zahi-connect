@@ -14,7 +14,7 @@ class MobilityDriver(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
-    phone: Mapped[str] = mapped_column(String(40), nullable=False, unique=True, index=True)
+    phone: Mapped[str | None] = mapped_column(String(40), nullable=True, unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     aadhaar_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
     aadhaar_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)

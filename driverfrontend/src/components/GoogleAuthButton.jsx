@@ -25,16 +25,10 @@ const GoogleAuthButton = ({ mode = "signin", label }) => {
   const handleGoogleSuccess = async (tokenResponse) => {
     setLoading(true);
     try {
-      // Exchange the authorization code for an ID token via Google's tokeninfo
-      // @react-oauth/google with flow="auth-code" returns a code, not credential directly
-      // We use the implicit flow (access_token) and fetch userinfo to get an ID token
-      const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-        headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-      });
-      const userInfo = await userInfoRes.json();
+      if (!tokenResponse.access_token) {
+        throw new Error("Google did not return an access token.");
+      }
 
-      // We need an ID token for the backend. Use the access_token with our backend endpoint
-      // The backend will verify via Google's tokeninfo endpoint instead
       const result = await mobilityService.googleAuth(tokenResponse.access_token);
       applySession({ access: result.access, driver: result.driver });
 
@@ -46,7 +40,10 @@ const GoogleAuthButton = ({ mode = "signin", label }) => {
         navigate("/dashboard");
       }
     } catch (err) {
-      const msg = err?.response?.data?.detail || "Google sign-in failed. Please try again.";
+      const msg =
+        err?.response?.data?.detail ||
+        err?.message ||
+        "Google sign-in failed. Please try again.";
       toast.error(msg);
     } finally {
       setLoading(false);

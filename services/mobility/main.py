@@ -108,6 +108,8 @@ async def ensure_mobility_schema_columns(conn):
         "UPDATE mobility_vehicles SET photo_urls = '[]'::jsonb WHERE photo_urls IS NULL",
         "UPDATE mobility_vehicles SET rc_image_urls = '[]'::jsonb WHERE rc_image_urls IS NULL",
         "UPDATE mobility_vehicles SET insurance_image_urls = '[]'::jsonb WHERE insurance_image_urls IS NULL",
+        "ALTER TABLE mobility_drivers ALTER COLUMN phone DROP NOT NULL",
+        "UPDATE mobility_drivers SET phone = NULL WHERE btrim(phone) = ''",
     ]
 
     for statement in statements:
@@ -895,7 +897,7 @@ async def google_auth(
     driver = MobilityDriver(
         full_name=google_name or google_email.split("@")[0],
         email=google_email,
-        phone="",           # driver must complete profile
+        phone=None,
         hashed_password=hash_password(random_password),
         profile_photo_url=google_picture,
         is_online=False,

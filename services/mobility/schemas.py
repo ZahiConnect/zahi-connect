@@ -46,7 +46,7 @@ class DriverLoginSchema(BaseModel):
 
 
 class GoogleTokenSchema(BaseModel):
-    credential: str  # Google ID token from frontend
+    credential: str  # Google access token from frontend
 
 
 class DriverProfileUpdateSchema(BaseModel):
