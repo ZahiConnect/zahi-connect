@@ -13,6 +13,87 @@ const STATUSES = [
   { value: "Cancelled", label: "Cancelled", bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
 ];
 
+const cleanText = (value) => String(value || "").trim();
+
+const extractSeatValue = (booking = {}) =>
+  booking.seats ||
+  booking.seatNumber ||
+  booking.seat_number ||
+  booking.selectedSeats ||
+  booking.selected_seats ||
+  booking.metadata?.seats ||
+  booking.metadata?.seatNumber ||
+  booking.metadata?.flight_booking?.seats;
+
+const parseSeats = (value) => {
+  const values = Array.isArray(value)
+    ? value
+    : cleanText(value).split(/[,/|\s]+/);
+  return values
+    .map((seat) => cleanText(seat).toUpperCase())
+    .filter(Boolean)
+    .filter((seat, index, seats) => seats.indexOf(seat) === index);
+};
+
+const normalizeCabin = (value) => {
+  const cabin = cleanText(value).toLowerCase();
+  if (cabin.includes("business")) return "Business";
+  if (cabin.includes("first")) return "First";
+  return "Economy";
+};
+
+const buildFallbackPnr = (booking, index = 0) => {
+  const rawId = cleanText(booking.id || booking.customerBookingId || booking.razorpayPaymentId);
+  const digits = rawId.replace(/\D/g, "").slice(0, 6);
+  if (digits) return `PNR${digits.padEnd(6, "0")}`;
+  return `PNR${String(120000 + index).slice(0, 6)}`;
+};
+
+const normalizeBooking = (booking, index = 0) => {
+  const passengerName =
+    cleanText(booking.passengerName) ||
+    cleanText(booking.passenger_name) ||
+    cleanText(booking.lead_passenger) ||
+    cleanText(booking.customerName) ||
+    cleanText(booking.customer_name) ||
+    "Guest Passenger";
+  const seats = parseSeats(extractSeatValue(booking));
+
+  return {
+    ...booking,
+    id: booking.id || booking.customerBookingId || `booking-${index}`,
+    pnr: cleanText(booking.pnr) || buildFallbackPnr(booking, index),
+    passengerName,
+    phone: cleanText(booking.phone || booking.contact_number || booking.mobile),
+    email: cleanText(booking.email || booking.customerEmail || booking.customer_email),
+    flightNumber: cleanText(booking.flightNumber || booking.flight_number),
+    date: cleanText(booking.date || booking.departureDate || booking.departure_date || booking.bookingDate?.slice?.(0, 10)),
+    travellers: Number(booking.travellers || booking.passengers || booking.passengerCount || 1),
+    class: normalizeCabin(booking.class || booking.cabinClass),
+    status: cleanText(booking.status) || "Confirmed",
+    seats,
+    seatNumber: seats.join(", "),
+  };
+};
+
+const getReservedSeats = (currentBooking, bookings, currentId) => {
+  const flightNumber = cleanText(currentBooking.flightNumber);
+  const date = cleanText(currentBooking.date);
+  const cabin = normalizeCabin(currentBooking.class);
+  if (!flightNumber || !date) return [];
+
+  return bookings
+    .filter((booking) =>
+      booking.id !== currentId &&
+      booking.status !== "Cancelled" &&
+      booking.flightNumber === flightNumber &&
+      booking.date === date &&
+      normalizeCabin(booking.class) === cabin
+    )
+    .flatMap((booking) => parseSeats(extractSeatValue(booking)))
+    .filter((seat, index, seats) => seats.indexOf(seat) === index);
+};
+
 const Btn = ({ children, onClick, disabled, variant = "primary" }) => {
   const base = "inline-flex items-center justify-center rounded-2xl font-medium transition-all duration-300 active:scale-[0.98] disabled:opacity-50 px-5 py-2.5 text-sm gap-2";
   if (variant === "primary") return <button onClick={onClick} disabled={disabled} className={`${base} bg-slate-900 text-white hover:bg-slate-800 shadow-sm`}>{children}</button>;
@@ -38,8 +119,9 @@ const Select = ({ label, options, ...props }) => (
   </div>
 );
 
-const CabinMap = ({ cabin, travellers, selected = [], onChange }) => {
+const CabinMap = ({ cabin, travellers, selected = [], disabledSeats = [], onChange }) => {
   const [layout, setLayout] = useState({ rows: [], cols: [] });
+  const disabledSeatSet = new Set(disabledSeats.map((seat) => String(seat).toUpperCase()));
   useEffect(() => {
     let numRows = 4, cols = ["A","B"];
     if (cabin === "Economy") { numRows = 6; cols = ["A","B","C","D","E","F"]; }
@@ -52,6 +134,7 @@ const CabinMap = ({ cabin, travellers, selected = [], onChange }) => {
   }, [cabin, travellers]);
 
   const toggle = s => {
+    if (disabledSeatSet.has(s.toUpperCase())) return;
     if (selected.includes(s)) onChange(selected.filter(x => x !== s));
     else {
       if (selected.length < travellers) onChange([...selected, s]);
@@ -72,12 +155,16 @@ const CabinMap = ({ cabin, travellers, selected = [], onChange }) => {
              {layout.cols.map(c => {
                const s = `${r}${c}`;
                const isSel = selected.includes(s);
+               const isBooked = disabledSeatSet.has(s.toUpperCase()) && !isSel;
                const isAisle = (cabin==="Economy" && c==="C") || (cabin==="Business" && c==="B") || (cabin==="First" && c==="A");
                return (
                  <div key={s} className={`${isAisle ? "mr-6" : ""}`}>
                    <button 
+                     type="button"
+                     disabled={isBooked}
+                     title={isBooked ? "Booked" : s}
                      onClick={() => toggle(s)} 
-                     className={`w-9 h-11 rounded-t-xl rounded-b-md text-[10px] font-bold flex items-center justify-center transition-all ${isSel ? 'bg-[#037ffc] text-white shadow-md shadow-[#037ffc]/20' : 'bg-white border-2 border-slate-200 text-slate-500 hover:border-[#037ffc]/50'}`}
+                     className={`w-9 h-11 rounded-t-xl rounded-b-md text-[10px] font-bold flex items-center justify-center transition-all ${isBooked ? 'cursor-not-allowed border-2 border-slate-200 bg-slate-200 text-slate-400 line-through' : isSel ? 'bg-[#037ffc] text-white shadow-md shadow-[#037ffc]/20' : 'bg-white border-2 border-slate-200 text-slate-500 hover:border-[#037ffc]/50'}`}
                    >
                      {s}
                    </button>
@@ -89,12 +176,13 @@ const CabinMap = ({ cabin, travellers, selected = [], onChange }) => {
        </div>
        <p className="text-xs text-center font-bold text-slate-500 mt-6">
          {selected.length === 0 ? `Required: Select ${travellers} seat(s)` : `Allocated: ${selected.join(", ")}`}
+         {disabledSeats.length > 0 && <span className="block mt-1 text-[10px] uppercase tracking-widest text-slate-400">Grey seats are booked</span>}
        </p>
     </div>
   )
 };
 
-const BookingModal = ({ open, existing, onClose, onSave, flights }) => {
+const BookingModal = ({ open, existing, onClose, onSave, flights, bookings }) => {
   const [b, setB] = useState({});
   const [saving, setSaving] = useState(false);
 
@@ -113,10 +201,33 @@ const BookingModal = ({ open, existing, onClose, onSave, flights }) => {
 
   const save = async () => {
     if (!b.passengerName || !b.flightNumber) return;
+    const seats = parseSeats(b.seats);
+    const travellers = Number(b.travellers || 1);
+    if (seats.length !== travellers) {
+      alert(`Please select exactly ${travellers} seat(s).`);
+      return;
+    }
+    const reservedSeats = getReservedSeats(b, bookings, existing?.id);
+    if (seats.some((seat) => reservedSeats.includes(seat))) {
+      alert("One or more selected seats are already booked.");
+      return;
+    }
     setSaving(true);
     try {
-      if (existing) await dbs.editDocument("bookings", existing.id, b);
-      else await dbs.addAutoIdDocument("bookings", b);
+      const payload = {
+        ...b,
+        passengerName: cleanText(b.passengerName),
+        phone: cleanText(b.phone),
+        flightNumber: cleanText(b.flightNumber),
+        date: cleanText(b.date),
+        travellers,
+        class: normalizeCabin(b.class),
+        seats,
+        seatNumber: seats.join(", "),
+        updatedAt: new Date().toISOString(),
+      };
+      if (existing) await dbs.editDocument("bookings", existing.id, payload);
+      else await dbs.addAutoIdDocument("bookings", { ...payload, createdAt: new Date().toISOString() });
       onSave();
     } catch {}
     setSaving(false);
@@ -125,6 +236,7 @@ const BookingModal = ({ open, existing, onClose, onSave, flights }) => {
   const fOpts = [{value: "", label: "Select flight" }, ...flights.map(f => ({ value: f.flightNumber, label: `${f.flightNumber} (${f.from}-${f.to})` }))];
   const cOpts = ["Economy", "Business", "First"];
   const sOpts = STATUSES.filter(s => s.value !== "Boarded").map(s => ({ value: s.value, label: s.label }));
+  const reservedSeats = getReservedSeats(b, bookings, existing?.id);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
@@ -151,7 +263,7 @@ const BookingModal = ({ open, existing, onClose, onSave, flights }) => {
               </div>
             </div>
             
-            <CabinMap cabin={b.class} travellers={b.travellers} selected={b.seats || []} onChange={s => setB({ ...b, seats: s })} />
+            <CabinMap cabin={b.class} travellers={b.travellers} selected={b.seats || []} disabledSeats={reservedSeats} onChange={s => setB({ ...b, seats: s })} />
           </div>
           
           <div className="pt-2">
@@ -184,7 +296,7 @@ export default function Bookings() {
         dbs.readCollection("bookings", 100),
         dbs.readCollection("flights", 100)
       ]);
-      setBookings(bRes?.data || bRes || []);
+      setBookings((bRes?.data || bRes || []).map((booking, index) => normalizeBooking(booking, index)));
       setFlights(fRes?.data || fRes || []);
     } catch {}
     setLoading(false);
@@ -296,7 +408,7 @@ export default function Bookings() {
       </div>
       
       <BookingModal 
-        open={modOpen} existing={editing} flights={flights}
+        open={modOpen} existing={editing} flights={flights} bookings={bookings}
         onClose={() => setModOpen(false)} 
         onSave={() => { setModOpen(false); fetchAll(); }}
       />

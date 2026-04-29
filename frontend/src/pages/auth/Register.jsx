@@ -73,6 +73,7 @@ const Register = () => {
       });
 
       if (response.status === 200 || response.status === 201) {
+        localStorage.setItem("otp_email", email);
         toast.success("Account created successfully! Check your email for OTP.");
         navigate("/verify-otp", { state: { email } });
       }

@@ -21,6 +21,15 @@ class HotelSearchInput(BaseModel):
     lat: float | None = Field(default=None, description="The user's GPS latitude if they shared it.")
     lon: float | None = Field(default=None, description="The user's GPS longitude if they shared it.")
 
+class CabSearchInput(BaseModel):
+    location: str = Field(default="", description="The text city or area the user wants a cab from.")
+    lat: float | None = Field(default=None, description="The user's GPS latitude if they shared it.")
+    lon: float | None = Field(default=None, description="The user's GPS longitude if they shared it.")
+
+class FlightSearchInput(BaseModel):
+    destination: str = Field(description="The destination city or airport code (e.g. Dubai, DXB).")
+    origin: str = Field(default="", description="The origin city or airport code (e.g. Kochi, COK).")
+
 
 
 class WhatsAppRestaurantAgent:
@@ -28,11 +37,25 @@ class WhatsAppRestaurantAgent:
         self.groq_key = settings.GROQ_API_KEY
         self.db = None
         
-        self.llm = ChatGroq(
+        primary_llm = ChatGroq(
             model="llama-3.3-70b-versatile",
             groq_api_key=self.groq_key,
             temperature=0.0
         )
+        
+        fallback_1 = ChatGroq(
+            model="mixtral-8x7b-32768",
+            groq_api_key=self.groq_key,
+            temperature=0.0
+        )
+        
+        fallback_2 = ChatGroq(
+            model="llama-3.1-8b-instant",
+            groq_api_key=self.groq_key,
+            temperature=0.0
+        )
+        
+        self.llm = primary_llm.with_fallbacks([fallback_1, fallback_2])
         self.agent_executor = self._create_agent()
 
     def _init_database(self):
@@ -119,6 +142,69 @@ class WhatsAppRestaurantAgent:
             print(f"[SQL ERROR]: {e}")
             return "Error searching for hotels."
 
+    def _search_cabs_tool_logic(self, location: str = "", lat: float | None = None, lon: float | None = None) -> str:
+        """Searches the database for available cabs"""
+        print(f"[ACTION] Searching DB for Cabs near '{location}', GPS: {lat},{lon}")
+        if not self._init_database():
+            return "Database unavailable."
+
+        distance_sql = ""
+        order_clause = ""
+        from_clause = "FROM mobility_vehicles v JOIN mobility_drivers d ON v.driver_id = d.id"
+        where_clause = "WHERE d.is_online = true AND d.status = 'active'"
+        
+        if lat is not None and lon is not None:
+            distance_sql = f", 'distance_km', ROUND((6371 * acos(cos(radians({lat})) * cos(radians(d.current_latitude)) * cos(radians(d.current_longitude) - radians({lon})) + sin(radians({lat})) * sin(radians(d.current_latitude))))::numeric, 2)"
+            order_clause = f"ORDER BY (6371 * acos(cos(radians({lat})) * cos(radians(d.current_latitude)) * cos(radians(d.current_longitude) - radians({lon})) + sin(radians({lat})) * sin(radians(d.current_latitude)))) ASC"
+        elif location:
+            where_clause += f" AND d.current_area_label ILIKE '%{location}%'"
+
+        select_clause = f"SELECT json_build_object('vehicle_name', v.vehicle_name, 'vehicle_type', v.vehicle_type, 'model', v.model, 'driver_name', d.full_name, 'base_fare', v.base_fare, 'per_km_rate', v.per_km_rate, 'current_area', d.current_area_label{distance_sql})"
+        
+        sql = f"{select_clause} {from_clause} {where_clause} {order_clause} LIMIT 5;"
+        
+        try:
+            result = self.db.run(sql)
+            if not result or result == "[]" or result == "[(None,)]":
+                return f"No cabs found currently available in that location."
+            
+            return f"Found cabs: {result}. When you reply, give them the link format: http://127.0.0.1:5174/cabs"
+        except Exception as e:
+            print(f"[SQL ERROR]: {e}")
+            return "Error searching for cabs."
+
+    def _search_flights_tool_logic(self, destination: str, origin: str = "") -> str:
+        """Searches the database for flights"""
+        print(f"[ACTION] Searching DB for Flights to '{destination}' from '{origin}'")
+        if not self._init_database():
+            return "Database unavailable."
+
+        select_clause = f"SELECT json_build_object('flight_number', payload->>'flightNumber', 'from', payload->>'from', 'to', payload->>'to', 'depart_time', payload->>'departTime', 'arrive_time', payload->>'arriveTime', 'economy_price', payload->>'economyPrice')"
+        from_clause = "FROM flight_documents"
+        where_clause = f"WHERE collection = 'flights' AND payload->>'status' = 'Active'"
+        
+        if destination and destination.lower() != "anywhere":
+            where_clause += f" AND payload->>'to' ILIKE '%{destination}%'"
+            
+        if origin:
+            # Handle Calicut/Kozhikode aliases
+            if origin.lower() == "kozhikode":
+                where_clause += f" AND (payload->>'from' ILIKE '%kozhikode%' OR payload->>'from' ILIKE '%calicut%' OR payload->>'from' ILIKE '%CCJ%')"
+            else:
+                where_clause += f" AND payload->>'from' ILIKE '%{origin}%'"
+
+        sql = f"{select_clause} {from_clause} {where_clause} LIMIT 5;"
+        
+        try:
+            result = self.db.run(sql)
+            if not result or result == "[]" or result == "[(None,)]":
+                return f"No flights found matching that route."
+            
+            return f"Found flights: {result}. When you reply, give them the link format: http://127.0.0.1:5174/flights"
+        except Exception as e:
+            print(f"[SQL ERROR]: {e}")
+            return "Error searching for flights."
+
     def _create_agent(self):
         search_food_tool = StructuredTool.from_function(
             func=self._search_food_tool_logic,
@@ -134,7 +220,21 @@ class WhatsAppRestaurantAgent:
             args_schema=HotelSearchInput,
         )
 
-        tools = [search_food_tool, search_hotels_tool]
+        search_cabs_tool = StructuredTool.from_function(
+            func=self._search_cabs_tool_logic,
+            name="search_cabs",
+            description="Searches for available cabs or rides. Pass the pickup location.",
+            args_schema=CabSearchInput,
+        )
+
+        search_flights_tool = StructuredTool.from_function(
+            func=self._search_flights_tool_logic,
+            name="search_flights",
+            description="Searches for flights. Pass the destination and optional origin.",
+            args_schema=FlightSearchInput,
+        )
+
+        tools = [search_food_tool, search_hotels_tool, search_cabs_tool, search_flights_tool]
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", """You are Zahi Connect's AI Assistant, a friendly and intelligent conversational agent.
@@ -146,12 +246,15 @@ class WhatsAppRestaurantAgent:
             - If the user asks OUT-OF-SCOPE questions (e.g., "Who is the president?", "Write code"), politely refuse and say you only assist with Zahi Connect's food and travel services.
 
             BOOKING & ORDERING RULES:
-            - ONLY when the user explicitly wants to FIND, BUY, or ORDER food or a hotel, follow these steps:
-              1. Do you know their city/area OR their GPS coordinates? 
-              2. If NO: politely ask "Which city or area are you in? You can also send me your location using the WhatsApp 📎 Paperclip -> Location feature!" and do not search yet.
-              3. If YES: use the appropriate tool (`search_food` or `search_hotels`), passing their query and location/GPS.
+            - ONLY when the user explicitly wants to FIND, BUY, or ORDER food, hotel, cab, or flight, follow these steps:
+              1. For Cabs: You MUST have their exact GPS location. If they only give a text city, politely refuse to search and say "To find the nearest cabs for pickup, please share your real-time location using the WhatsApp 📎 Paperclip -> Location feature! 📍".
+              2. For Food/Hotels: Do you know their city/area OR their GPS coordinates? If NO, ask them.
+              3. For Flights: Do you know the destination? If NO, ask them.
+              4. ONLY when you have the required location/destination, use the appropriate tool (`search_food`, `search_hotels`, `search_cabs`, `search_flights`), passing their query and location/GPS.
             - When you find food, give the link: http://127.0.0.1:5174/restaurants/<slug>?focus=<id>&add=1
             - When you find a hotel, give the link: http://127.0.0.1:5174/hotels/<slug>
+            - When you find a cab, give the link: http://127.0.0.1:5174/cabs
+            - When you find a flight, give the link: http://127.0.0.1:5174/flights
             - If the search results indicate 'available_rooms', explicitly tell the user how many rooms are currently available!
             - If the search results indicate 'distance_km', explicitly tell the user how many km away it is.
             - Keep your tone friendly, human-like, and use emojis!

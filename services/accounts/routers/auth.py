@@ -31,6 +31,7 @@ from schemas.auth import (
     GoogleLoginSchema,
     LoginSchema,
     RegisterSchema,
+    ResendOTPSchema,
     ResetPasswordSchema,
     VerifyOTPSchema,
 )
@@ -48,6 +49,14 @@ from services.user_payload import build_authenticated_user_payload
 router = APIRouter(tags=["Authentication"])
 
 auth = AuthService()
+
+
+def send_otp_email_or_raise(email: str, otp_code: str) -> None:
+    if not send_otp_email(email, otp_code):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not send OTP email. Please check email settings and try again.",
+        )
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -72,7 +81,7 @@ async def register(
             otp_code = auth.generate_otp()
             existing_user.otp = otp_code
             await db.commit()
-            send_otp_email(existing_user.email, otp_code)
+            send_otp_email_or_raise(existing_user.email, otp_code)
             return {"message": "User exists but unverified. New OTP sent."}
         else:
             raise HTTPException(
@@ -113,7 +122,7 @@ async def register(
             detail="Invalid tenant_id. The specified tenant does not exist.",
         )
 
-    send_otp_email(new_user.email, otp_code)
+    send_otp_email_or_raise(new_user.email, otp_code)
 
     return {
         "message": "Registration successful. OTP sent to your email.",
@@ -170,6 +179,39 @@ async def verify_otp(
 # ═══════════════════════════════════════════════════════════════
 #  POST /login — Mirrors MyCalo's CustomTokenjwtView
 # ═══════════════════════════════════════════════════════════════
+# POST /resend-otp
+@router.post("/resend-otp")
+async def resend_otp(
+    request: Request,
+    data: ResendOTPSchema,
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate and send a fresh OTP for pending verification flows."""
+    portal = get_client_portal(request)
+
+    result = await db.execute(select(User).where(User.email == data.email))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    assert_user_matches_portal(user, portal)
+
+    if user.is_active and user.role not in ("super_admin", "business_admin"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This account is already verified.",
+        )
+
+    otp_code = auth.generate_otp()
+    user.otp = otp_code
+    await db.commit()
+    send_otp_email_or_raise(user.email, otp_code)
+
+    return {"message": "OTP sent to your email."}
+
+
+# POST /login - Mirrors MyCalo's CustomTokenjwtView
 @router.post("/login")
 async def login(
     request: Request,
@@ -320,6 +362,10 @@ async def google_login(
         assert_user_matches_portal(user, portal)
         # Check if admin role needs OTP (same as MyCalo)
         if user.role in ("super_admin", "business_admin"):
+            otp_code = auth.generate_otp()
+            user.otp = otp_code
+            await db.commit()
+            send_otp_email_or_raise(user.email, otp_code)
             return {"requires_otp": True, "email": user.email, "role": user.role}
 
         if user.status != "active":

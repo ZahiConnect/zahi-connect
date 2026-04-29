@@ -10,7 +10,7 @@ import cloudinary.uploader
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import delete, select
+from sqlalchemy import bindparam, delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
@@ -128,6 +128,135 @@ def comparable_value(value: Any):
     return str(value).strip().lower()
 
 
+def clean_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text_value = str(value).strip()
+    return text_value or None
+
+
+def normalize_booking_seats(value: Any) -> list[str]:
+    if isinstance(value, list):
+        raw_values = value
+    else:
+        raw_text = clean_text(value)
+        if not raw_text:
+            return []
+        raw_values = re.split(r"[,/|\s]+", raw_text)
+
+    seats: list[str] = []
+    for item in raw_values:
+        seat = clean_text(item)
+        if seat and seat.upper() not in seats:
+            seats.append(seat.upper())
+    return seats
+
+
+def normalize_booking_cabin(value: Any) -> str:
+    cabin = (clean_text(value) or "Economy").lower()
+    if "business" in cabin:
+        return "Business"
+    if "first" in cabin:
+        return "First"
+    return "Economy"
+
+
+def apply_flight_payment_metadata(doc: dict[str, Any], metadata: dict[str, Any]) -> dict[str, Any]:
+    if not metadata:
+        return doc
+
+    seats = normalize_booking_seats(
+        doc.get("seats")
+        or doc.get("seatNumber")
+        or doc.get("seat_number")
+        or metadata.get("seats")
+        or metadata.get("seatNumber")
+    )
+    enriched = dict(doc)
+    enriched["passengerName"] = (
+        clean_text(enriched.get("passengerName"))
+        or clean_text(metadata.get("lead_passenger"))
+        or clean_text(metadata.get("passenger_name"))
+        or clean_text(enriched.get("customerName"))
+        or "Guest Passenger"
+    )
+    enriched["phone"] = (
+        clean_text(enriched.get("phone"))
+        or clean_text(metadata.get("contact_number"))
+        or clean_text(metadata.get("phone"))
+        or ""
+    )
+    enriched["email"] = (
+        clean_text(enriched.get("email"))
+        or clean_text(enriched.get("customerEmail"))
+        or clean_text(metadata.get("email"))
+        or ""
+    )
+    enriched["flightNumber"] = clean_text(enriched.get("flightNumber")) or clean_text(metadata.get("flight_number"))
+    booking_date = clean_text(enriched.get("bookingDate"))
+    enriched["date"] = (
+        clean_text(enriched.get("date"))
+        or clean_text(metadata.get("date"))
+        or clean_text(metadata.get("departure_date"))
+        or (booking_date[:10] if booking_date else "")
+    )
+    enriched["travellers"] = enriched.get("travellers") or metadata.get("passengers") or enriched.get("passengerCount") or 1
+    enriched["class"] = normalize_booking_cabin(enriched.get("class") or metadata.get("class"))
+    enriched["seats"] = seats
+    enriched["seatNumber"] = ", ".join(seats)
+    enriched["originCode"] = clean_text(enriched.get("originCode")) or clean_text(metadata.get("origin_code"))
+    enriched["destinationCode"] = clean_text(enriched.get("destinationCode")) or clean_text(metadata.get("destination_code"))
+    return enriched
+
+
+async def enrich_booking_documents_from_payments(
+    db: AsyncSession,
+    tenant_id,
+    docs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    payment_ids = [
+        clean_text(doc.get("razorpayPaymentId"))
+        for doc in docs
+        if clean_text(doc.get("razorpayPaymentId"))
+    ]
+    if not payment_ids:
+        return docs
+
+    table_exists = (
+        await db.execute(text("SELECT to_regclass('public.booking_payment_orders')"))
+    ).scalar_one_or_none()
+    if not table_exists:
+        return docs
+
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT razorpay_payment_id, metadata
+                FROM booking_payment_orders
+                WHERE tenant_id = :tenant_id
+                  AND service_type = 'flight'
+                  AND razorpay_payment_id IN :payment_ids
+                """
+            ).bindparams(bindparam("payment_ids", expanding=True)),
+            {"tenant_id": tenant_id, "payment_ids": list(dict.fromkeys(payment_ids))},
+        )
+    ).mappings().all()
+
+    metadata_by_payment = {
+        clean_text(row["razorpay_payment_id"]): dict(row.get("metadata") or {})
+        for row in rows
+        if clean_text(row["razorpay_payment_id"])
+    }
+    return [
+        apply_flight_payment_metadata(
+            doc,
+            metadata_by_payment.get(clean_text(doc.get("razorpayPaymentId")), {}),
+        )
+        for doc in docs
+    ]
+
+
 def matches_filter(doc: dict[str, Any], field: str, operator: str, expected: Any) -> bool:
     actual = doc.get(field)
     op = operator.lower()
@@ -170,7 +299,10 @@ async def get_collection_documents(
         .order_by(FlightDocument.updated_at.desc())
     )
     records = result.scalars().all()
-    return [serialize_document(record) for record in records]
+    docs = [serialize_document(record) for record in records]
+    if collection == "bookings":
+        return await enrich_booking_documents_from_payments(db, tenant_id, docs)
+    return docs
 
 
 def apply_query(docs: list[dict[str, Any]], query: QueryRequest) -> list[dict[str, Any]]:

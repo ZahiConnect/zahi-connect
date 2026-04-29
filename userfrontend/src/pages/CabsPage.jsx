@@ -406,44 +406,6 @@ const CabsPage = () => {
               to verified Zahi drivers nearby.
             </motion.p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="grid max-w-xl gap-3 sm:grid-cols-3"
-            >
-              <div className="rounded-2xl border border-orange-100 bg-white/80 px-4 py-3 shadow-sm backdrop-blur">
-                <FiShield className="mb-2 text-orange-500" />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                  Within 30 km
-                </p>
-                <p className="mt-1 text-sm font-black text-gray-900">
-                  {loadingDrivers
-                    ? "Checking"
-                    : nearbyDrivers.length
-                      ? `${nearbyDrivers.length} nearby`
-                      : "No nearby"}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-orange-100 bg-white/80 px-4 py-3 shadow-sm backdrop-blur">
-                <MdOutlineSpeed className="mb-2 text-orange-500" />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                  Distance
-                </p>
-                <p className="mt-1 text-sm font-black text-gray-900">
-                  {formatTripDistance(tripDistanceKm)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-orange-100 bg-white/80 px-4 py-3 shadow-sm backdrop-blur">
-                <FiCreditCard className="mb-2 text-orange-500" />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                  Fare
-                </p>
-                <p className="mt-1 text-sm font-black text-gray-900">
-                  {estimatedFare ? formatCurrency(estimatedFare) : "After route"}
-                </p>
-              </div>
-            </motion.div>
           </div>
         </div>
       </motion.section>

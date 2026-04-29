@@ -17,7 +17,7 @@ router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 
 HOTEL_COLLECTIONS = ("settings", "room_types", "rooms", "pricing_defaults")
 HOTEL_DETAIL_COLLECTIONS = (*HOTEL_COLLECTIONS, "pricing")
-FLIGHT_COLLECTIONS = ("settings", "flights", "flight_types")
+FLIGHT_COLLECTIONS = ("settings", "flights", "flight_types", "bookings")
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 NOMINATIM_HEADERS = {
     "User-Agent": "ZahiConnectMarketplace/1.0 (customer distance enrichment)",
@@ -1251,6 +1251,7 @@ async def fetch_flight_documents(
         payload["id"] = row.get("doc_id")
         grouped[row["tenant_id"]][row["collection"]].append(payload)
 
+    await enrich_flight_booking_documents_with_payment_metadata(db, grouped)
     return grouped
 
 
@@ -1312,6 +1313,199 @@ def normalize_scheduled_flight(doc: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def normalize_flight_cabin_key(value: Any) -> str:
+    cabin = (clean_text(value) or "economy").lower()
+    if "business" in cabin:
+        return "business"
+    if "first" in cabin:
+        return "first"
+    return "economy"
+
+
+def normalize_flight_seats(value: Any) -> list[str]:
+    if isinstance(value, list):
+        raw_values = value
+    else:
+        raw_text = clean_text(value)
+        if not raw_text:
+            return []
+        raw_values = re.split(r"[,/|\s]+", raw_text)
+
+    seats: list[str] = []
+    for item in raw_values:
+        seat = clean_text(item)
+        if seat and seat.upper() not in seats:
+            seats.append(seat.upper())
+    return seats
+
+
+def normalize_flight_cabin_label(value: Any) -> str:
+    cabin = normalize_flight_cabin_key(value)
+    if cabin == "business":
+        return "Business"
+    if cabin == "first":
+        return "First"
+    return "Economy"
+
+
+def apply_flight_payment_metadata(doc: dict[str, Any], metadata: dict[str, Any]) -> dict[str, Any]:
+    if not metadata:
+        return doc
+
+    seats = normalize_flight_seats(
+        doc.get("seats")
+        or doc.get("seatNumber")
+        or doc.get("seat_number")
+        or metadata.get("seats")
+        or metadata.get("seatNumber")
+    )
+    booking_date = clean_text(doc.get("bookingDate"))
+    enriched = dict(doc)
+    enriched["passengerName"] = (
+        clean_text(enriched.get("passengerName"))
+        or clean_text(metadata.get("lead_passenger"))
+        or clean_text(metadata.get("passenger_name"))
+        or clean_text(enriched.get("customerName"))
+        or "Guest Passenger"
+    )
+    enriched["phone"] = (
+        clean_text(enriched.get("phone"))
+        or clean_text(metadata.get("contact_number"))
+        or clean_text(metadata.get("phone"))
+        or ""
+    )
+    enriched["email"] = (
+        clean_text(enriched.get("email"))
+        or clean_text(enriched.get("customerEmail"))
+        or clean_text(metadata.get("email"))
+        or ""
+    )
+    enriched["flightNumber"] = clean_text(enriched.get("flightNumber")) or clean_text(metadata.get("flight_number"))
+    enriched["date"] = (
+        clean_text(enriched.get("date"))
+        or clean_text(metadata.get("date"))
+        or clean_text(metadata.get("departure_date"))
+        or (booking_date[:10] if booking_date else "")
+    )
+    enriched["travellers"] = enriched.get("travellers") or metadata.get("passengers") or enriched.get("passengerCount") or 1
+    enriched["class"] = normalize_flight_cabin_label(enriched.get("class") or metadata.get("class"))
+    enriched["seats"] = seats
+    enriched["seatNumber"] = ", ".join(seats)
+    enriched["originCode"] = clean_text(enriched.get("originCode")) or clean_text(metadata.get("origin_code"))
+    enriched["destinationCode"] = clean_text(enriched.get("destinationCode")) or clean_text(metadata.get("destination_code"))
+    return enriched
+
+
+async def enrich_flight_booking_documents_with_payment_metadata(
+    db: AsyncSession,
+    grouped_docs: dict[Any, dict[str, list[dict[str, Any]]]],
+) -> None:
+    payment_ids: list[str] = []
+    for docs in grouped_docs.values():
+        for booking in docs.get("bookings", []):
+            payment_id = clean_text(booking.get("razorpayPaymentId"))
+            if payment_id:
+                payment_ids.append(payment_id)
+
+    if not payment_ids:
+        return
+
+    table_exists = (
+        await db.execute(text("SELECT to_regclass('public.booking_payment_orders')"))
+    ).scalar_one_or_none()
+    if not table_exists:
+        return
+
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT razorpay_payment_id, metadata
+                FROM booking_payment_orders
+                WHERE service_type = 'flight'
+                  AND razorpay_payment_id IN :payment_ids
+                """
+            ).bindparams(bindparam("payment_ids", expanding=True)),
+            {"payment_ids": list(dict.fromkeys(payment_ids))},
+        )
+    ).mappings().all()
+
+    metadata_by_payment = {
+        clean_text(row["razorpay_payment_id"]): dict(row.get("metadata") or {})
+        for row in rows
+        if clean_text(row["razorpay_payment_id"])
+    }
+
+    for docs in grouped_docs.values():
+        docs["bookings"] = [
+            apply_flight_payment_metadata(
+                booking,
+                metadata_by_payment.get(clean_text(booking.get("razorpayPaymentId")), {}),
+            )
+            for booking in docs.get("bookings", [])
+        ]
+
+
+def normalize_public_flight_booking(doc: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": clean_text(doc.get("id")) or "",
+        "flight_number": clean_text(doc.get("flightNumber") or doc.get("flight_number")) or "",
+        "date": clean_text(doc.get("date") or doc.get("departureDate") or doc.get("departure_date")) or "",
+        "class": normalize_flight_cabin_key(doc.get("class") or doc.get("cabinClass")),
+        "seats": normalize_flight_seats(doc.get("seats") or doc.get("seatNumber") or doc.get("seat_number")),
+        "travellers": int(to_float(doc.get("travellers") or doc.get("passengers") or doc.get("passengerCount")) or 1),
+        "status": clean_text(doc.get("status")) or "Confirmed",
+    }
+
+
+def attach_public_booked_seats(
+    flights: list[dict[str, Any]],
+    booking_docs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    bookings_by_flight: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for doc in booking_docs:
+        booking = normalize_public_flight_booking(doc)
+        if not booking["flight_number"]:
+            continue
+        if booking["status"].lower() == "cancelled":
+            continue
+        bookings_by_flight[booking["flight_number"]].append(booking)
+
+    enriched: list[dict[str, Any]] = []
+    for flight in flights:
+        flight_number = flight.get("flight_number") or ""
+        booked_seats_by_date: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
+        booked_counts_by_date: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+
+        for booking in bookings_by_flight.get(flight_number, []):
+            date_key = booking["date"]
+            if not date_key:
+                continue
+
+            cabin_key = booking["class"]
+            seats = booking["seats"]
+            booked_counts_by_date[date_key][cabin_key] += len(seats) or booking["travellers"]
+            for seat in seats:
+                if seat not in booked_seats_by_date[date_key][cabin_key]:
+                    booked_seats_by_date[date_key][cabin_key].append(seat)
+
+        enriched.append(
+            {
+                **flight,
+                "booked_seats_by_date": {
+                    date: {cabin: sorted(seats) for cabin, seats in cabins.items()}
+                    for date, cabins in booked_seats_by_date.items()
+                },
+                "booked_counts_by_date": {
+                    date: dict(cabins)
+                    for date, cabins in booked_counts_by_date.items()
+                },
+            }
+        )
+
+    return enriched
+
+
 def build_flight_summary(tenant: "Tenant", docs: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
     """Build the list-level summary for a flight operator tenant."""
     settings_doc = next(
@@ -1360,6 +1554,7 @@ def build_flight_detail(tenant: "Tenant", docs: dict[str, list[dict[str, Any]]])
     all_flights = [
         normalize_scheduled_flight(doc) for doc in docs.get("flights", [])
     ]
+    all_flights = attach_public_booked_seats(all_flights, docs.get("bookings", []))
     active_flights = [f for f in all_flights if f["is_active"]]
 
     fare_classes = [

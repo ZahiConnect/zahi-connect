@@ -3,6 +3,39 @@ import { FiSearch, FiRefreshCw, FiPhone, FiStar, FiFileText, FiCheckCircle, FiMo
 import { HiOutlineUsers, HiOutlineTicket } from "react-icons/hi2";
 import dbs from "../api/db";
 
+const cleanText = (value) => String(value || "").trim();
+
+const normalizeCabin = (value) => {
+  const cabin = cleanText(value).toLowerCase();
+  if (cabin.includes("business")) return "Business";
+  if (cabin.includes("first")) return "First";
+  return "Economy";
+};
+
+const buildFallbackPnr = (booking, index = 0) => {
+  const rawId = cleanText(booking.id || booking.customerBookingId || booking.razorpayPaymentId);
+  const digits = rawId.replace(/\D/g, "").slice(0, 6);
+  if (digits) return `PNR${digits.padEnd(6, "0")}`;
+  return `PNR${String(120000 + index).slice(0, 6)}`;
+};
+
+const normalizeBooking = (booking, index = 0) => ({
+  ...booking,
+  id: booking.id || booking.customerBookingId || `booking-${index}`,
+  passengerName:
+    cleanText(booking.passengerName) ||
+    cleanText(booking.passenger_name) ||
+    cleanText(booking.lead_passenger) ||
+    cleanText(booking.customerName) ||
+    cleanText(booking.customer_name) ||
+    "Guest Passenger",
+  phone: cleanText(booking.phone || booking.contact_number || booking.mobile) || "-",
+  email: cleanText(booking.email || booking.customerEmail || booking.customer_email) || "-",
+  pnr: cleanText(booking.pnr) || buildFallbackPnr(booking, index),
+  flightNumber: cleanText(booking.flightNumber || booking.flight_number),
+  class: normalizeCabin(booking.class || booking.cabinClass),
+});
+
 export default function PassengerManifest() {
   const [passengers, setPassengers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,7 +45,7 @@ export default function PassengerManifest() {
     setLoading(true);
     try {
       const bRes = await dbs.readCollection("bookings", 500);
-      const bookings = bRes?.data || bRes || [];
+      const bookings = (bRes?.data || bRes || []).map((booking, index) => normalizeBooking(booking, index));
       
       const pMap = {};
       bookings.forEach(b => {
@@ -29,6 +62,7 @@ export default function PassengerManifest() {
             latestClass: b.class || "Economy"
           };
         }
+        if (b.email) pMap[name].email = b.email;
         pMap[name].totalFlights += 1;
         pMap[name].latestPnr = b.pnr;
         pMap[name].latestFlight = b.flightNumber;

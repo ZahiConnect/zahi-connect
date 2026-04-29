@@ -159,6 +159,23 @@ const safeNumber = (value, fallback = 0) => {
 const safeString = (value, fallback = "") =>
   typeof value === "string" ? value : value == null ? fallback : String(value);
 
+const normalizeCabinLabel = (value) => {
+  const cabin = safeString(value).toLowerCase();
+  if (cabin.includes("business")) return "Business";
+  if (cabin.includes("first")) return "First";
+  return "Economy";
+};
+
+const parseBookingSeats = (value) => {
+  const values = Array.isArray(value)
+    ? value
+    : safeString(value).split(/[,/|\s]+/);
+  return values
+    .map((seat) => safeString(seat).trim().toUpperCase())
+    .filter(Boolean)
+    .filter((seat, index, seats) => seats.indexOf(seat) === index);
+};
+
 export const joinClasses = (...classes) => classes.filter(Boolean).join(" ");
 
 export const formatCurrency = (value) => currencyFormatter.format(safeNumber(value));
@@ -276,8 +293,20 @@ export const normalizeBookingRecord = (booking, index = 0, flights = []) => {
   const linkedFlight = flights.find(
     (flight) => flight.flightNumber === (booking.flightNumber || booking.flight_number)
   );
-  const travellers = Math.max(1, safeNumber(booking.travellers || booking.passengers, 1));
-  const cabinClass = safeString(booking.class || booking.cabinClass || "Economy");
+  const seats = parseBookingSeats(
+    booking.seats ||
+      booking.seatNumber ||
+      booking.seat_number ||
+      booking.selectedSeats ||
+      booking.selected_seats ||
+      booking.metadata?.seats ||
+      booking.metadata?.flight_booking?.seats
+  );
+  const travellers = Math.max(
+    1,
+    safeNumber(booking.travellers || booking.passengers || booking.passengerCount, 1)
+  );
+  const cabinClass = normalizeCabinLabel(booking.class || booking.cabinClass || "Economy");
   const amount =
     safeNumber(booking.amount) ||
     getFlightPriceForClass(linkedFlight || {}, cabinClass) * travellers;
@@ -286,10 +315,15 @@ export const normalizeBookingRecord = (booking, index = 0, flights = []) => {
     id: booking.id || `booking-${index}`,
     pnr: safeString(booking.pnr || `PNR${120000 + index}`),
     passengerName: safeString(
-      booking.passengerName || booking.passenger_name || "Guest Passenger"
+      booking.passengerName ||
+        booking.passenger_name ||
+        booking.lead_passenger ||
+        booking.customerName ||
+        booking.customer_name ||
+        "Guest Passenger"
     ),
-    phone: safeString(booking.phone || booking.mobile || ""),
-    email: safeString(booking.email || ""),
+    phone: safeString(booking.phone || booking.contact_number || booking.mobile || ""),
+    email: safeString(booking.email || booking.customerEmail || booking.customer_email || ""),
     flightNumber: safeString(
       booking.flightNumber || booking.flight_number || linkedFlight?.flightNumber || ""
     ),
@@ -299,7 +333,8 @@ export const normalizeBookingRecord = (booking, index = 0, flights = []) => {
     class: cabinClass,
     status: safeString(booking.status || "Confirmed"),
     amount,
-    seatNumber: safeString(booking.seatNumber || booking.seat_number || ""),
+    seats,
+    seatNumber: seats.join(", "),
   };
 };
 

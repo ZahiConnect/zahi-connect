@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import re
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -105,6 +106,37 @@ def to_float(value) -> float | None:
         return float(str(value).strip())
     except (TypeError, ValueError):
         return None
+
+
+def normalize_seat_list(value) -> list[str]:
+    if isinstance(value, list):
+        raw_values = value
+    else:
+        raw_text = clean_text(value)
+        if not raw_text:
+            return []
+        raw_values = re.split(r"[,/|\s]+", raw_text)
+
+    seats: list[str] = []
+    for item in raw_values:
+        seat = clean_text(item)
+        if seat and seat.upper() not in seats:
+            seats.append(seat.upper())
+    return seats
+
+
+def normalize_flight_cabin(value) -> str:
+    cabin = clean_text(value) or "Economy"
+    cabin_lower = cabin.lower()
+    if "business" in cabin_lower:
+        return "Business"
+    if "first" in cabin_lower:
+        return "First"
+    return "Economy"
+
+
+def build_flight_pnr() -> str:
+    return f"PNR{100000 + (uuid.uuid4().int % 900000)}"
 
 
 def restaurant_customer_status(order_status: str | None) -> str:
@@ -434,6 +466,61 @@ async def validate_hotel_checkout_room(
     return room_payload
 
 
+async def validate_flight_checkout_seats(
+    db: AsyncSession,
+    *,
+    tenant_id,
+    metadata: dict,
+) -> None:
+    selected_seats = normalize_seat_list(metadata.get("seats"))
+    if not selected_seats:
+        return
+
+    passenger_count = int(to_float(metadata.get("passengers")) or len(selected_seats) or 1)
+    if len(selected_seats) != passenger_count:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Please select exactly {passenger_count} seat(s).",
+        )
+
+    flight_number = clean_text(metadata.get("flight_number"))
+    travel_date = clean_text(metadata.get("date") or metadata.get("departure_date"))
+    if not flight_number or not travel_date:
+        return
+
+    cabin_class = normalize_flight_cabin(metadata.get("class"))
+    records = (
+        await db.execute(
+            select(FlightDocument).where(
+                FlightDocument.tenant_id == tenant_id,
+                FlightDocument.collection == "bookings",
+            )
+        )
+    ).scalars().all()
+
+    selected_set = set(selected_seats)
+    for record in records:
+        payload = dict(record.payload or {})
+        status_value = (clean_text(payload.get("status")) or "").lower()
+        if status_value == "cancelled":
+            continue
+
+        if clean_text(payload.get("flightNumber") or payload.get("flight_number")) != flight_number:
+            continue
+        if clean_text(payload.get("date") or payload.get("departureDate") or payload.get("departure_date")) != travel_date:
+            continue
+        if normalize_flight_cabin(payload.get("class") or payload.get("cabinClass")) != cabin_class:
+            continue
+
+        booked_seats = set(normalize_seat_list(payload.get("seats") or payload.get("seatNumber")))
+        overlap = sorted(selected_set.intersection(booked_seats))
+        if overlap:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Seat {', '.join(overlap)} is already booked for this flight.",
+            )
+
+
 def build_hotel_customer_payload(customer: CustomerContext, metadata: dict) -> dict:
     now_iso = datetime.utcnow().isoformat()
     guest_name = clean_text(metadata.get("guest_name")) or customer.username or customer.email
@@ -654,24 +741,59 @@ async def sync_flight_booking_documents(
         raise HTTPException(status_code=400, detail="Flight booking is missing a tenant reference.")
 
     metadata = dict(payment_order.details or {})
+    await validate_flight_checkout_seats(
+        db,
+        tenant_id=payment_order.tenant_id,
+        metadata=metadata,
+    )
     now_iso = datetime.utcnow().isoformat()
 
     booking_doc_id = uuid.uuid4().hex
+    pnr = clean_text(metadata.get("pnr")) or build_flight_pnr()
+    passenger_name = (
+        clean_text(metadata.get("lead_passenger"))
+        or clean_text(metadata.get("passenger_name"))
+        or clean_text(metadata.get("customer_name"))
+        or customer.username
+        or customer.email
+    )
+    phone = clean_text(metadata.get("contact_number") or metadata.get("phone")) or ""
+    seats = normalize_seat_list(metadata.get("seats"))
+    travellers = int(to_float(metadata.get("passengers")) or 1)
+    cabin_class = normalize_flight_cabin(metadata.get("class"))
+    flight_number = clean_text(metadata.get("flight_number"))
+    travel_date = clean_text(metadata.get("date") or metadata.get("departure_date"))
     flight_payload = {
+        "pnr": pnr,
+        "passengerName": passenger_name,
+        "phone": phone,
+        "email": customer.email,
+        "flightNumber": flight_number,
+        "date": travel_date,
+        "travellers": travellers,
+        "class": cabin_class,
+        "seats": seats,
+        "seatNumber": ", ".join(seats),
+        "amount": amount_from_paise(payment_order.amount_paise),
+        "airline": clean_text(metadata.get("airline")),
         "customerName": customer.username or customer.email,
         "customerEmail": customer.email,
-        "passengerCount": int(to_float(metadata.get("passengers")) or 1),
+        "passengerCount": travellers,
         "bookingDate": now_iso,
         "status": "Confirmed",
-        "flightNumber": clean_text(metadata.get("flight_number")),
         "origin": clean_text(metadata.get("origin")),
+        "originCode": clean_text(metadata.get("origin_code")),
         "destination": clean_text(metadata.get("destination")),
+        "destinationCode": clean_text(metadata.get("destination_code")),
         "departureTime": clean_text(metadata.get("departure_time")),
         "arrivalTime": clean_text(metadata.get("arrival_time")),
-        "class": clean_text(metadata.get("class")) or "Economy",
-        "amount": amount_from_paise(payment_order.amount_paise),
+        "aircraft": clean_text(metadata.get("aircraft")),
+        "duration": to_float(metadata.get("duration")),
         "razorpayPaymentId": razorpay_payment_id,
-        "source": "customer_portal"
+        "source": "customer_portal",
+        "bookingSource": "customer_portal",
+        "customerBookingId": str(payment_order.id),
+        "customerUserId": str(customer.user_id),
     }
 
     # Save to flight_documents collection "bookings"
@@ -685,7 +807,10 @@ async def sync_flight_booking_documents(
     return {
         "booking_id": booking_doc_id,
         "status": "Confirmed",
-        "flight_number": flight_payload["flightNumber"]
+        "flight_number": flight_payload["flightNumber"],
+        "pnr": pnr,
+        "passenger_name": passenger_name,
+        "seats": seats,
     }
 
 
@@ -985,6 +1110,12 @@ async def create_booking_payment_checkout(
             )
             checkout_metadata["room_type"] = checkout_metadata.get("room_type") or clean_text(room_payload.get("type"))
             checkout_metadata["room_mode"] = checkout_metadata.get("room_mode") or clean_text(room_payload.get("mode"))
+    elif payload.service_type == "flight" and payload.tenant_id:
+        await validate_flight_checkout_seats(
+            db,
+            tenant_id=payload.tenant_id,
+            metadata=checkout_metadata,
+        )
 
     amount_paise = amount_to_paise(payload.total_amount)
     receipt = f"booking_{uuid.uuid4().hex[:12]}"

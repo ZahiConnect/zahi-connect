@@ -50,7 +50,11 @@ const Input = ({ label, ...props }) => (
   </div>
 );
 
-const CabinMap = ({ cabin, travellers, selected = [], onChange }) => {
+const CabinMap = ({ cabin, travellers, selected = [], disabledSeats = [], onChange }) => {
+  const disabledSeatSet = useMemo(
+    () => new Set(disabledSeats.map((seat) => String(seat).toUpperCase())),
+    [disabledSeats]
+  );
   const layout = useMemo(() => {
     const c = cabin?.toLowerCase() || "economy";
     if (c === "business") return { rows: [1, 2, 3, 4], cols: ["A", "B", "C", "D"] };
@@ -59,6 +63,7 @@ const CabinMap = ({ cabin, travellers, selected = [], onChange }) => {
   }, [cabin]);
 
   const toggle = (seat) => {
+    if (disabledSeatSet.has(seat.toUpperCase())) return;
     if (selected.includes(seat)) {
       onChange(selected.filter((item) => item !== seat));
       return;
@@ -76,12 +81,15 @@ const CabinMap = ({ cabin, travellers, selected = [], onChange }) => {
             {layout.cols.map((col) => {
               const seat = `${row}${col}`;
               const selectedSeat = selected.includes(seat);
+              const bookedSeat = disabledSeatSet.has(seat.toUpperCase()) && !selectedSeat;
               return (
                 <button
                   key={seat}
                   type="button"
+                  disabled={bookedSeat}
+                  title={bookedSeat ? "Booked" : seat}
                   onClick={() => toggle(seat)}
-                  className={`w-9 h-11 rounded-t-xl rounded-b-md text-[10px] font-bold flex items-center justify-center transition-all ${selectedSeat ? "bg-sky-500 text-white shadow-md shadow-sky-500/20" : "bg-white border-2 border-slate-200 text-slate-500 hover:border-sky-300"}`}
+                  className={`w-9 h-11 rounded-t-xl rounded-b-md text-[10px] font-bold flex items-center justify-center transition-all ${bookedSeat ? "cursor-not-allowed border-2 border-gray-200 bg-gray-200 text-gray-400 line-through" : selectedSeat ? "bg-sky-500 text-white shadow-md shadow-sky-500/20" : "bg-white border-2 border-slate-200 text-slate-500 hover:border-sky-300"}`}
                 >
                   {seat}
                 </button>
@@ -92,6 +100,7 @@ const CabinMap = ({ cabin, travellers, selected = [], onChange }) => {
       </div>
       <p className="text-xs text-center font-bold text-gray-500 mt-6">
         {selected.length === 0 ? `Required: Select ${travellers} seat(s)` : `Allocated: ${selected.join(", ")}`}
+        {disabledSeats.length > 0 && <span className="block mt-1 text-[10px] uppercase tracking-widest text-gray-400">Grey seats are booked</span>}
       </p>
     </div>
   );
@@ -112,10 +121,49 @@ const routeMatches = (query, city, code) => {
 
 const getRouteCode = (value) => parseAirportCode(value) || cleanText(value).slice(0, 3).toUpperCase();
 
-const getPriceAndSeats = (flight, flightClass) => {
-  if (flightClass === "business") return { price: flight.business_price, seats: flight.business_seats };
-  if (flightClass === "first") return { price: flight.first_price, seats: flight.first_seats };
-  return { price: flight.economy_price, seats: flight.economy_seats };
+const normalizeCabinKey = (value) => {
+  const cabin = cleanText(value).toLowerCase();
+  if (cabin.includes("business")) return "business";
+  if (cabin.includes("first")) return "first";
+  return "economy";
+};
+
+const getBookedSeats = (flight, flightClass, date) => {
+  const cabinKey = normalizeCabinKey(flightClass);
+  const seats = flight?.booked_seats_by_date?.[date]?.[cabinKey] || [];
+  return Array.isArray(seats) ? seats.map((seat) => String(seat).toUpperCase()) : [];
+};
+
+const getBookedCount = (flight, flightClass, date) => {
+  const cabinKey = normalizeCabinKey(flightClass);
+  const count = Number(flight?.booked_counts_by_date?.[date]?.[cabinKey]);
+  if (Number.isFinite(count) && count > 0) return count;
+  return getBookedSeats(flight, flightClass, date).length;
+};
+
+const getPriceAndSeats = (flight, flightClass, date) => {
+  const cabinKey = normalizeCabinKey(flightClass);
+  const bookedSeats = getBookedSeats(flight, cabinKey, date);
+  const bookedCount = getBookedCount(flight, cabinKey, date);
+  if (cabinKey === "business") {
+    return {
+      price: flight.business_price,
+      seats: Math.max(0, Number(flight.business_seats || 0) - bookedCount),
+      bookedSeats,
+    };
+  }
+  if (cabinKey === "first") {
+    return {
+      price: flight.first_price,
+      seats: Math.max(0, Number(flight.first_seats || 0) - bookedCount),
+      bookedSeats,
+    };
+  }
+  return {
+    price: flight.economy_price,
+    seats: Math.max(0, Number(flight.economy_seats || 0) - bookedCount),
+    bookedSeats,
+  };
 };
 
 const FlightPartnerPage = () => {
@@ -214,7 +262,7 @@ const FlightPartnerPage = () => {
     }, { replace: true });
   };
 
-  const handleOpenBooking = (flight, price) => {
+  const handleOpenBooking = async (flight, price) => {
     if (!isAuthenticated) {
       navigate("/login", { state: { from: `/flights/${slug}${window.location.search}` } });
       return;
@@ -223,9 +271,31 @@ const FlightPartnerPage = () => {
       toast.error("Pricing information is currently unavailable for this flight.");
       return;
     }
-    setSelectedFlightData({ flight, price });
-    setPassengerDetails({ name: "", phone: "", seats: [] });
-    setCheckoutModalOpen(true);
+    try {
+      const latestDetail = await marketplaceService.getFlight(slug);
+      setDetail(latestDetail);
+      const latestAirlineInfo = {
+        id: latestDetail?.tenant?.id,
+        name: latestDetail?.settings?.display_name || latestDetail?.summary?.name || latestDetail?.tenant?.name || airlineName,
+        logo: latestDetail?.settings?.logo || latestDetail?.summary?.logo || airlineLogo,
+        slug,
+      };
+      const latestFlight = (latestDetail?.flights || [])
+        .map((item) => ({ ...item, airline: latestAirlineInfo }))
+        .find((item) => item.id === flight.id || item.flight_number === flight.flight_number) || flight;
+      const latest = getPriceAndSeats(latestFlight, form.flightClass, form.departDate);
+      if (!latest.price || latest.seats < form.travellers) {
+        toast.error("Selected seats are no longer available for this flight.");
+        return;
+      }
+      setSelectedFlightData({ flight: latestFlight, price: latest.price || price });
+      setPassengerDetails({ name: "", phone: "", seats: [] });
+      setCheckoutModalOpen(true);
+    } catch {
+      setSelectedFlightData({ flight, price });
+      setPassengerDetails({ name: "", phone: "", seats: [] });
+      setCheckoutModalOpen(true);
+    }
   };
 
   const proceedToPayment = async () => {
@@ -238,8 +308,14 @@ const FlightPartnerPage = () => {
       return;
     }
 
-    setCheckoutModalOpen(false);
     const { flight, price } = selectedFlightData;
+    const bookedSeats = getPriceAndSeats(flight, form.flightClass, form.departDate).bookedSeats;
+    if (passengerDetails.seats.some((seat) => bookedSeats.includes(String(seat).toUpperCase()))) {
+      toast.error("One or more selected seats were just booked. Please choose another seat.");
+      return;
+    }
+
+    setCheckoutModalOpen(false);
     setBookingFlightId(flight.id);
     setSubmitting(true);
 
@@ -422,7 +498,7 @@ const FlightPartnerPage = () => {
         ) : (
           <div className="grid gap-6">
             {filteredFlights.map((flight) => {
-              const { price, seats } = getPriceAndSeats(flight, form.flightClass);
+              const { price, seats } = getPriceAndSeats(flight, form.flightClass, form.departDate);
               const isAvailable = price > 0 && seats >= form.travellers;
               const fromCode = flight.from_code || getRouteCode(flight.from_city);
               const toCode = flight.to_code || getRouteCode(flight.to_city);
@@ -508,7 +584,13 @@ const FlightPartnerPage = () => {
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <Input label="Lead Passenger Name" placeholder="John Doe" value={passengerDetails.name} onChange={(e) => setPassengerDetails({ ...passengerDetails, name: e.target.value })} />
                   <Input label="Contact Number" placeholder="+91 9876543210" value={passengerDetails.phone} onChange={(e) => setPassengerDetails({ ...passengerDetails, phone: e.target.value })} />
-                  <CabinMap cabin={form.flightClass} travellers={form.travellers} selected={passengerDetails.seats} onChange={(seats) => setPassengerDetails({ ...passengerDetails, seats })} />
+                  <CabinMap
+                    cabin={form.flightClass}
+                    travellers={form.travellers}
+                    selected={passengerDetails.seats}
+                    disabledSeats={getPriceAndSeats(selectedFlightData.flight, form.flightClass, form.departDate).bookedSeats}
+                    onChange={(seats) => setPassengerDetails({ ...passengerDetails, seats })}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between rounded-2xl border border-gray-100 bg-gray-50 p-4">

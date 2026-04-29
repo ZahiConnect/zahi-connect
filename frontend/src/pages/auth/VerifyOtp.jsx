@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
+import { motion } from "framer-motion";
+import { HiOutlineMail } from "react-icons/hi";
 import api, { setAccessToken } from "../../lib/axios";
 import { setCredentials } from "../../redux/authslice";
 import toast from "react-hot-toast";
@@ -8,12 +10,40 @@ import { buildSessionUser } from "../../lib/authSession";
 import { clearPurchaseIntent, getPurchaseIntent } from "../../lib/purchaseIntent";
 import { getHomeRouteForUser } from "../../lib/workspace";
 
+const verificationHighlights = [
+  { label: "Secure sign in", value: "Your workspace opens after email verification." },
+  { label: "One inbox", value: "Use the same business email across Zahi Connect." },
+  { label: "Almost there", value: "Enter the six digits and continue to your dashboard." },
+];
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  show: (delay = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.58,
+      delay,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  }),
+};
+
+const stagger = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+};
+
 const VerifyOtp = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  
+
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const location = useLocation();
@@ -61,20 +91,10 @@ const VerifyOtp = () => {
   const handleResend = async () => {
     setResending(true);
     try {
-      // Re-trigger the registration endpoint which resends if user exists but is inactive
-      await api.post("/auth/register", { 
-        email, 
-        username: "user", // The backend will ignore if user exists
-        password: "temp_password", 
-        confirm_password: "temp_password" 
-      });
+      await api.post("/auth/resend-otp", { email });
       toast.success("OTP resent successfully!");
     } catch (err) {
-      if (err.response?.data?.message?.includes("New OTP sent")) {
-        toast.success("OTP resent successfully!");
-      } else {
-        toast.error("Failed to resend OTP");
-      }
+      toast.error(err.response?.data?.detail || "Failed to resend OTP");
     } finally {
       setResending(false);
     }
@@ -105,7 +125,7 @@ const VerifyOtp = () => {
           accessToken: response.data.access,
         })
       );
-      
+
       localStorage.removeItem("otp_email");
       toast.success("Account verified successfully!");
       const pendingPlan = getPurchaseIntent();
@@ -123,73 +143,182 @@ const VerifyOtp = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0F0F23] px-4 font-sans relative overflow-hidden">
-      
-      {/* Background Decor */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#6C5CE7]/10 rounded-full blur-[120px] pointer-events-none"></div>
+    <div className="relative flex min-h-screen overflow-hidden bg-[#FDFCFB] text-[#333333] font-sans">
+      <motion.div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-[-6rem] top-[-4rem] h-56 w-56 rounded-full bg-[#EADFD3] blur-3xl"
+        animate={{ x: [0, 20, -10, 0], y: [0, 12, -14, 0], scale: [1, 1.06, 0.98, 1] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-[-5rem] right-[-4rem] h-64 w-64 rounded-full bg-[#F3EADF] blur-3xl"
+        animate={{ x: [0, -16, 14, 0], y: [0, -18, 10, 0], scale: [1, 0.97, 1.04, 1] }}
+        transition={{ duration: 14, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+      />
 
-      <div className="max-w-md w-full bg-[#1A1A2E] border border-[#2A2A40] p-8 sm:p-10 rounded-3xl shadow-2xl relative z-10">
-        
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto bg-gradient-to-tr from-[#6C5CE7] to-[#8A7DF0] rounded-2xl flex items-center justify-center shadow-lg shadow-[#6C5CE7]/30 mb-6">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h2 className="text-3xl font-bold text-white mb-2">Check your email</h2>
-          <p className="text-[#A0A0B0]">
-            We've sent a 6-digit verification code to <br/>
-            <span className="font-semibold text-white">{email}</span>
-          </p>
-        </div>
-        
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          <div className="flex justify-between gap-2 sm:gap-3">
-            {otp.map((digit, index) => (
-              <input
-                key={index}
-                type="text"
-                maxLength="6"
-                ref={(el) => (inputRefs.current[index] = el)}
-                value={digit}
-                onChange={(e) => handleChange(index, e)}
-                onKeyDown={(e) => handleKeyDown(index, e)}
-                className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-bold bg-[#0F0F23] border border-[#2A2A40] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6C5CE7] focus:border-transparent transition-all shadow-inner"
-              />
-            ))}
-          </div>
-
-          {error && (
-             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
-               {error}
-             </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-4 rounded-xl text-white font-semibold flex justify-center items-center bg-gradient-to-r from-[#6C5CE7] to-[#8A7DF0] hover:from-[#5b4cc2] hover:to-[#6C5CE7] shadow-lg shadow-[#6C5CE7]/25 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6C5CE7] focus:ring-offset-[#0F0F23] disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-300 transform active:scale-[0.98]"
+      <motion.div
+        initial="hidden"
+        animate="show"
+        variants={stagger}
+        className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative overflow-hidden bg-[#F2F0ED] border-r border-[#E5E5E5]"
+      >
+        <motion.div variants={fadeUp} custom={0.02} className="relative z-10 flex items-center gap-3">
+          <motion.div
+            className="w-10 h-10 rounded-lg bg-[#1A1A1A] flex items-center justify-center shadow-sm"
+            initial={{ rotate: -8, scale: 0.9, opacity: 0 }}
+            animate={{ rotate: 0, scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            whileHover={{ y: -2, rotate: -4 }}
           >
-            {loading ? "Verifying..." : "Verify Account"}
-          </button>
-        </form>
+            <span className="text-xl font-bold text-white font-serif">Z</span>
+          </motion.div>
+          <h1 className="text-2xl font-serif font-bold tracking-tight text-[#1A1A1A]">
+            Zahi Connect
+          </h1>
+        </motion.div>
 
-        <div className="text-center mt-8 space-y-4">
-          <p className="text-sm text-[#A0A0B0]">
-            Didn't receive the code?{" "}
-            <button 
-              onClick={handleResend}
-              disabled={resending}
-              className="font-semibold text-[#6C5CE7] hover:text-[#8A7DF0] transition-colors disabled:opacity-50"
-            >
-              {resending ? "Sending..." : "Click to resend"}
-            </button>
-          </p>
-          <Link to="/login" className="block text-sm text-[#A0A0B0] hover:text-white transition-colors">
-            ← Back to login
-          </Link>
+        <div className="relative z-10 max-w-lg mb-16">
+          <motion.h2
+            variants={fadeUp}
+            custom={0.1}
+            className="text-4xl sm:text-5xl font-serif font-semibold text-[#1A1A1A] mb-6 leading-tight"
+          >
+            Confirm Your Email <br /> Before You Continue.
+          </motion.h2>
+          <motion.p
+            variants={fadeUp}
+            custom={0.18}
+            className="text-[#666666] text-lg leading-relaxed mb-8"
+          >
+            This final check keeps your business workspace connected to the right inbox.
+          </motion.p>
+
+          <motion.div variants={stagger} className="grid gap-4">
+            {verificationHighlights.map((item, index) => (
+              <motion.div
+                key={item.label}
+                variants={fadeUp}
+                custom={0.24 + index * 0.06}
+                whileHover={{ y: -4 }}
+                className="rounded-2xl border border-[#E4DED7] bg-white/70 p-4 shadow-sm"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#888888]">
+                  {item.label}
+                </p>
+                <p className="mt-2 text-sm font-medium leading-6 text-[#1A1A1A]">
+                  {item.value}
+                </p>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
+
+      <motion.div
+        initial="hidden"
+        animate="show"
+        variants={stagger}
+        className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 relative bg-[#FFFFFF]"
+      >
+        <motion.div variants={fadeUp} custom={0.08} className="w-full max-w-md space-y-8">
+          <motion.div
+            variants={fadeUp}
+            custom={0.1}
+            className="flex lg:hidden items-center justify-center gap-3 mb-8"
+          >
+            <motion.div
+              className="w-10 h-10 rounded-lg bg-[#1A1A1A] flex items-center justify-center shadow-sm"
+              initial={{ rotate: -8, scale: 0.9, opacity: 0 }}
+              animate={{ rotate: 0, scale: 1, opacity: 1 }}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <span className="text-xl font-bold font-serif text-white">Z</span>
+            </motion.div>
+            <h1 className="text-2xl font-serif font-bold tracking-tight text-[#1A1A1A]">
+              Zahi Connect
+            </h1>
+          </motion.div>
+
+          <motion.div variants={fadeUp} custom={0.14} className="text-center lg:text-left">
+            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#EAE4DD] bg-[#FAF8F5] text-[#1A1A1A] shadow-sm lg:mx-0">
+              <HiOutlineMail className="text-2xl" />
+            </div>
+            <h2 className="text-3xl font-serif font-semibold text-[#1A1A1A] mb-2">
+              Check Your Email
+            </h2>
+            <p className="text-[#666666]">
+              We sent a 6-digit code to{" "}
+              <span className="font-semibold text-[#1A1A1A]">{email}</span>
+            </p>
+          </motion.div>
+
+          <motion.form variants={stagger} className="space-y-6" onSubmit={handleSubmit}>
+            <motion.div variants={fadeUp} custom={0.2} className="grid grid-cols-6 gap-2 sm:gap-3">
+              {otp.map((digit, index) => (
+                <input
+                  key={index}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete={index === 0 ? "one-time-code" : "off"}
+                  aria-label={`OTP digit ${index + 1}`}
+                  maxLength="6"
+                  ref={(el) => (inputRefs.current[index] = el)}
+                  value={digit}
+                  onChange={(e) => handleChange(index, e)}
+                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  className="h-12 w-full rounded-xl border border-[#E5E5E5] bg-[#FFFFFF] text-center text-xl font-bold text-[#1A1A1A] shadow-sm transition-all focus:outline-none focus:ring-1 focus:ring-[#1A1A1A] sm:h-14 sm:text-2xl"
+                />
+              ))}
+            </motion.div>
+
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.28 }}
+                className="p-3 rounded-lg bg-red-50 text-red-700 border border-red-200 text-sm text-center"
+              >
+                {error}
+              </motion.div>
+            )}
+
+            <motion.button
+              variants={fadeUp}
+              custom={0.26}
+              type="submit"
+              disabled={loading}
+              whileHover={loading ? undefined : { y: -1, scale: 1.01 }}
+              whileTap={loading ? undefined : { scale: 0.985 }}
+              className="w-full py-3.5 rounded-xl text-white font-medium flex justify-center items-center bg-[#1A1A1A] hover:bg-[#333333] shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1A1A1A] disabled:opacity-70 disabled:cursor-not-allowed transition-all"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-[#E5E5E5] border-t-white rounded-full animate-spin"></div>
+              ) : (
+                "Verify Account"
+              )}
+            </motion.button>
+          </motion.form>
+
+          <motion.div variants={fadeUp} custom={0.32} className="text-center space-y-4">
+            <p className="text-sm text-[#666666]">
+              Didn't receive the code?{" "}
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resending}
+                className="font-medium text-[#1A1A1A] underline decoration-transparent transition-all hover:decoration-[#1A1A1A] disabled:opacity-50"
+              >
+                {resending ? "Sending..." : "Resend code"}
+              </button>
+            </p>
+            <Link to="/login" className="block text-sm font-medium text-[#666666] hover:text-[#1A1A1A] hover:underline">
+              Back to login
+            </Link>
+          </motion.div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 };

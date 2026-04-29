@@ -53,6 +53,10 @@ class VerifyOTPSchema(BaseModel):
 #  CustomTokenJwtSerializer (input) → LoginSchema
 #  MyCalo uses username field (which can be email via EmailUsernameBackend)
 # ──────────────────────────────────────────────────────────────
+class ResendOTPSchema(BaseModel):
+    email: EmailStr
+
+
 class LoginSchema(BaseModel):
     username: str  # Can be username or email
     password: str
