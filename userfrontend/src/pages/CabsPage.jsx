@@ -19,7 +19,6 @@ import {
   MdOutlineDirectionsCar,
   MdOutlineLocalTaxi,
   MdOutlineRoute,
-  MdOutlineSpeed,
 } from "react-icons/md";
 import { FaCarSide } from "react-icons/fa";
 import toast from "react-hot-toast";
