@@ -17,6 +17,9 @@ spec:
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-accounts:latest
         ports:
         - containerPort: 8001
+        env:
+        - name: DB_PORT
+          value: "5432"
 ---
 apiVersion: v1
 kind: Service
@@ -49,6 +52,9 @@ spec:
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-hotel:latest
         ports:
         - containerPort: 8002
+        env:
+        - name: DB_PORT
+          value: "5432"
 ---
 apiVersion: v1
 kind: Service
@@ -81,6 +87,9 @@ spec:
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-restaurant:latest
         ports:
         - containerPort: 8003
+        env:
+        - name: DB_PORT
+          value: "5432"
 ---
 apiVersion: v1
 kind: Service
@@ -113,6 +122,9 @@ spec:
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-mobility:latest
         ports:
         - containerPort: 8004
+        env:
+        - name: DB_PORT
+          value: "5432"
 ---
 apiVersion: v1
 kind: Service
@@ -144,7 +156,10 @@ spec:
       - name: flight
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-flight:latest
         ports:
-        - containerPort: 8005
+        - containerPort: 8002
+        env:
+        - name: DB_PORT
+          value: "5432"
 ---
 apiVersion: v1
 kind: Service
@@ -156,7 +171,7 @@ spec:
   ports:
     - protocol: TCP
       port: 8005
-      targetPort: 8005
+      targetPort: 8002
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -177,6 +192,9 @@ spec:
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-ai-service:latest
         ports:
         - containerPort: 8006
+        env:
+        - name: DB_PORT
+          value: "5432"
 ---
 apiVersion: v1
 kind: Service
@@ -210,6 +228,9 @@ spec:
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-booking:latest
         ports:
         - containerPort: 8008
+        env:
+        - name: DB_PORT
+          value: "5432"
 ---
 apiVersion: v1
 kind: Service

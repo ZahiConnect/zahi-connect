@@ -12,7 +12,7 @@ data:
     server {
         listen 80;
         client_max_body_size 100M;
-        resolver kube-dns.kube-system.svc.cluster.local valid=10s;
+        # Removed resolver because proxy_pass directly uses OS DNS
 
         location / {
             root /usr/share/nginx/html;
@@ -21,8 +21,7 @@ data:
         }
 
         location /auth/ {
-            set $auth_upstream http://accounts:8001;
-            proxy_pass $auth_upstream;
+            proxy_pass http://accounts:8001;
             proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -32,8 +31,7 @@ data:
         }
 
         location /hotel/ {
-            set $hotel_upstream http://hotel:8002;
-            proxy_pass $hotel_upstream;
+            proxy_pass http://hotel:8002;
             proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -41,8 +39,7 @@ data:
         }
 
         location /rms/ {
-            set $restaurant_upstream http://restaurant:8003;
-            proxy_pass $restaurant_upstream;
+            proxy_pass http://restaurant:8003;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $connection_upgrade;
@@ -54,8 +51,7 @@ data:
         }
 
         location /mobility/ {
-            set $mobility_upstream http://mobility:8004;
-            proxy_pass $mobility_upstream;
+            proxy_pass http://mobility:8004;
             proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -63,8 +59,7 @@ data:
         }
 
         location /flight/ {
-            set $flight_upstream http://flight:8005;
-            proxy_pass $flight_upstream;
+            proxy_pass http://flight:8005;
             proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -72,8 +67,7 @@ data:
         }
 
         location /ai/ {
-            set $ai_upstream http://ai-service:8006;
-            proxy_pass $ai_upstream;
+            proxy_pass http://ai-service:8006;
             proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -81,8 +75,7 @@ data:
         }
 
         location /booking/ {
-            set $booking_upstream http://booking:8008;
-            proxy_pass $booking_upstream;
+            proxy_pass http://booking:8008;
             proxy_set_header Host $http_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
