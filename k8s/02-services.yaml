@@ -20,6 +20,12 @@ spec:
         env:
         - name: DB_PORT
           value: "5432"
+        - name: AUTH_COOKIE_SECURE
+          value: "True"
+        - name: AUTH_COOKIE_SAMESITE
+          value: "None"
+        - name: FRONTEND_APP_URL
+          value: "https://zahi-connect.vercel.app"
 ---
 apiVersion: v1
 kind: Service
