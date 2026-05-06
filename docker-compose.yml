@@ -1,14 +1,8 @@
-# ═══════════════════════════════════════════════════════════════════════════
-#  Zahi Connect - Docker Compose
-#  Mirrors MyCalo's docker-compose.yml architecture
-#  Adapted for Zahi's microservice + Kafka-based event-driven architecture
-# ═══════════════════════════════════════════════════════════════════════════
+# Zahi Connect - Docker Compose
+# Local development stack for the Zahi microservice architecture.
 
 services:
-
-  # ───────────────────────────────────────────────
-  #  DATABASE (PostgreSQL) — Same as MyCalo
-  # ───────────────────────────────────────────────
+  # Database
   db:
     image: postgres:15
     container_name: zahi_db
@@ -26,9 +20,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ───────────────────────────────────────────────
-  #  REDIS — Same as MyCalo (for caching & sessions)
-  # ───────────────────────────────────────────────
+  # Cache and sessions
   redis:
     image: redis:alpine
     container_name: zahi_redis
@@ -57,56 +49,6 @@ services:
     volumes:
       - chroma_data:/chroma/chroma
 
-  # ───────────────────────────────────────────────
-  #  KAFKA + ZOOKEEPER — Event-Driven Messaging
-  #  (Replaces MyCalo's Celery for inter-service events)
-  # ───────────────────────────────────────────────
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.0
-    container_name: zahi_zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
-
-  kafka:
-    image: confluentinc/cp-kafka:7.6.0
-    container_name: zahi_kafka
-    depends_on:
-      - zookeeper
-    ports:
-      - "29092:29092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-
-  # Kafka UI — for development monitoring
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: zahi_kafka_ui
-    depends_on:
-      - kafka
-    ports:
-      - "8090:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: zahi-local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
-
-  # ───────────────────────────────────────────────
-  #  ACCOUNTS SERVICE (FastAPI) — Week 1 Core
-  # ───────────────────────────────────────────────
   accounts:
     build: ./services/accounts
     container_name: zahi_accounts
@@ -124,12 +66,6 @@ services:
       redis:
         condition: service_healthy
 
-  # ───────────────────────────────────────────────
-  #  FUTURE SERVICES (scaffolded for Weeks 2-5)
-  # ───────────────────────────────────────────────
-  # Uncomment each service as you build them:
-
-  # --- HMS Service (Hotel Management) — Week 2 ---
   hotel:
     build: ./services/hotel
     container_name: zahi_hotel
@@ -145,7 +81,6 @@ services:
       db:
         condition: service_healthy
 
-  # --- RMS Service (Restaurant Management) — Week 3 ---
   restaurant:
     build: ./services/restaurant
     container_name: zahi_restaurant
@@ -163,7 +98,6 @@ services:
       redis:
         condition: service_healthy
 
-  # --- Mobility Service (Cabs / Fleet) — Week 4 ---
   mobility:
     build: ./services/mobility
     container_name: zahi_mobility
@@ -177,7 +111,6 @@ services:
       db:
         condition: service_healthy
 
-  # --- Flight Service (Airline Management) ---
   flight:
     build: ./services/flight
     container_name: zahi_flight
@@ -193,7 +126,6 @@ services:
       db:
         condition: service_healthy
 
-  # --- AI / WaaS Service (WhatsApp Bot Engine) — Week 2+ ---
   ai_service:
     build: ./services/ai_service
     container_name: zahi_ai_service
@@ -234,9 +166,6 @@ services:
       db:
         condition: service_healthy
 
-  # ───────────────────────────────────────────────
-  #  API GATEWAY (NGINX) — Same pattern as MyCalo
-  # ───────────────────────────────────────────────
   gateway:
     image: nginx:alpine
     container_name: zahi_gateway
@@ -262,7 +191,6 @@ services:
         condition: service_started
       booking:
         condition: service_healthy
-
 
 volumes:
   postgres_data:

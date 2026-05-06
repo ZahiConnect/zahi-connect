@@ -270,7 +270,7 @@ const NotFoundPage = () => (
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
       <Routes>
         <Route element={<AppShell />}>
           <Route path="/" element={<Navigate to="/hotels" replace />} />

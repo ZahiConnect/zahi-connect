@@ -1,0 +1,224 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: accounts
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: accounts
+  template:
+    metadata:
+      labels:
+        app: accounts
+    spec:
+      containers:
+      - name: accounts
+        image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-accounts:latest
+        ports:
+        - containerPort: 8001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: accounts
+spec:
+  selector:
+    app: accounts
+  ports:
+    - protocol: TCP
+      port: 8001
+      targetPort: 8001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hotel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hotel
+  template:
+    metadata:
+      labels:
+        app: hotel
+    spec:
+      containers:
+      - name: hotel
+        image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-hotel:latest
+        ports:
+        - containerPort: 8002
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel
+spec:
+  selector:
+    app: hotel
+  ports:
+    - protocol: TCP
+      port: 8002
+      targetPort: 8002
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: restaurant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: restaurant
+  template:
+    metadata:
+      labels:
+        app: restaurant
+    spec:
+      containers:
+      - name: restaurant
+        image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-restaurant:latest
+        ports:
+        - containerPort: 8003
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: restaurant
+spec:
+  selector:
+    app: restaurant
+  ports:
+    - protocol: TCP
+      port: 8003
+      targetPort: 8003
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mobility
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mobility
+  template:
+    metadata:
+      labels:
+        app: mobility
+    spec:
+      containers:
+      - name: mobility
+        image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-mobility:latest
+        ports:
+        - containerPort: 8004
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mobility
+spec:
+  selector:
+    app: mobility
+  ports:
+    - protocol: TCP
+      port: 8004
+      targetPort: 8004
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flight
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flight
+  template:
+    metadata:
+      labels:
+        app: flight
+    spec:
+      containers:
+      - name: flight
+        image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-flight:latest
+        ports:
+        - containerPort: 8005
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flight
+spec:
+  selector:
+    app: flight
+  ports:
+    - protocol: TCP
+      port: 8005
+      targetPort: 8005
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-service
+  template:
+    metadata:
+      labels:
+        app: ai-service
+    spec:
+      containers:
+      - name: ai-service
+        image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-ai-service:latest
+        ports:
+        - containerPort: 8006
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai_service
+  # Using ai_service with underscore to match Nginx upstream variable
+spec:
+  selector:
+    app: ai-service
+  ports:
+    - protocol: TCP
+      port: 8006
+      targetPort: 8006
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: booking
+  template:
+    metadata:
+      labels:
+        app: booking
+    spec:
+      containers:
+      - name: booking
+        image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-booking:latest
+        ports:
+        - containerPort: 8008
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: booking
+spec:
+  selector:
+    app: booking
+  ports:
+    - protocol: TCP
+      port: 8008
+      targetPort: 8008
