@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --port 5173 --strictPort",
-    "free-port": "powershell -NoProfile -Command \"$port = 5173; $connections = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; if ($connections) { $connections | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force } }; exit 0\"",
-    "dev:reset": "npm run free-port && npm run dev",
+    "dev": "npm run free-port && vite",
+    "free-port": "powershell -NoProfile -Command \"$port = 5273; $connections = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; if ($connections) { $connections | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force } }; exit 0\"",
+    "dev:reset": "npm run dev",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview --host 0.0.0.0 --port 4173 --strictPort"

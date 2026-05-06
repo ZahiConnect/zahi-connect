@@ -121,6 +121,44 @@ const routeMatches = (query, city, code) => {
 
 const getRouteCode = (value) => parseAirportCode(value) || cleanText(value).slice(0, 3).toUpperCase();
 
+const getFlightTimeValue = (flight, keys) => {
+  for (const key of keys) {
+    const value = cleanText(flight?.[key]);
+    if (value) return value;
+  }
+  return "";
+};
+
+const formatRouteTime = (value) => {
+  const time = cleanText(value);
+  if (!time) return "--:--";
+  const match = time.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return time;
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+};
+
+const getDepartureTime = (flight) =>
+  formatRouteTime(getFlightTimeValue(flight, ["depart_time", "departTime", "departure_time", "departureTime"]));
+
+const getArrivalTime = (flight) =>
+  formatRouteTime(getFlightTimeValue(flight, ["arrive_time", "arriveTime", "arrival_time", "arrivalTime"]));
+
+const getDurationMinutes = (flight) => {
+  const value = Number(
+    flight?.duration_min ??
+    flight?.durationMin ??
+    flight?.duration_minutes ??
+    flight?.durationMinutes ??
+    flight?.duration
+  );
+  return Number.isFinite(value) && value > 0 ? value : 0;
+};
+
+const formatDurationMinutes = (minutes) => {
+  if (!minutes) return "pending";
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+};
+
 const normalizeCabinKey = (value) => {
   const cabin = cleanText(value).toLowerCase();
   if (cabin.includes("business")) return "business";
@@ -334,13 +372,13 @@ const FlightPartnerPage = () => {
           origin_code: flight.from_code,
           destination: flight.to_city,
           destination_code: flight.to_code,
-          departure_time: flight.depart_time,
-          arrival_time: flight.arrive_time,
+          departure_time: getDepartureTime(flight),
+          arrival_time: getArrivalTime(flight),
           passengers: form.travellers,
           class: form.flightClass,
           date: form.departDate,
           aircraft: flight.aircraft_type,
-          duration: flight.duration_min,
+          duration: getDurationMinutes(flight),
           lead_passenger: passengerDetails.name,
           contact_number: passengerDetails.phone,
           seats: passengerDetails.seats.join(", "),
@@ -502,6 +540,9 @@ const FlightPartnerPage = () => {
               const isAvailable = price > 0 && seats >= form.travellers;
               const fromCode = flight.from_code || getRouteCode(flight.from_city);
               const toCode = flight.to_code || getRouteCode(flight.to_city);
+              const departureTime = getDepartureTime(flight);
+              const arrivalTime = getArrivalTime(flight);
+              const durationMinutes = getDurationMinutes(flight);
 
               return (
                 <motion.div key={flight.id} layout className="group rounded-[32px] border border-gray-100 bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-sky-900/5 lg:p-8">
@@ -518,14 +559,14 @@ const FlightPartnerPage = () => {
 
                     <div className="flex flex-1 items-center justify-center gap-6 sm:gap-12">
                       <div className="text-center sm:text-right">
-                        <p className="mb-2 text-3xl font-extrabold leading-none text-gray-900">{flight.depart_time}</p>
+                        <p className="mb-2 text-3xl font-extrabold leading-none text-gray-900">{departureTime}</p>
                         <p className="flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-widest text-gray-500 sm:justify-end">
                           <MdOutlineFlightTakeoff className="text-sky-500" /> {flight.from_city} ({fromCode})
                         </p>
                       </div>
                       <div className="flex w-full max-w-[160px] flex-col items-center">
                         <div className="mb-2 flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-widest text-gray-400">
-                          <MdOutlineAccessTime /> {Math.floor((flight.duration_min || 0) / 60)}h {(flight.duration_min || 0) % 60}m
+                          <MdOutlineAccessTime /> Flight time {formatDurationMinutes(durationMinutes)}
                         </div>
                         <div className="relative h-[2px] w-full bg-gray-200">
                           <div className="absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-gray-100 bg-white shadow-sm">
@@ -537,7 +578,7 @@ const FlightPartnerPage = () => {
                         </button>
                       </div>
                       <div className="text-center sm:text-left">
-                        <p className="mb-2 text-3xl font-extrabold leading-none text-gray-900">{flight.arrive_time}</p>
+                        <p className="mb-2 text-3xl font-extrabold leading-none text-gray-900">{arrivalTime}</p>
                         <p className="flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-widest text-gray-500 sm:justify-start">
                           <MdOutlineFlightLand className="text-sky-500" /> {flight.to_city} ({toCode})
                         </p>

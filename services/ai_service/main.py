@@ -16,9 +16,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
+        "http://localhost:5273",
         "http://localhost:5174",
+        "http://localhost:5274",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5273",
         "http://127.0.0.1:5174",
+        "http://127.0.0.1:5274",
         "http://localhost:3000",
         "http://localhost:8080",
     ],
@@ -26,7 +30,7 @@ app.add_middleware(
         r"^https?://"
         r"(?:localhost|127\.0\.0\.1|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|"
         r"172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})"
-        r"(?::(?:3000|5173|5174|8080))?$"
+        r"(?::(?:3000|5173|5174|5273|5274|8080))?$"
     ),
     allow_credentials=True,
     allow_methods=["*"],

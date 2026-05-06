@@ -1288,15 +1288,32 @@ def normalize_scheduled_flight(doc: dict[str, Any]) -> dict[str, Any]:
     business_price = to_float(doc.get("businessPrice") or doc.get("business_price"))
     first_price = to_float(doc.get("firstPrice") or doc.get("first_price"))
     visible_prices = [p for p in [economy_price, business_price, first_price] if p is not None and p > 0]
+    duration_minutes = to_float(
+        doc.get("durationMin")
+        or doc.get("durationMinutes")
+        or doc.get("duration_min")
+        or doc.get("duration_minutes")
+        or doc.get("duration")
+    )
 
     return {
         "id": clean_text(doc.get("id")) or "",
         "flight_number": clean_text(doc.get("flightNumber") or doc.get("flight_number")) or "-",
         "from_city": clean_text(doc.get("from") or doc.get("fromCity") or doc.get("from_city")) or "-",
         "to_city": clean_text(doc.get("to") or doc.get("toCity") or doc.get("to_city")) or "-",
-        "depart_time": clean_text(doc.get("departTime") or doc.get("depart_time")) or "",
-        "arrive_time": clean_text(doc.get("arriveTime") or doc.get("arrive_time")) or "",
-        "duration_min": int(doc.get("durationMin") or doc.get("duration_min") or 0),
+        "depart_time": clean_text(
+            doc.get("departTime")
+            or doc.get("departureTime")
+            or doc.get("depart_time")
+            or doc.get("departure_time")
+        ) or "",
+        "arrive_time": clean_text(
+            doc.get("arriveTime")
+            or doc.get("arrivalTime")
+            or doc.get("arrive_time")
+            or doc.get("arrival_time")
+        ) or "",
+        "duration_min": int(duration_minutes or 0),
         "days_of_week": days,
         "total_seats": int(doc.get("totalSeats") or doc.get("total_seats") or 0),
         "economy_seats": int(doc.get("economySeats") or doc.get("economy_seats") or 0),

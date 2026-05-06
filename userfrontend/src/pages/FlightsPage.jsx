@@ -196,6 +196,44 @@ const getPriceAndSeats = (flight, flightClass, date) => {
   };
 };
 
+const getFlightTimeValue = (flight, keys) => {
+  for (const key of keys) {
+    const value = cleanText(flight?.[key]);
+    if (value) return value;
+  }
+  return "";
+};
+
+const formatRouteTime = (value) => {
+  const time = cleanText(value);
+  if (!time) return "--:--";
+  const match = time.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return time;
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+};
+
+const getDepartureTime = (flight) =>
+  formatRouteTime(getFlightTimeValue(flight, ["depart_time", "departTime", "departure_time", "departureTime"]));
+
+const getArrivalTime = (flight) =>
+  formatRouteTime(getFlightTimeValue(flight, ["arrive_time", "arriveTime", "arrival_time", "arrivalTime"]));
+
+const getDurationMinutes = (flight) => {
+  const value = Number(
+    flight?.duration_min ??
+    flight?.durationMin ??
+    flight?.duration_minutes ??
+    flight?.durationMinutes ??
+    flight?.duration
+  );
+  return Number.isFinite(value) && value > 0 ? value : 0;
+};
+
+const formatDurationMinutes = (minutes) => {
+  if (!minutes) return "pending";
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+};
+
 const CabinMap = ({ cabin, travellers, selected = [], disabledSeats = [], onChange }) => {
   const disabledSeatSet = useMemo(
     () => new Set(disabledSeats.map((seat) => String(seat).toUpperCase())),
@@ -534,13 +572,13 @@ const FlightsPage = () => {
           origin_code: flight.from_code,
           destination: flight.to_city,
           destination_code: flight.to_code,
-          departure_time: flight.depart_time,
-          arrival_time: flight.arrive_time,
+          departure_time: getDepartureTime(flight),
+          arrival_time: getArrivalTime(flight),
           passengers: form.travellers,
           class: form.flightClass,
           date: form.departDate,
           aircraft: flight.aircraft_type,
-          duration: flight.duration_min,
+          duration: getDurationMinutes(flight),
           lead_passenger: passengerDetails.name,
           contact_number: passengerDetails.phone,
           seats: passengerDetails.seats.join(", ")
@@ -807,6 +845,9 @@ const FlightsPage = () => {
                 {searchResults.map(f => {
                   const { price, seats } = getPriceAndSeats(f, form.flightClass, form.departDate);
                   const isAvailable = price > 0 && seats >= form.travellers;
+                  const departureTime = getDepartureTime(f);
+                  const arrivalTime = getArrivalTime(f);
+                  const durationMinutes = getDurationMinutes(f);
 
                   return (
                     <motion.div 
@@ -836,7 +877,7 @@ const FlightsPage = () => {
                       {/* Journey Details */}
                       <div className="flex-1 flex items-center justify-center gap-6 sm:gap-12 w-full">
                         <div className="text-center sm:text-right">
-                          <p className="text-3xl font-extrabold text-gray-900 leading-none mb-2">{f.depart_time}</p>
+                          <p className="text-3xl font-extrabold text-gray-900 leading-none mb-2">{departureTime}</p>
                           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center justify-center sm:justify-end gap-1.5">
                             <MdOutlineFlightTakeoff className="text-sky-500" /> {f.from_city} ({f.from_code})
                           </p>
@@ -845,7 +886,7 @@ const FlightsPage = () => {
                         <div className="flex flex-col items-center w-full max-w-[120px] sm:max-w-[180px]">
                           <div className="flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-widest text-gray-400 mb-2">
                              <MdOutlineAccessTime className="text-xs" />
-                             {Math.floor(f.duration_min/60)}h {f.duration_min%60}m
+                             Flight time {formatDurationMinutes(durationMinutes)}
                           </div>
                           <div className="relative w-full h-[2px] bg-gray-200">
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-sm">
@@ -858,7 +899,7 @@ const FlightsPage = () => {
                         </div>
 
                         <div className="text-center sm:text-left">
-                          <p className="text-3xl font-extrabold text-gray-900 leading-none mb-2">{f.arrive_time}</p>
+                          <p className="text-3xl font-extrabold text-gray-900 leading-none mb-2">{arrivalTime}</p>
                           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center justify-center sm:justify-start gap-1.5">
                             <MdOutlineFlightLand className="text-sky-500" /> {f.to_city} ({f.to_code})
                           </p>

@@ -1,7 +1,7 @@
 export const CAB_TIER_OPTIONS = [
   {
     key: "tier_1",
-    label: "Tier 1",
+    label: "Basic",
     perKmRate: 20,
     minPassengers: 1,
     maxPassengers: 3,
@@ -9,7 +9,7 @@ export const CAB_TIER_OPTIONS = [
   },
   {
     key: "tier_2",
-    label: "Tier 2",
+    label: "Standard",
     perKmRate: 50,
     minPassengers: 4,
     maxPassengers: 5,
@@ -17,7 +17,7 @@ export const CAB_TIER_OPTIONS = [
   },
   {
     key: "tier_3",
-    label: "Tier 3",
+    label: "Premium",
     perKmRate: 100,
     minPassengers: 6,
     maxPassengers: 8,

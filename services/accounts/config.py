@@ -47,7 +47,7 @@ class Settings:
     # Payments
     RAZORPAY_KEY_ID: str = os.getenv("RAZORPAY_KEY_ID", "")
     RAZORPAY_KEY_SECRET: str = os.getenv("RAZORPAY_KEY_SECRET", "")
-    FRONTEND_APP_URL: str = os.getenv("FRONTEND_APP_URL", "http://localhost:5173")
+    FRONTEND_APP_URL: str = os.getenv("FRONTEND_APP_URL", "http://localhost:5273")
 
     @property
     def DATABASE_URL(self) -> str:
