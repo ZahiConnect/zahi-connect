@@ -2,8 +2,14 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
+const rawBasePath = process.env.VITE_BASE_PATH;
+const basePath =
+  rawBasePath && rawBasePath !== "/"
+    ? `/${rawBasePath.replace(/^\/+|\/+$/g, "")}/`
+    : "/";
+
 export default defineConfig({
-  base: process.env.VERCEL ? "/driver/" : "/",
+  base: basePath,
   plugins: [react(), tailwindcss()],
   server: {
     host: "0.0.0.0",

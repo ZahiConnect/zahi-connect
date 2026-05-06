@@ -181,8 +181,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: ai_service
-  # Using ai_service with underscore to match Nginx upstream variable
+  name: ai-service
+  # Using ai-service to match K8s requirements
 spec:
   selector:
     app: ai-service
