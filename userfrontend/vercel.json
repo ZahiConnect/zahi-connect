@@ -2,35 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
-      "source": "/auth/:path*",
-      "destination": "http://k8s-default-gateway-fe9eb21d44-ce2b82c57f5c31ef.elb.ap-south-1.amazonaws.com/auth/:path*"
-    },
-    {
-      "source": "/hotel/:path*",
-      "destination": "http://k8s-default-gateway-fe9eb21d44-ce2b82c57f5c31ef.elb.ap-south-1.amazonaws.com/hotel/:path*"
-    },
-    {
-      "source": "/rms/:path*",
-      "destination": "http://k8s-default-gateway-fe9eb21d44-ce2b82c57f5c31ef.elb.ap-south-1.amazonaws.com/rms/:path*"
-    },
-    {
-      "source": "/mobility/:path*",
-      "destination": "http://k8s-default-gateway-fe9eb21d44-ce2b82c57f5c31ef.elb.ap-south-1.amazonaws.com/mobility/:path*"
-    },
-    {
-      "source": "/flight/:path*",
-      "destination": "http://k8s-default-gateway-fe9eb21d44-ce2b82c57f5c31ef.elb.ap-south-1.amazonaws.com/flight/:path*"
-    },
-    {
-      "source": "/ai/:path*",
-      "destination": "http://k8s-default-gateway-fe9eb21d44-ce2b82c57f5c31ef.elb.ap-south-1.amazonaws.com/ai/:path*"
-    },
-    {
-      "source": "/booking/:path*",
-      "destination": "http://k8s-default-gateway-fe9eb21d44-ce2b82c57f5c31ef.elb.ap-south-1.amazonaws.com/booking/:path*"
-    },
-    {
-      "source": "/(.*)",
+      "source": "/((?!api).*)",
       "destination": "/index.html"
     }
   ]
