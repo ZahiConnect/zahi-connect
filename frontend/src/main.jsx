@@ -7,8 +7,7 @@ import { Toaster } from 'react-hot-toast'
 import './index.css'
 import App from './App.jsx'
 
-// Hardcoded for development, should ideally be in .env
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "454684305146-fo80ih4nfk13tplpq56kt2v10f8arqd8.apps.googleusercontent.com";
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
