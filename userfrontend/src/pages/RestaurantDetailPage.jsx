@@ -377,7 +377,7 @@ const RestaurantDetailPage = () => {
 
   if (!restaurant) {
     return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center p-8 text-center bg-gray-50 rounded-3xl mt-6 mx-4 sm:mx-8">
+      <div className="mx-2 mt-6 flex min-h-[80vh] flex-col items-center justify-center rounded-3xl bg-gray-50 p-5 text-center sm:mx-8 sm:p-8">
         <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center text-orange-500 mb-6">
           <BiRestaurant className="text-4xl" />
         </div>
@@ -397,16 +397,16 @@ const RestaurantDetailPage = () => {
   }
 
   return (
-    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden lg:overflow-visible mb-12 pb-24 pt-4">
+    <div className="mb-12 min-h-[80vh] overflow-hidden rounded-[24px] border border-gray-100 bg-white pb-16 pt-4 shadow-sm sm:rounded-[40px] sm:pb-24 lg:overflow-visible">
       {/* Navigation Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+      <div className="mx-auto mb-6 max-w-7xl px-3 sm:px-6 lg:px-8">
         <Link to="/restaurants" className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100 w-fit">
           <FiArrowLeft />
           Back to food
         </Link>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-8 lg:grid-cols-[1fr_380px]">
+      <div className="mx-auto grid max-w-7xl gap-6 px-3 sm:gap-8 sm:px-6 lg:grid-cols-[1fr_380px] lg:px-8">
         {/* Left Column: Details & Menu */}
         <div className="space-y-8">
           
@@ -414,7 +414,7 @@ const RestaurantDetailPage = () => {
           <motion.section 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-gray-100 flex flex-col relative"
+            className="relative flex flex-col overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-sm sm:rounded-[32px]"
           >
             {/* Gallery Image */}
             <div className="relative h-64 md:h-[400px] bg-gray-100 w-full group">
@@ -446,16 +446,16 @@ const RestaurantDetailPage = () => {
             </div>
 
             {/* Info Block */}
-            <div className="p-8 md:p-10 relative">
+            <div className="relative p-5 sm:p-8 md:p-10">
               {/* Floating avatar/icon */}
-              <div className="absolute -top-12 left-8 md:left-10 w-24 h-24 bg-white rounded-2xl shadow-xl flex items-center justify-center p-2 border border-gray-50 overflow-hidden">
+              <div className="absolute -top-10 left-5 flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border border-gray-50 bg-white p-2 shadow-xl sm:-top-12 sm:left-8 sm:h-24 sm:w-24 md:left-10">
                  <div className="w-full h-full bg-orange-100 rounded-xl flex items-center justify-center text-orange-500">
                    <BiRestaurant className="text-4xl" />
                  </div>
               </div>
               
               <div className="mt-14">
-                <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight leading-none mb-2">
+                <h1 className="mb-2 text-3xl font-extrabold leading-tight tracking-tight text-gray-900 sm:text-4xl md:text-5xl">
                   {restaurant.tenant?.name}
                 </h1>
                 
@@ -493,7 +493,7 @@ const RestaurantDetailPage = () => {
           {/* Menu Sections */}
           <div className="space-y-12">
             {visibleSections.length === 0 ? (
-              <div className="bg-white rounded-[32px] p-12 text-center border border-gray-100">
+              <div className="rounded-[24px] border border-gray-100 bg-white p-8 text-center sm:rounded-[32px] sm:p-12">
                  <FiInfo className="text-4xl text-gray-300 mx-auto mb-4" />
                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Menu is empty</h2>
                  <p className="text-gray-500">This location has not added any live menu items yet.</p>
@@ -519,13 +519,13 @@ const RestaurantDetailPage = () => {
                         <div 
                           id={`dish-${item.id}`}
                           key={item.id}
-                          className={`bg-white rounded-3xl p-4 flex gap-4 transition-all duration-300 border ${
+                          className={`flex flex-col gap-4 rounded-3xl border bg-white p-4 transition-all duration-300 sm:flex-row ${
                             String(focusedItemId) === String(item.id)
                               ? "border-orange-300 shadow-md ring-4 ring-orange-50" 
                               : "border-gray-100 hover:border-gray-200 shadow-sm hover:shadow-md"
                           }`}
                         >
-                          <div className="w-28 h-28 shrink-0 rounded-2xl bg-gray-50 overflow-hidden relative border border-gray-100">
+                          <div className="relative h-40 w-full shrink-0 overflow-hidden rounded-2xl border border-gray-100 bg-gray-50 sm:h-28 sm:w-28">
                             {item.image_url ? (
                               <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                             ) : (
@@ -582,7 +582,7 @@ const RestaurantDetailPage = () => {
 
         {/* Right Column: Cart Sticky */}
         <div className="relative lg:self-start lg:sticky lg:top-20">
-          <div className="bg-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-gray-200/40 border border-gray-100">
+          <div className="rounded-[24px] border border-gray-100 bg-white p-5 shadow-xl shadow-gray-200/40 sm:rounded-[32px] sm:p-8">
             <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-6">
               <div className="w-12 h-12 bg-gray-900 text-white rounded-2xl flex items-center justify-center">
                 <FiShoppingBag className="text-xl" />
@@ -668,7 +668,7 @@ const RestaurantDetailPage = () => {
             )}
             
             {/* Quick Contact Info */}
-            <div className="mt-8 pt-6 border-t border-gray-100 grid grid-cols-2 gap-4">
+            <div className="mt-8 grid grid-cols-1 gap-4 border-t border-gray-100 pt-6 sm:grid-cols-2">
                <div className="bg-gray-50 rounded-2xl p-4 text-center">
                  <FiPhone className="text-gray-400 mx-auto mb-2" />
                  <p className="text-xs text-gray-900 font-semibold break-all">

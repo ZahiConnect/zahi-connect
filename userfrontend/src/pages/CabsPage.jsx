@@ -347,13 +347,13 @@ const CabsPage = () => {
   };
 
   return (
-    <div className="mx-auto mb-12 flex min-h-[80vh] max-w-7xl flex-col overflow-hidden rounded-[32px] border border-gray-100 bg-white px-4 pb-20 pt-6 shadow-sm sm:rounded-[40px] md:px-8">
+    <div className="mx-auto mb-12 flex min-h-[80vh] max-w-7xl flex-col overflow-hidden rounded-[24px] border border-gray-100 bg-white px-3 pb-14 pt-4 shadow-sm sm:rounded-[40px] sm:px-4 sm:pb-20 sm:pt-6 md:px-8">
       <motion.section
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative mb-12"
       >
-        <div className="relative overflow-hidden rounded-[32px] border-2 border-orange-50 bg-white p-8 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)] md:rounded-[40px] md:p-14 lg:p-16">
+        <div className="relative overflow-hidden rounded-[24px] border-2 border-orange-50 bg-white p-5 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)] sm:rounded-[32px] sm:p-8 md:rounded-[40px] md:p-14 lg:p-16">
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <div className="absolute right-[-5%] top-[-10%] h-[60%] w-[40%] rounded-full bg-gradient-to-bl from-orange-200/50 via-orange-100/30 to-transparent blur-3xl mix-blend-multiply" />
             <div className="absolute bottom-[-10%] left-[-5%] h-[50%] w-[50%] rounded-full bg-gradient-to-tr from-yellow-200/40 via-orange-50/20 to-transparent blur-3xl mix-blend-multiply" />
@@ -398,7 +398,7 @@ const CabsPage = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="mb-6 text-5xl font-extrabold leading-[1.05] tracking-tight text-slate-800 drop-shadow-sm md:text-6xl lg:text-7xl"
+              className="mb-6 text-4xl font-extrabold leading-[1.05] tracking-tight text-slate-800 drop-shadow-sm sm:text-5xl md:text-6xl lg:text-7xl"
             >
               Every route,
               <br className="hidden md:block" />
@@ -411,7 +411,7 @@ const CabsPage = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="mb-10 max-w-xl text-lg leading-relaxed text-slate-500 md:text-xl"
+              className="mb-8 max-w-xl text-base leading-relaxed text-slate-500 sm:mb-10 sm:text-lg md:text-xl"
             >
               Choose your route, see transparent tier pricing, and send a paid cab request
               to verified Zahi drivers nearby.
@@ -429,9 +429,9 @@ const CabsPage = () => {
       >
         <motion.section
           variants={itemVariants}
-          className="rounded-[32px] border border-gray-100 bg-gray-50/50 p-6 sm:p-8"
+          className="rounded-[24px] border border-gray-100 bg-gray-50/50 p-4 sm:rounded-[32px] sm:p-8"
         >
-          <div className="mb-10 flex items-center gap-3">
+          <div className="mb-8 flex items-center gap-3 sm:mb-10">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-100 text-orange-600 shadow-sm shadow-orange-500/10">
               <MdOutlineDirectionsCar className="text-2xl" />
             </div>
@@ -552,7 +552,7 @@ const CabsPage = () => {
             </FormField>
 
             <div>
-              <div className="mb-2 flex items-center justify-between gap-3 px-1">
+                <div className="mb-2 flex flex-col gap-1 px-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500">
                   <FiShield className="text-orange-500" />
                   Eligible nearby drivers
@@ -684,7 +684,7 @@ const CabsPage = () => {
               type="button"
               onClick={startPaymentAndRequest}
               disabled={paying || loadingDrivers}
-              className={`flex h-16 w-full items-center justify-center gap-3 rounded-2xl text-lg font-black shadow-xl transition-all ${
+              className={`flex min-h-16 w-full items-center justify-center gap-3 rounded-2xl px-4 py-4 text-sm font-black shadow-xl transition-all sm:text-lg ${
                 paying || loadingDrivers
                   ? "cursor-not-allowed bg-gray-100 text-gray-400"
                   : "bg-gray-900 text-white shadow-gray-900/10 hover:bg-black active:scale-95"

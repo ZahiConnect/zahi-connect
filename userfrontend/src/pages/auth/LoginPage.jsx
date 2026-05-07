@@ -117,7 +117,7 @@ const LoginPage = () => {
   };
 
   return (
-    <main className="min-h-screen bg-[#f7f8fb] px-4 py-8 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#f7f8fb] px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
       <motion.div
         variants={page}
         initial="hidden"
@@ -218,15 +218,15 @@ const LoginPage = () => {
 
           <motion.div
             layout
-            className="overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-2xl shadow-gray-200/70"
+            className="overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-2xl shadow-gray-200/70 sm:rounded-[32px]"
           >
-            <div className="border-b border-gray-100 bg-gray-50/70 px-7 py-6 sm:px-8">
+            <div className="border-b border-gray-100 bg-gray-50/70 px-5 py-5 sm:px-8 sm:py-6">
               <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-orange-500">Sign in</p>
-              <h2 className="mt-3 text-4xl font-extrabold tracking-tight text-gray-950">Welcome back</h2>
+              <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-gray-950 sm:text-4xl">Welcome back</h2>
               <p className="mt-2 text-sm leading-6 text-gray-500">Continue to your bookings, orders, and saved travel activity.</p>
             </div>
 
-            <div className="p-7 sm:p-8">
+            <div className="p-5 sm:p-8">
               <button
                 type="button"
                 onClick={() => googleLogin()}

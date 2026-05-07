@@ -92,8 +92,8 @@ const Header = () => {
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between sm:h-20">
 
           {/* Logo & Location */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
@@ -169,7 +169,7 @@ const Header = () => {
             exit={{ opacity: 0, height: 0 }}
             className="md:hidden border-t border-gray-100 bg-white overflow-hidden"
           >
-            <div className="p-4 space-y-2">
+            <div className="max-h-[calc(100vh-4rem)] space-y-2 overflow-y-auto p-4 sm:max-h-[calc(100vh-5rem)]">
               <div className="pb-4 mb-2 border-b border-gray-100"><LocationBadge /></div>
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -218,9 +218,9 @@ const Header = () => {
 
 const Footer = () => (
   <footer className="mt-20 border-t border-gray-100">
-    <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 text-sm text-gray-500 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr] lg:px-8">
+    <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 text-sm text-gray-500 sm:px-6 sm:py-12 lg:grid-cols-[1.4fr_1fr_1fr] lg:px-8">
       <div>
-        <p className="font-display text-4xl text-gray-900">Your journey starts here.</p>
+        <p className="font-display text-3xl text-gray-900 sm:text-4xl">Your journey starts here.</p>
         <p className="mt-4 max-w-xl leading-7">
           Zahi Trips brings together hotels, restaurants, cabs, and flights in one seamless
           marketplace. Book confidently with real-time pricing and availability.
@@ -250,7 +250,7 @@ const Footer = () => (
 const AppShell = () => (
   <div className="min-h-screen">
     <Header />
-    <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-7xl px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
       <Outlet />
     </main>
     <Footer />
@@ -258,9 +258,9 @@ const AppShell = () => (
 );
 
 const NotFoundPage = () => (
-  <div className="glass-panel mx-auto max-w-2xl rounded-[36px] px-8 py-14 text-center">
+  <div className="glass-panel mx-auto max-w-2xl rounded-[28px] px-5 py-10 text-center sm:rounded-[36px] sm:px-8 sm:py-14">
     <p className="text-xs uppercase tracking-[0.32em] text-orange-600">Page not found</p>
-    <h1 className="font-display mt-4 text-6xl text-gray-900">This page doesn&apos;t exist.</h1>
+    <h1 className="font-display mt-4 text-4xl text-gray-900 sm:text-6xl">This page doesn&apos;t exist.</h1>
     <p className="mt-4 text-gray-500">
       The link may have changed or the page has been removed. Head back home to continue browsing
       hotels, restaurants, and more.

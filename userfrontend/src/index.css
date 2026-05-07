@@ -39,6 +39,28 @@ html {
   scroll-behavior: smooth;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+@supports not (overflow: clip) {
+  html,
+  body,
+  #root {
+    overflow-x: hidden;
+  }
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -79,6 +101,20 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+img,
+video,
+canvas {
+  max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 .font-display {

@@ -14,11 +14,11 @@ const fadeUp = {
 };
 
 const AuthShell = ({ children, footer }) => (
-  <div className="min-h-screen flex items-center justify-center px-4 py-10 relative overflow-hidden">
+  <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-3 py-8 sm:px-4 sm:py-10">
     {/* Ambient background */}
     <div className="pointer-events-none absolute inset-0">
-      <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-gradient-to-b from-indigo-50/50 to-transparent rounded-full blur-3xl" />
-      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-gradient-to-t from-orange-50/40 to-transparent rounded-full blur-3xl" />
+      <div className="absolute left-[-6rem] top-0 h-[18rem] w-[24rem] rounded-full bg-gradient-to-b from-indigo-50/50 to-transparent blur-3xl sm:left-1/4 sm:h-[400px] sm:w-[600px]" />
+      <div className="absolute bottom-0 right-[-8rem] h-[18rem] w-[22rem] rounded-full bg-gradient-to-t from-orange-50/40 to-transparent blur-3xl sm:right-1/4 sm:h-[400px] sm:w-[400px]" />
     </div>
 
     <motion.div
@@ -28,7 +28,7 @@ const AuthShell = ({ children, footer }) => (
       className="relative w-full max-w-[440px] mx-auto"
     >
       {/* Logo & back */}
-      <motion.div variants={fadeUp} className="flex items-center justify-between mb-10">
+      <motion.div variants={fadeUp} className="mb-8 flex items-center justify-between sm:mb-10">
         <Link to="/" className="inline-flex items-center gap-3 group">
           <ZahiLogo
             label="Zahi"
@@ -47,7 +47,7 @@ const AuthShell = ({ children, footer }) => (
       {/* Card */}
       <motion.div
         variants={fadeUp}
-        className="bg-white rounded-[32px] shadow-[0_20px_60px_-12px_rgba(0,0,0,0.08)] border border-gray-100 p-7 sm:p-8"
+        className="rounded-[24px] border border-gray-100 bg-white p-5 shadow-[0_20px_60px_-12px_rgba(0,0,0,0.08)] sm:rounded-[32px] sm:p-8"
       >
         {children}
       </motion.div>

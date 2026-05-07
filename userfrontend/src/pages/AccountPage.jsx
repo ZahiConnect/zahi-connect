@@ -21,6 +21,7 @@ import {
   MdOutlineLocalTaxi, 
   MdOutlineFlight 
 } from "react-icons/md";
+import { FaCreditCard } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
 import {
@@ -141,13 +142,13 @@ const AccountPage = () => {
   };
 
   return (
-    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden mb-12 flex flex-col pt-6 pb-20 px-4 md:px-8 max-w-7xl mx-auto">
+    <div className="mx-auto mb-12 flex min-h-[80vh] max-w-7xl flex-col overflow-hidden rounded-[24px] border border-gray-100 bg-white px-3 pb-14 pt-4 shadow-sm sm:rounded-[40px] sm:px-4 sm:pb-20 sm:pt-6 md:px-8">
       
       {/* Header Panel */}
       <motion.section 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-10 bg-gray-900 rounded-[32px] p-8 md:p-12 text-white relative overflow-hidden shadow-2xl"
+        className="relative mb-8 overflow-hidden rounded-[24px] bg-gray-900 p-5 text-white shadow-2xl sm:mb-10 sm:rounded-[32px] sm:p-8 md:p-12"
       >
         <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none">
           <FiActivity className="text-[200px]" />
@@ -157,20 +158,20 @@ const AccountPage = () => {
           <span className="inline-flex items-center gap-2 bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 px-4 py-1.5 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase mb-6">
             <FiUser /> Secure Profile
           </span>
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">
+          <h1 className="mb-4 text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
             Welcome back, <span className="text-indigo-400">{user?.username || "Traveler"}</span>
           </h1>
-          <p className="text-gray-400 text-lg leading-relaxed max-w-2xl">
+          <p className="max-w-2xl text-base leading-relaxed text-gray-400 sm:text-lg">
             Manage your global travel identity, track your confirmed bookings, and oversee your workspace permissions all from one dashboard.
           </p>
         </div>
       </motion.section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-10 items-start">
+      <div className="grid grid-cols-1 items-start gap-6 sm:gap-10 lg:grid-cols-[350px_1fr]">
         
         {/* Left Sidebar: Profile Details */}
         <aside className="space-y-6 lg:sticky lg:top-24">
-          <div className="bg-gray-50 border border-gray-100 rounded-[32px] p-8">
+          <div className="rounded-[24px] border border-gray-100 bg-gray-50 p-5 sm:rounded-[32px] sm:p-8">
             <div className="flex flex-col items-center text-center mb-8">
               <div className="w-24 h-24 bg-indigo-100 border-4 border-white text-indigo-700 rounded-3xl flex items-center justify-center text-3xl font-black shadow-xl mb-4">
                 {initials}
@@ -207,7 +208,7 @@ const AccountPage = () => {
           </div>
 
           {/* Workspace Visibility */}
-          <div className="bg-white border border-gray-100 rounded-[32px] p-8 shadow-sm">
+          <div className="rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm sm:rounded-[32px] sm:p-8">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center text-white">
                 <FiBriefcase />
@@ -236,7 +237,7 @@ const AccountPage = () => {
 
         {/* Right Side: Activity List */}
         <main>
-          <div className="flex items-center justify-between mb-8">
+          <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
                 <FiActivity className="text-xl" />
@@ -256,7 +257,7 @@ const AccountPage = () => {
                 ))}
               </motion.div>
             ) : requests.length === 0 ? (
-              <motion.div key="empty" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="py-20 text-center bg-gray-50 rounded-[32px] border border-dashed border-gray-200">
+              <motion.div key="empty" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-[24px] border border-dashed border-gray-200 bg-gray-50 py-14 text-center sm:rounded-[32px] sm:py-20">
                 <FiBriefcase className="text-5xl text-gray-200 mx-auto mb-6" />
                 <h4 className="text-xl font-bold text-gray-800 mb-2">No active journeys found</h4>
                 <p className="text-gray-500 max-w-sm mx-auto mb-8 px-6 text-sm">
@@ -279,7 +280,7 @@ const AccountPage = () => {
               >
                 {Object.entries(groupedRequests).map(([serviceType, items]) => (
                   <div key={serviceType} className="space-y-4">
-                    <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                    <div className="flex flex-col gap-2 border-b border-gray-100 pb-2 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-[10px] uppercase tracking-[0.2em] font-black text-gray-300">
                         {formatServiceLabel(serviceType)}
                       </span>
@@ -293,7 +294,7 @@ const AccountPage = () => {
                         <motion.div
                           key={request.id}
                           variants={itemVariants}
-                          className="bg-white border border-gray-100 rounded-[28px] p-6 lg:p-7 hover:shadow-2xl hover:shadow-gray-900/5 transition-all duration-300 relative overflow-hidden group"
+                          className="group relative overflow-hidden rounded-[24px] border border-gray-100 bg-white p-4 transition-all duration-300 hover:shadow-2xl hover:shadow-gray-900/5 sm:rounded-[28px] sm:p-6 lg:p-7"
                         >
                           <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
                              <div className={`w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 ${getStatusStyles(request.status)}`}>
@@ -302,7 +303,7 @@ const AccountPage = () => {
 
                              <div className="flex-1 min-w-0">
                                <div className="flex flex-wrap items-center gap-3 mb-2">
-                                 <h5 className="text-lg font-extrabold text-gray-900 truncate">{request.title}</h5>
+                                 <h5 className="break-words text-lg font-extrabold text-gray-900 sm:truncate">{request.title}</h5>
                                  <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${getStatusStyles(request.status)}`}>
                                    {request.status || "Pending"}
                                  </span>

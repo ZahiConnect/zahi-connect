@@ -268,9 +268,9 @@ const CabinMap = ({ cabin, travellers, selected = [], disabledSeats = [], onChan
   return (
     <div className="p-5 bg-sky-50/30 border border-sky-100 rounded-[20px] col-span-1 md:col-span-2 mt-2">
        <p className="text-[11px] font-bold text-sky-600 uppercase tracking-widest text-center mb-6">Interactive Seat Selector ({cabin})</p>
-       <div className="flex flex-col gap-3 justify-center items-center mx-auto">
+       <div className="mx-auto flex flex-col items-center justify-center gap-2.5 sm:gap-3">
          {layout.rows.map(r => (
-           <div key={r} className="flex items-center gap-2.5">
+           <div key={r} className="flex items-center gap-1.5 sm:gap-2.5">
              {layout.cols.map(c => {
                const s = `${r}${c}`;
                const isSel = selected.includes(s);
@@ -278,13 +278,13 @@ const CabinMap = ({ cabin, travellers, selected = [], disabledSeats = [], onChan
                const cl = cabin?.toLowerCase() || "economy";
                const isAisle = (cl==="economy" && c==="C") || (cl==="business" && c==="B") || (cl==="first" && c==="A");
                return (
-                 <div key={s} className={`${isAisle ? "mr-6" : ""}`}>
+                 <div key={s} className={`${isAisle ? "mr-3 sm:mr-6" : ""}`}>
                    <button 
                      type="button"
                      disabled={isBooked}
                      title={isBooked ? "Booked" : s}
                      onClick={() => toggle(s)} 
-                     className={`w-9 h-11 rounded-t-xl rounded-b-md text-[10px] font-bold flex items-center justify-center transition-all ${isBooked ? 'cursor-not-allowed border-2 border-gray-200 bg-gray-200 text-gray-400 line-through' : isSel ? 'bg-sky-500 text-white shadow-md shadow-sky-500/20' : 'bg-white border-2 border-slate-200 text-slate-500 hover:border-sky-300'}`}
+                     className={`flex h-10 w-8 items-center justify-center rounded-t-xl rounded-b-md text-[10px] font-bold transition-all sm:h-11 sm:w-9 ${isBooked ? 'cursor-not-allowed border-2 border-gray-200 bg-gray-200 text-gray-400 line-through' : isSel ? 'bg-sky-500 text-white shadow-md shadow-sky-500/20' : 'bg-white border-2 border-slate-200 text-slate-500 hover:border-sky-300'}`}
                    >
                      {s}
                    </button>
@@ -647,7 +647,7 @@ const FlightsPage = () => {
   };
 
   return (
-    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden mb-12 flex flex-col pt-6 pb-20 px-4 md:px-8 max-w-7xl mx-auto">
+    <div className="mx-auto mb-12 flex min-h-[80vh] max-w-7xl flex-col overflow-hidden rounded-[24px] border border-gray-100 bg-white px-3 pb-14 pt-4 shadow-sm sm:rounded-[40px] sm:px-4 sm:pb-20 sm:pt-6 md:px-8">
       
       {/* Hero Section */}
       <motion.section 
@@ -655,7 +655,7 @@ const FlightsPage = () => {
         animate={{ opacity: 1, y: 0 }}
         className="mb-12 relative"
       >
-        <div className="bg-white rounded-[32px] md:rounded-[40px] p-8 md:p-14 lg:p-16 border-2 border-slate-100 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)] relative overflow-hidden">
+        <div className="relative overflow-hidden rounded-[24px] border-2 border-slate-100 bg-white p-5 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)] sm:rounded-[32px] sm:p-8 md:rounded-[40px] md:p-14 lg:p-16">
           {/* Animated Background Elements */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
              <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[60%] bg-gradient-to-bl from-sky-200/50 via-sky-100/30 to-transparent rounded-full blur-3xl mix-blend-multiply" />
@@ -702,7 +702,7 @@ const FlightsPage = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.05] text-slate-800 mb-6 drop-shadow-sm"
+              className="mb-6 text-4xl font-extrabold leading-[1.05] tracking-tight text-slate-800 drop-shadow-sm sm:text-5xl md:text-6xl lg:text-7xl"
             >
               Elevate your <br className="hidden md:block"/> 
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-500 to-blue-600">travel experience.</span>
@@ -712,7 +712,7 @@ const FlightsPage = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="text-slate-500 text-lg md:text-xl leading-relaxed max-w-xl mb-12"
+              className="mb-8 max-w-xl text-base leading-relaxed text-slate-500 sm:mb-12 sm:text-lg md:text-xl"
             >
               Unlock seamless global connectivity. Compare elite airlines, book direct routes, and embark on unforgettable journeys with zero hidden fees.
             </motion.p>
@@ -741,7 +741,7 @@ const FlightsPage = () => {
       </motion.section>
 
       {/* Search Bar Container */}
-      <section className="bg-gray-50/50 border border-gray-100 rounded-[32px] p-6 mb-12 shadow-inner">
+      <section className="mb-10 rounded-[24px] border border-gray-100 bg-gray-50/50 p-4 shadow-inner sm:mb-12 sm:rounded-[32px] sm:p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
           <AirportField
             label="Departure"
@@ -824,7 +824,7 @@ const FlightsPage = () => {
             variants={containerVariants}
             className="space-y-8"
           >
-            <div className="flex justify-between items-end border-b border-gray-100 pb-4">
+            <div className="flex flex-col gap-2 border-b border-gray-100 pb-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-sky-600 font-bold mb-1">Flight Schedules</p>
                 <h2 className="text-3xl font-extrabold text-gray-900">{searchResults.length} Flights Found</h2>
@@ -853,10 +853,10 @@ const FlightsPage = () => {
                     <motion.div 
                       key={f.id} 
                       variants={itemVariants}
-                      className="group bg-white border border-gray-100 rounded-[32px] p-6 lg:p-8 flex flex-col lg:flex-row items-center justify-between gap-8 hover:shadow-2xl hover:shadow-sky-900/5 hover:-translate-y-1 transition-all duration-300"
+                      className="group flex flex-col items-center justify-between gap-6 rounded-[24px] border border-gray-100 bg-white p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-sky-900/5 sm:rounded-[32px] sm:p-6 lg:flex-row lg:gap-8 lg:p-8"
                     >
                       {/* Airline Info */}
-                      <div className="flex items-center gap-5 w-full lg:w-[250px]">
+                      <div className="flex w-full items-center gap-4 sm:gap-5 lg:w-[250px]">
                         <div className="w-16 h-16 shrink-0 bg-gray-50 border border-gray-100 rounded-2xl flex items-center justify-center p-2 group-hover:bg-white transition-colors">
                           {f.airline.logo ? (
                             <img src={f.airline.logo} alt={f.airline.name} className="w-full h-full object-contain" />
@@ -875,7 +875,7 @@ const FlightsPage = () => {
                       </div>
 
                       {/* Journey Details */}
-                      <div className="flex-1 flex items-center justify-center gap-6 sm:gap-12 w-full">
+                      <div className="flex w-full flex-1 flex-col items-stretch justify-center gap-4 sm:flex-row sm:items-center sm:gap-8 lg:gap-12">
                         <div className="text-center sm:text-right">
                           <p className="text-3xl font-extrabold text-gray-900 leading-none mb-2">{departureTime}</p>
                           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center justify-center sm:justify-end gap-1.5">
@@ -883,7 +883,7 @@ const FlightsPage = () => {
                           </p>
                         </div>
 
-                        <div className="flex flex-col items-center w-full max-w-[120px] sm:max-w-[180px]">
+                        <div className="flex w-full flex-col items-center sm:max-w-[180px]">
                           <div className="flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-widest text-gray-400 mb-2">
                              <MdOutlineAccessTime className="text-xs" />
                              Flight time {formatDurationMinutes(durationMinutes)}
@@ -907,8 +907,8 @@ const FlightsPage = () => {
                       </div>
 
                       {/* Pricing & Booking */}
-                      <div className="w-full lg:w-[220px] border-t lg:border-t-0 lg:border-l border-gray-100 pt-6 lg:pt-0 lg:pl-8 flex flex-row lg:flex-col items-center lg:items-end justify-between lg:justify-center gap-4">
-                        <div className="text-left lg:text-right">
+                      <div className="flex w-full flex-col items-stretch justify-between gap-4 border-t border-gray-100 pt-5 sm:flex-row sm:items-center lg:w-[220px] lg:flex-col lg:items-end lg:justify-center lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+                            <div className="text-center sm:text-left lg:text-right">
                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
                             Total · {form.travellers} Ticket{form.travellers > 1 ? 's' : ''}
                           </p>
@@ -925,7 +925,7 @@ const FlightsPage = () => {
                         <button
                           onClick={() => handleOpenBooking(f, price)}
                           disabled={submitting || !isAvailable}
-                          className={`rounded-2xl h-14 px-8 font-bold text-sm transition-all flex items-center gap-2 active:scale-95 shadow-lg ${
+                          className={`flex h-14 w-full items-center justify-center gap-2 rounded-2xl px-8 text-sm font-bold shadow-lg transition-all active:scale-95 sm:w-auto ${
                             isAvailable 
                               ? "bg-gray-900 text-white hover:bg-black shadow-gray-900/10" 
                               : "bg-gray-100 text-gray-400 cursor-not-allowed shadow-none"
@@ -1062,8 +1062,8 @@ const FlightsPage = () => {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl flex flex-col max-h-[95vh] overflow-hidden border border-slate-100"
             >
-              <div className="p-8 overflow-y-auto flex-1 space-y-8 custom-scrollbar">
-                <div className="flex items-center justify-between">
+              <div className="custom-scrollbar flex-1 space-y-6 overflow-y-auto p-5 sm:space-y-8 sm:p-8">
+                <div className="flex items-start justify-between gap-4 sm:items-center">
                   <div>
                     <h3 className="text-2xl font-extrabold text-slate-800">Passenger Details</h3>
                     <p className="text-sm font-semibold text-gray-500 mt-1">
@@ -1095,28 +1095,28 @@ const FlightsPage = () => {
                   />
                 </div>
                 
-                <div className="bg-gray-50 rounded-2xl p-4 flex justify-between items-center border border-gray-100">
+                <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                    <div>
                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Amount</p>
                      <p className="text-2xl font-extrabold text-gray-900">{formatCurrency(selectedFlightData.price * form.travellers)}</p>
                    </div>
-                   <div className="text-right">
+                   <div className="sm:text-right">
                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Class & Travellers</p>
                      <p className="text-sm font-bold text-sky-600 capitalize">{form.flightClass} • {form.travellers} Pax</p>
                    </div>
                 </div>
               </div>
               
-              <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-white shrink-0">
+              <div className="flex shrink-0 flex-col gap-3 border-t border-slate-100 bg-white p-5 sm:flex-row sm:justify-end sm:p-6">
                 <button 
                   onClick={() => setCheckoutModalOpen(false)}
-                  className="px-6 py-3 rounded-2xl font-bold text-sm text-gray-600 bg-gray-50 hover:bg-gray-100 transition-all active:scale-95"
+                  className="rounded-2xl bg-gray-50 px-6 py-3 text-sm font-bold text-gray-600 transition-all hover:bg-gray-100 active:scale-95"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={proceedToPayment}
-                  className="px-6 py-3 rounded-2xl font-bold text-sm text-white bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-600/20 transition-all active:scale-95 flex items-center gap-2"
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-sky-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-sky-600/20 transition-all hover:bg-sky-700 active:scale-95"
                 >
                   <FaCreditCard /> Proceed to Pay
                 </button>

@@ -881,7 +881,7 @@ const ActivityPage = () => {
         </div>
       </section>
 
-      <section className="rounded-[32px] border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+      <section className="rounded-[24px] border border-gray-100 bg-white p-4 shadow-sm sm:rounded-[32px] sm:p-6">
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap gap-3">
             {VIEW_TABS.map((tab) => {
@@ -975,10 +975,10 @@ const ActivityPage = () => {
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(index * 0.04, 0.2) }}
-                className="rounded-[32px] border border-gray-100 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-gray-900/5 sm:p-7"
+                className="rounded-[24px] border border-gray-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-gray-900/5 sm:rounded-[32px] sm:p-7"
               >
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="flex gap-4">
+                  <div className="flex min-w-0 gap-3 sm:gap-4">
                     <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${theme.iconWrap}`}>
                       <Icon className="text-2xl" />
                     </div>
@@ -993,7 +993,7 @@ const ActivityPage = () => {
                         </span>
                       </div>
 
-                      <h2 className="mt-3 text-2xl font-black text-gray-900">{request.title}</h2>
+                      <h2 className="mt-3 break-words text-xl font-black text-gray-900 sm:text-2xl">{request.title}</h2>
                       <p className="mt-2 text-sm leading-7 text-gray-500">
                         {request.summary || extractMetaLine(request)}
                       </p>
@@ -1099,7 +1099,7 @@ const ActivityPage = () => {
                     </div>
                   </div>
 
-                  <div className="flex min-w-[180px] flex-col gap-4 rounded-[24px] bg-gray-50 p-5 lg:items-end">
+                  <div className="flex min-w-0 flex-col gap-4 rounded-[24px] bg-gray-50 p-4 sm:p-5 lg:min-w-[180px] lg:items-end">
                     <div className="w-full lg:text-right">
                       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-400">
                         Booking amount

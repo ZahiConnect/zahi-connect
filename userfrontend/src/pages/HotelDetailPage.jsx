@@ -506,16 +506,16 @@ const HotelDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col md:flex-row gap-6 p-6">
-        <div className="flex-1 h-[520px] rounded-3xl bg-gray-100 animate-pulse" />
-        <div className="w-full md:w-[380px] h-[520px] rounded-3xl bg-gray-100 animate-pulse" />
+      <div className="flex flex-col gap-4 p-4 sm:gap-6 sm:p-6 md:flex-row">
+        <div className="h-80 flex-1 animate-pulse rounded-3xl bg-gray-100 sm:h-[520px]" />
+        <div className="h-80 w-full animate-pulse rounded-3xl bg-gray-100 sm:h-[520px] md:w-[380px]" />
       </div>
     );
   }
 
   if (!hotel) {
     return (
-      <div className="text-center py-24 px-10 bg-white rounded-3xl border border-gray-100 mt-10 max-w-2xl mx-auto shadow-sm">
+      <div className="mx-auto mt-10 max-w-2xl rounded-3xl border border-gray-100 bg-white px-5 py-16 text-center shadow-sm sm:px-10 sm:py-24">
         <div className="w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center mx-auto mb-6">
           <MdOutlineHotel className="text-4xl text-indigo-500" />
         </div>
@@ -537,7 +537,7 @@ const HotelDetailPage = () => {
   }
 
   return (
-    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden mb-12 pb-32 p-4 md:p-6 lg:p-8 flex flex-col gap-8">
+    <div className="mb-12 flex min-h-[80vh] flex-col gap-6 overflow-hidden rounded-[24px] border border-gray-100 bg-white p-3 pb-20 shadow-sm sm:rounded-[40px] sm:gap-8 sm:p-4 sm:pb-32 md:p-6 lg:p-8">
 
       <Link
         to="/hotels"
@@ -548,7 +548,7 @@ const HotelDetailPage = () => {
       </Link>
 
       {/* ── Hero section ── */}
-      <section className="bg-gray-900 rounded-[32px] overflow-hidden grid grid-cols-1 lg:grid-cols-2 shadow-2xl relative">
+      <section className="relative grid grid-cols-1 overflow-hidden rounded-[24px] bg-gray-900 shadow-2xl sm:rounded-[32px] lg:grid-cols-2">
         <div className="relative overflow-hidden aspect-[16/10] min-h-[260px] max-h-[420px] lg:aspect-auto lg:h-[560px] lg:max-h-none">
           {currentHeroImage ? (
             <img
@@ -610,13 +610,13 @@ const HotelDetailPage = () => {
         </div>
 
         {/* Info Box */}
-        <div className="p-8 md:p-12 flex flex-col justify-between z-10 relative">
+        <div className="relative z-10 flex flex-col justify-between p-5 sm:p-8 md:p-12">
           <div>
             <span className="inline-flex items-center gap-1.5 text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase mb-6">
               Hotels & Stays
             </span>
 
-            <h1 className="text-4xl md:text-5xl font-extrabold text-white leading-tight mb-3">
+            <h1 className="mb-3 text-3xl font-extrabold leading-tight text-white sm:text-4xl md:text-5xl">
               {hotelName}
             </h1>
 
@@ -626,7 +626,7 @@ const HotelDetailPage = () => {
               </p>
             )}
 
-            <p className="flex items-center gap-2 text-sm text-gray-400 mb-10">
+            <p className="mb-8 flex items-center gap-2 text-sm text-gray-400 sm:mb-10">
               <FiMapPin className="text-indigo-400 shrink-0" />
               <span className="truncate">{formatAddress(hotel.settings?.address)}</span>
             </p>
@@ -638,7 +638,7 @@ const HotelDetailPage = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-1">Starting from</p>
                 <p className="text-white font-bold text-base">{hotelDisplayStartingPrice ? formatCurrency(hotelDisplayStartingPrice) : "Rate pending"}</p>
@@ -671,7 +671,7 @@ const HotelDetailPage = () => {
       </section>
 
       {/* ── Contact links ── */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
         {[
           { href: hotel.settings?.map_link || "#", icon: FiMapPin, label: "Location", value: "Open in maps", external: !!hotel.settings?.map_link },
           { href: hotelWebsiteHref || "#", icon: BiGlobe, label: "Website", value: "Visit hotel site", external: !!hotelWebsiteHref },
@@ -683,7 +683,7 @@ const HotelDetailPage = () => {
             href={href}
             target={external ? "_blank" : undefined}
             rel={external ? "noreferrer" : undefined}
-            className="group block bg-white border border-gray-100 rounded-3xl p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+            className="group block rounded-3xl border border-gray-100 bg-white p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl sm:p-5"
           >
             <div className="flex items-center gap-2 mb-2">
               <Icon className="text-indigo-600" />
@@ -700,7 +700,7 @@ const HotelDetailPage = () => {
         {/* Left Side */}
         <div className="flex-1 flex flex-col gap-6 w-full lg:w-auto">
           
-          <div className="flex justify-between items-end border-b border-gray-200 pb-4">
+          <div className="flex flex-col gap-2 border-b border-gray-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-indigo-600 font-bold mb-1">Available Rooms</p>
               <h2 className="text-3xl font-extrabold text-gray-900">Select your room</h2>
@@ -711,7 +711,7 @@ const HotelDetailPage = () => {
           </div>
 
           {sortedRooms.length ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="custom-scrollbar grid max-h-[600px] grid-cols-1 gap-4 overflow-y-auto pr-1 sm:grid-cols-2 sm:pr-2">
               {sortedRooms.map((room) => {
                 const isSelected = String(selectedRoom?.room_number) === String(room.room_number);
                 const directImages = buildDirectRoomImages(room);
@@ -767,7 +767,7 @@ const HotelDetailPage = () => {
               })}
             </div>
           ) : (
-            <div className="p-10 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200 text-gray-500">
+            <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-gray-500 sm:p-10">
               Rooms will appear here once the property team publishes availability.
             </div>
           )}
@@ -779,7 +779,7 @@ const HotelDetailPage = () => {
                animate={{ opacity: 1, y: 0 }}
                className="bg-white border border-gray-100 rounded-[32px] overflow-hidden mt-4 shadow-sm"
             >
-              <div className="h-[400px] relative bg-gray-100">
+              <div className="relative h-64 bg-gray-100 sm:h-[400px]">
                 {currentRoomImage ? (
                    <img src={currentRoomImage} alt="Room View" className="w-full h-full object-cover" />
                 ) : (
@@ -801,7 +801,7 @@ const HotelDetailPage = () => {
                 )}
 
                 {currentRoomImage && (
-                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-6 flex gap-2">
+                  <div className="absolute inset-x-0 bottom-0 flex flex-wrap gap-2 bg-gradient-to-t from-black/80 to-transparent p-4 sm:p-6">
                     <span className="bg-white text-gray-900 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full">{selectedRoom.type}</span>
                     <span className="bg-black/50 backdrop-blur-md text-white border border-white/20 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full">{selectedRoomMode}</span>
                   </div>
@@ -818,7 +818,7 @@ const HotelDetailPage = () => {
                 </div>
               )}
 
-              <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 gap-6 p-5 sm:p-8 md:grid-cols-2 md:gap-8">
                 <div>
                   <h3 className="text-2xl font-extrabold text-gray-900 mb-1">Room {selectedRoom.room_number}</h3>
                   <p className="text-indigo-600 text-xs font-bold uppercase tracking-widest mb-4">
@@ -829,7 +829,7 @@ const HotelDetailPage = () => {
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                      <p className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-1">Nightly rate</p>
                      <p className="text-base font-extrabold text-gray-900">{selectedRoomHasPublicPrice ? formatCurrency(selectedRoomPrice) : "Rate pending"}</p>
@@ -853,10 +853,10 @@ const HotelDetailPage = () => {
         </div>
 
         {/* Right Sidebar - Sticky Checkout */}
-        <aside className="w-full lg:w-[400px] shrink-0 sticky top-24 flex flex-col gap-6">
+        <aside className="flex w-full shrink-0 flex-col gap-6 lg:sticky lg:top-24 lg:w-[400px]">
           <div className="bg-white border border-gray-100 rounded-[32px] overflow-hidden shadow-xl shadow-indigo-900/5">
              
-             <div className="bg-gray-900 p-8 relative overflow-hidden">
+             <div className="relative overflow-hidden bg-gray-900 p-5 sm:p-8">
                 <div className="absolute -top-12 -right-12 w-32 h-32 bg-indigo-500 rounded-full blur-3xl opacity-20"></div>
                 
                 <p className="text-[10px] text-indigo-300 font-extrabold tracking-[0.2em] uppercase mb-2">Reserve Stay</p>
@@ -870,7 +870,7 @@ const HotelDetailPage = () => {
                 )}
              </div>
 
-             <div className="p-8 flex flex-col gap-5">
+             <div className="flex flex-col gap-5 p-5 sm:p-8">
                <div className="flex gap-4 border-b border-gray-100 pb-6">
                   <div className="w-20 h-20 bg-gray-100 rounded-2xl overflow-hidden shrink-0">
                     {selectedRoomImages[0] ? (
@@ -886,7 +886,7 @@ const HotelDetailPage = () => {
                   </div>
                </div>
 
-               <div className="grid grid-cols-2 gap-3">
+               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                  <FormField label="Check In" icon={FiCalendar}>
                     <input type="date" value={stay.checkIn} onChange={e => setStay(c=>({...c, checkIn: e.target.value}))} className={inputStyle} />
                  </FormField>
@@ -895,7 +895,7 @@ const HotelDetailPage = () => {
                  </FormField>
                </div>
 
-               <div className="grid grid-cols-2 gap-3">
+               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                  <FormField label="Guests" icon={FiUsers}>
                     <input type="number" min="1" max="8" value={stay.guests} onChange={e => setStay(c=>({...c, guests: clampGuests(e.target.value)}))} className={inputStyle} />
                  </FormField>

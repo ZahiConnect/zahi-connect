@@ -62,27 +62,27 @@ const HotelsPage = () => {
   };
 
   return (
-    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] flex flex-col pt-6 pb-20 shadow-sm border border-gray-100 overflow-hidden mb-12">
+    <div className="mb-12 flex min-h-[80vh] flex-col overflow-hidden rounded-[24px] border border-gray-100 bg-white pb-14 pt-4 shadow-sm sm:rounded-[40px] sm:pb-20 sm:pt-6">
       
       {/* Hero Header */}
       <motion.section 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12"
+        className="mx-auto mb-8 w-full max-w-7xl px-3 sm:mb-12 sm:px-6 lg:px-8"
       >
-        <div className="bg-white rounded-[32px] p-8 md:p-10 lg:p-12 shadow-sm border border-gray-100 flex flex-col lg:flex-row justify-between gap-10 relative overflow-hidden">
+        <div className="relative flex flex-col justify-between gap-8 overflow-hidden rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm sm:rounded-[32px] sm:p-8 md:p-10 lg:flex-row lg:gap-10 lg:p-12">
           <div className="absolute -bottom-32 -right-32 w-[30rem] h-[30rem] bg-indigo-50 rounded-full blur-3xl opacity-60 pointer-events-none"></div>
           
           <div className="z-10 w-full lg:w-3/5 flex flex-col justify-center">
             <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase mb-5 w-fit flex items-center gap-1.5">
               <MdOutlineHotel /> Hotels & Stays
             </span>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-sans font-extrabold text-gray-900 tracking-tight leading-[1.1] mb-8">
+            <h1 className="mb-6 text-3xl font-sans font-extrabold leading-[1.1] tracking-tight text-gray-900 sm:mb-8 sm:text-5xl lg:text-6xl xl:text-7xl">
               Find your perfect stay
             </h1>
             
-            <div className="flex flex-col sm:flex-row max-w-2xl bg-gray-50 p-2 rounded-2xl border border-gray-200 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all">
-              <div className="flex-1 flex items-center px-4">
+            <div className="flex max-w-2xl flex-col rounded-2xl border border-gray-200 bg-gray-50 p-2 transition-all focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 sm:flex-row">
+              <div className="flex flex-1 items-center px-3 sm:px-4">
                 <FiSearch className="text-gray-400 text-xl" />
                 <input
                   type="text"
@@ -144,7 +144,7 @@ const HotelsPage = () => {
       </motion.section>
 
       {/* Results Grid */}
-      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex-1">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-3 sm:px-6 lg:px-8">
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[...Array(8)].map((_, i) => (
@@ -155,7 +155,7 @@ const HotelsPage = () => {
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-3xl p-16 text-center border border-gray-100 shadow-sm flex flex-col items-center max-w-3xl mx-auto mt-10"
+            className="mx-auto mt-8 flex max-w-3xl flex-col items-center rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-sm sm:mt-10 sm:p-16"
           >
             <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-6">
                <MdOutlineBed className="text-6xl text-gray-300" />

@@ -75,9 +75,9 @@ const CabinMap = ({ cabin, travellers, selected = [], disabledSeats = [], onChan
   return (
     <div className="p-5 bg-sky-50/30 border border-sky-100 rounded-[20px] col-span-1 md:col-span-2 mt-2">
       <p className="text-[11px] font-bold text-sky-600 uppercase tracking-widest text-center mb-6">Seat Selector ({cabin})</p>
-      <div className="flex flex-col gap-3 justify-center items-center mx-auto">
+      <div className="mx-auto flex flex-col items-center justify-center gap-2.5 sm:gap-3">
         {layout.rows.map((row) => (
-          <div key={row} className="flex items-center gap-2.5">
+          <div key={row} className="flex items-center gap-1.5 sm:gap-2.5">
             {layout.cols.map((col) => {
               const seat = `${row}${col}`;
               const selectedSeat = selected.includes(seat);
@@ -89,7 +89,7 @@ const CabinMap = ({ cabin, travellers, selected = [], disabledSeats = [], onChan
                   disabled={bookedSeat}
                   title={bookedSeat ? "Booked" : seat}
                   onClick={() => toggle(seat)}
-                  className={`w-9 h-11 rounded-t-xl rounded-b-md text-[10px] font-bold flex items-center justify-center transition-all ${bookedSeat ? "cursor-not-allowed border-2 border-gray-200 bg-gray-200 text-gray-400 line-through" : selectedSeat ? "bg-sky-500 text-white shadow-md shadow-sky-500/20" : "bg-white border-2 border-slate-200 text-slate-500 hover:border-sky-300"}`}
+                  className={`flex h-10 w-8 items-center justify-center rounded-t-xl rounded-b-md text-[10px] font-bold transition-all sm:h-11 sm:w-9 ${bookedSeat ? "cursor-not-allowed border-2 border-gray-200 bg-gray-200 text-gray-400 line-through" : selectedSeat ? "bg-sky-500 text-white shadow-md shadow-sky-500/20" : "bg-white border-2 border-slate-200 text-slate-500 hover:border-sky-300"}`}
                 >
                   {seat}
                 </button>
@@ -428,8 +428,8 @@ const FlightPartnerPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-[70vh] rounded-[40px] border border-gray-100 bg-white p-8">
-        <div className="h-72 rounded-[32px] bg-gray-100 animate-pulse" />
+      <div className="min-h-[70vh] rounded-[24px] border border-gray-100 bg-white p-4 sm:rounded-[40px] sm:p-8">
+        <div className="h-56 animate-pulse rounded-[24px] bg-gray-100 sm:h-72 sm:rounded-[32px]" />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           {[...Array(4)].map((_, index) => <div key={index} className="h-44 rounded-[28px] bg-gray-100 animate-pulse" />)}
         </div>
@@ -439,7 +439,7 @@ const FlightPartnerPage = () => {
 
   if (!detail) {
     return (
-      <div className="rounded-[40px] border border-gray-100 bg-white p-12 text-center">
+      <div className="rounded-[24px] border border-gray-100 bg-white p-8 text-center sm:rounded-[40px] sm:p-12">
         <MdOutlineFlight className="mx-auto text-6xl text-gray-200" />
         <h1 className="mt-4 text-3xl font-extrabold text-gray-900">Airline unavailable</h1>
         <Link to="/flights" className="mt-6 inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-3 text-sm font-bold text-white">
@@ -450,17 +450,17 @@ const FlightPartnerPage = () => {
   }
 
   return (
-    <div className="min-h-[80vh] bg-white rounded-[32px] sm:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden mb-12 flex flex-col pt-6 pb-20 px-4 md:px-8 max-w-7xl mx-auto">
+    <div className="mx-auto mb-12 flex min-h-[80vh] max-w-7xl flex-col overflow-hidden rounded-[24px] border border-gray-100 bg-white px-3 pb-14 pt-4 shadow-sm sm:rounded-[40px] sm:px-4 sm:pb-20 sm:pt-6 md:px-8">
       <Link to="/flights" className="mb-6 inline-flex w-fit items-center gap-2 rounded-full bg-sky-50 px-4 py-2 text-sm font-bold text-sky-700 transition-colors hover:bg-sky-100">
         <FiArrowLeft /> All flight partners
       </Link>
 
-      <section className="relative mb-10 overflow-hidden rounded-[36px] border border-slate-100 bg-slate-950 p-8 md:p-12 shadow-2xl">
+      <section className="relative mb-8 overflow-hidden rounded-[24px] border border-slate-100 bg-slate-950 p-5 shadow-2xl sm:mb-10 sm:rounded-[36px] sm:p-8 md:p-12">
         {airlineCover && <img src={airlineCover} alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" />}
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-sky-950/60" />
         <div className="relative z-10 grid gap-8 lg:grid-cols-[1fr_320px] lg:items-end">
           <div>
-            <div className="mb-6 flex items-center gap-4">
+            <div className="mb-6 flex flex-wrap items-center gap-4">
               <div className="h-16 w-16 rounded-2xl border border-white/10 bg-white p-3 shadow-xl">
                 {airlineLogo ? <img src={airlineLogo} alt={airlineName} className="h-full w-full object-contain" /> : <MdOutlineFlight className="h-full w-full text-sky-500" />}
               </div>
@@ -468,7 +468,7 @@ const FlightPartnerPage = () => {
                 <FiCheckCircle /> Partner Network
               </span>
             </div>
-            <h1 className="max-w-3xl text-4xl font-extrabold leading-tight text-white md:text-6xl">{airlineName}</h1>
+            <h1 className="max-w-3xl text-3xl font-extrabold leading-tight text-white sm:text-4xl md:text-6xl">{airlineName}</h1>
             <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-slate-300">
               {detail?.settings?.description || detail?.summary?.description || "Browse every active route from this flight partner and book the itinerary that fits your trip."}
             </p>
@@ -486,7 +486,7 @@ const FlightPartnerPage = () => {
         </div>
       </section>
 
-      <section className="mb-10 rounded-[32px] border border-gray-100 bg-gray-50/70 p-6 shadow-inner">
+      <section className="mb-8 rounded-[24px] border border-gray-100 bg-gray-50/70 p-4 shadow-inner sm:mb-10 sm:rounded-[32px] sm:p-6">
         <div className="mb-5">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky-600">Route switcher</p>
@@ -519,7 +519,7 @@ const FlightPartnerPage = () => {
       </section>
 
       <section id="partner-routes" className="space-y-6">
-        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-gray-100 pb-4">
+        <div className="flex flex-col gap-2 border-b border-gray-100 pb-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-3">
           <div>
             <p className="text-[10px] uppercase tracking-[0.2em] text-sky-600 font-bold mb-1">Partner routes</p>
             <h2 className="text-3xl font-extrabold text-gray-900">{filteredFlights.length} Routes Available</h2>
@@ -545,9 +545,9 @@ const FlightPartnerPage = () => {
               const durationMinutes = getDurationMinutes(flight);
 
               return (
-                <motion.div key={flight.id} layout className="group rounded-[32px] border border-gray-100 bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-sky-900/5 lg:p-8">
+                <motion.div key={flight.id} layout className="group rounded-[24px] border border-gray-100 bg-white p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-sky-900/5 sm:rounded-[32px] sm:p-6 lg:p-8">
                   <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-                    <button type="button" onClick={() => selectRoute(flight)} className="flex items-center gap-5 text-left lg:w-[260px]">
+                    <button type="button" onClick={() => selectRoute(flight)} className="flex items-center gap-4 text-left sm:gap-5 lg:w-[260px]">
                       <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-gray-100 bg-gray-50 p-2">
                         {airlineLogo ? <img src={airlineLogo} alt={airlineName} className="h-full w-full object-contain" /> : <MdOutlineFlight className="text-3xl text-sky-400" />}
                       </div>
@@ -557,14 +557,14 @@ const FlightPartnerPage = () => {
                       </div>
                     </button>
 
-                    <div className="flex flex-1 items-center justify-center gap-6 sm:gap-12">
+                    <div className="flex flex-1 flex-col items-stretch justify-center gap-4 sm:flex-row sm:items-center sm:gap-8 lg:gap-12">
                       <div className="text-center sm:text-right">
                         <p className="mb-2 text-3xl font-extrabold leading-none text-gray-900">{departureTime}</p>
                         <p className="flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-widest text-gray-500 sm:justify-end">
                           <MdOutlineFlightTakeoff className="text-sky-500" /> {flight.from_city} ({fromCode})
                         </p>
                       </div>
-                      <div className="flex w-full max-w-[160px] flex-col items-center">
+                      <div className="flex w-full flex-col items-center sm:max-w-[160px]">
                         <div className="mb-2 flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-widest text-gray-400">
                           <MdOutlineAccessTime /> Flight time {formatDurationMinutes(durationMinutes)}
                         </div>
@@ -585,8 +585,8 @@ const FlightPartnerPage = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-4 border-t border-gray-100 pt-6 lg:w-[220px] lg:flex-col lg:items-end lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
-                      <div className="text-left lg:text-right">
+                    <div className="flex flex-col items-stretch justify-between gap-4 border-t border-gray-100 pt-5 sm:flex-row sm:items-center lg:w-[220px] lg:flex-col lg:items-end lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+                      <div className="text-center sm:text-left lg:text-right">
                         <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Total</p>
                         <p className="text-2xl font-extrabold text-gray-900">{price ? formatCurrency(price * form.travellers) : "NA"}</p>
                         {isAvailable && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-orange-500">{seats} Seats Left</p>}
@@ -595,7 +595,7 @@ const FlightPartnerPage = () => {
                         type="button"
                         onClick={() => handleOpenBooking(flight, price)}
                         disabled={submitting || !isAvailable}
-                        className={`flex h-14 items-center gap-2 rounded-2xl px-8 text-sm font-bold shadow-lg transition-all active:scale-95 ${isAvailable ? "bg-gray-900 text-white shadow-gray-900/10 hover:bg-black" : "cursor-not-allowed bg-gray-100 text-gray-400 shadow-none"}`}
+                        className={`flex h-14 w-full items-center justify-center gap-2 rounded-2xl px-8 text-sm font-bold shadow-lg transition-all active:scale-95 sm:w-auto ${isAvailable ? "bg-gray-900 text-white shadow-gray-900/10 hover:bg-black" : "cursor-not-allowed bg-gray-100 text-gray-400 shadow-none"}`}
                       >
                         {bookingFlightId === flight.id ? "Booking..." : isAvailable ? "Book Now" : "Sold Out"}
                         {isAvailable && <FiArrowRight className="text-lg" />}
@@ -613,8 +613,8 @@ const FlightPartnerPage = () => {
         {checkoutModalOpen && selectedFlightData && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="flex max-h-[95vh] w-full max-w-2xl flex-col overflow-hidden rounded-[32px] border border-slate-100 bg-white shadow-2xl">
-              <div className="custom-scrollbar flex-1 space-y-8 overflow-y-auto p-8">
-                <div className="flex items-center justify-between">
+              <div className="custom-scrollbar flex-1 space-y-6 overflow-y-auto p-5 sm:space-y-8 sm:p-8">
+                <div className="flex items-start justify-between gap-4 sm:items-center">
                   <div>
                     <h3 className="text-2xl font-extrabold text-slate-800">Passenger Details</h3>
                     <p className="mt-1 text-sm font-semibold text-gray-500">{selectedFlightData.flight.airline.name} - {selectedFlightData.flight.flight_number} - {form.departDate}</p>
@@ -634,21 +634,21 @@ const FlightPartnerPage = () => {
                   />
                 </div>
 
-                <div className="flex items-center justify-between rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Total Amount</p>
                     <p className="text-2xl font-extrabold text-gray-900">{formatCurrency(selectedFlightData.price * form.travellers)}</p>
                   </div>
-                  <div className="text-right">
+                  <div className="sm:text-right">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Class & Travellers</p>
                     <p className="text-sm font-bold capitalize text-sky-600">{form.flightClass} - {form.travellers} Pax</p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex shrink-0 justify-end gap-3 border-t border-slate-100 bg-white p-6">
+              <div className="flex shrink-0 flex-col gap-3 border-t border-slate-100 bg-white p-5 sm:flex-row sm:justify-end sm:p-6">
                 <button type="button" onClick={() => setCheckoutModalOpen(false)} className="rounded-2xl bg-gray-50 px-6 py-3 text-sm font-bold text-gray-600 transition-all hover:bg-gray-100 active:scale-95">Cancel</button>
-                <button type="button" onClick={proceedToPayment} className="flex items-center gap-2 rounded-2xl bg-sky-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-sky-600/20 transition-all hover:bg-sky-700 active:scale-95">
+                <button type="button" onClick={proceedToPayment} className="flex items-center justify-center gap-2 rounded-2xl bg-sky-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-sky-600/20 transition-all hover:bg-sky-700 active:scale-95">
                   <FaCreditCard /> Proceed to Pay
                 </button>
               </div>
