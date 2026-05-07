@@ -35,7 +35,7 @@ const Sidebar = ({ onClose }) => {
   };
 
   return (
-    <div className={`flex h-full w-64 flex-col ${isDark ? "bg-zinc-950 border-r border-zinc-800" : "bg-white border-r border-slate-200"}`}>
+    <div className={`flex h-full w-64 max-w-[calc(100vw-2rem)] flex-col ${isDark ? "bg-zinc-950 border-r border-zinc-800" : "bg-white border-r border-slate-200"}`}>
       {/* Logo area */}
       <div className={`flex items-center gap-3 px-5 py-5 border-b ${isDark ? "border-zinc-800/60" : "border-slate-100"}`}>
         <ZahiLogo
@@ -127,7 +127,7 @@ const DashboardShellInner = () => {
   const isDark = theme === "dark";
 
   return (
-    <div className={`flex h-screen overflow-hidden ${isDark ? "bg-zinc-900" : "bg-slate-50"}`}>
+    <div className={`flex h-[100dvh] overflow-hidden lg:h-screen ${isDark ? "bg-zinc-900" : "bg-slate-50"}`}>
       {/* Desktop Sidebar */}
       <aside className={`hidden lg:flex lg:flex-shrink-0 border-r ${isDark ? "bg-zinc-950 border-zinc-800/60" : "bg-white border-slate-200"}`}>
         <Sidebar />
@@ -179,7 +179,7 @@ const DashboardShellInner = () => {
 
         {/* Page content */}
         <main className={`flex-1 overflow-y-auto overflow-x-hidden ${isDark ? "bg-zinc-950" : "bg-slate-50"}`}>
-          <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-5xl px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}

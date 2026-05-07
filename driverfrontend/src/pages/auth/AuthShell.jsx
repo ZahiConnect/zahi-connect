@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import ZahiLogo from "../../components/ZahiLogo";
 
 const AuthShell = ({ eyebrow, title, description, footer, children }) => (
-  <div className="flex h-screen overflow-hidden bg-white">
+  <div className="flex min-h-screen bg-white lg:h-screen lg:overflow-hidden">
     {/* Left Side Section - Dark/Premium branding */}
     <div className="relative hidden w-0 flex-1 bg-zinc-900 lg:block overflow-hidden">
       <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?q=80&w=2000&auto=format&fit=crop')] opacity-10 bg-cover bg-center mix-blend-overlay" />
@@ -37,7 +37,7 @@ const AuthShell = ({ eyebrow, title, description, footer, children }) => (
     </div>
 
     {/* Right Side - Form Container */}
-    <div className="relative flex flex-1 flex-col justify-start px-4 py-16 sm:px-6 lg:flex-none lg:w-1/2 lg:px-20 xl:px-24 overflow-y-auto">
+    <div className="relative flex min-h-screen flex-1 flex-col justify-start overflow-y-auto px-4 pb-10 pt-20 sm:px-6 sm:py-16 lg:h-screen lg:flex-none lg:w-1/2 lg:px-20 xl:px-24">
       <div className="absolute top-4 left-4 lg:hidden">
         <Link to="/" className="inline-flex items-center justify-center p-3 rounded-full bg-slate-50 text-slate-800 hover:bg-slate-100">
            <img src={`${import.meta.env.BASE_URL}black_logo.png`} alt="Zahi Drive" className="h-5 w-5 rounded-md object-cover" />

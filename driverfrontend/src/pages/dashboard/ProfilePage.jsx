@@ -27,12 +27,12 @@ const ProfilePage = () => {
     <div className="space-y-8 fade-up">
       <div>
         <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? "text-zinc-500" : "text-slate-400"}`}>Account</p>
-        <h1 className={`mt-1 font-display text-3xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>My Profile</h1>
+        <h1 className={`mt-1 font-display text-2xl font-bold sm:text-3xl ${isDark ? "text-white" : "text-slate-900"}`}>My Profile</h1>
         <p className={`mt-1 text-sm ${isDark ? "text-zinc-500" : "text-slate-500"}`}>Update your personal details and compliance documents.</p>
       </div>
 
       {/* Avatar + identity strip */}
-      <div className={`flex items-center gap-4 rounded-2xl border p-5 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
+      <div className={`flex items-center gap-4 rounded-2xl border p-4 sm:p-5 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
         {driver?.profile_photo_url ? (
           <img src={driver.profile_photo_url} alt="avatar" className="h-16 w-16 rounded-2xl object-cover flex-shrink-0" />
         ) : (
@@ -40,7 +40,7 @@ const ProfilePage = () => {
             <User size={24} className={isDark ? "text-zinc-500" : "text-slate-400"} />
           </div>
         )}
-        <div>
+        <div className="min-w-0">
           <p className={`text-base font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{driver?.full_name}</p>
           <p className={`text-xs ${isDark ? "text-zinc-500" : "text-slate-500"}`}>{driver?.email}</p>
           <div className="flex gap-2 mt-2">
@@ -52,7 +52,7 @@ const ProfilePage = () => {
       </div>
 
       {/* Personal Details */}
-      <div className={`rounded-2xl border p-6 space-y-5 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
+      <div className={`rounded-2xl border p-4 space-y-5 sm:p-6 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
         <p className={`text-xs font-bold uppercase tracking-widest border-b pb-3 ${isDark ? "text-zinc-500 border-zinc-800" : "text-slate-400 border-slate-100"}`}>Personal Details</p>
         <div className="grid gap-5 sm:grid-cols-2">
           <label className="block">
@@ -83,7 +83,7 @@ const ProfilePage = () => {
       </div>
 
       {/* Document Uploads */}
-      <div className={`rounded-2xl border p-6 space-y-5 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
+      <div className={`rounded-2xl border p-4 space-y-5 sm:p-6 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
         <p className={`text-xs font-bold uppercase tracking-widest border-b pb-3 ${isDark ? "text-zinc-500 border-zinc-800" : "text-slate-400 border-slate-100"}`}>Documents</p>
         <div className="grid gap-5 sm:grid-cols-3">
           <UploadField label="Profile Photo" file={profileFiles.profile_photo_url} url={profileAssets.profile_photo_url}
@@ -98,7 +98,7 @@ const ProfilePage = () => {
       <button
         onClick={saveProfile}
         disabled={savingProfile}
-        className="inline-flex items-center gap-2 rounded-2xl bg-[#facc15] px-6 py-3.5 text-sm font-bold text-zinc-900 hover:bg-[#eab308] transition-colors disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#facc15] px-6 py-3.5 text-sm font-bold text-zinc-900 hover:bg-[#eab308] transition-colors disabled:opacity-60 sm:w-auto"
       >
         <Save size={16} />
         {savingProfile ? "Saving..." : "Save Profile"}

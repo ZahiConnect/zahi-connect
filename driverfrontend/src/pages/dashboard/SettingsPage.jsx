@@ -21,12 +21,12 @@ const SettingsPage = () => {
     <div className="space-y-8 fade-up">
       <div>
         <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Account</p>
-        <h1 className="mt-1 font-display text-3xl font-bold text-white">Settings</h1>
+        <h1 className="mt-1 font-display text-2xl font-bold text-white sm:text-3xl">Settings</h1>
         <p className="mt-1 text-sm text-zinc-500">Manage your account preferences and security.</p>
       </div>
 
       {/* Account Info */}
-      <div className="rounded-2xl bg-zinc-900 border border-zinc-800/60 p-6 space-y-4">
+      <div className="rounded-2xl bg-zinc-900 border border-zinc-800/60 p-4 space-y-4 sm:p-6">
         <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 border-b border-zinc-800 pb-3">Account Info</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -35,7 +35,7 @@ const SettingsPage = () => {
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">Email</p>
-            <p className="mt-1 text-sm font-semibold text-white">{driver?.email || "—"}</p>
+            <p className="mt-1 break-words text-sm font-semibold text-white">{driver?.email || "—"}</p>
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">Phone</p>
@@ -59,7 +59,7 @@ const SettingsPage = () => {
       </div>
 
       {/* Security */}
-      <div className="rounded-2xl bg-zinc-900 border border-zinc-800/60 p-6">
+      <div className="rounded-2xl bg-zinc-900 border border-zinc-800/60 p-4 sm:p-6">
         <div className="flex items-center gap-2 border-b border-zinc-800 pb-3 mb-4">
           <Shield size={15} className="text-zinc-500" />
           <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Security</p>
@@ -76,18 +76,18 @@ const SettingsPage = () => {
       </div>
 
       {/* Platform info */}
-      <div className="rounded-2xl bg-zinc-900 border border-zinc-800/60 p-6">
+      <div className="rounded-2xl bg-zinc-900 border border-zinc-800/60 p-4 sm:p-6">
         <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 border-b border-zinc-800 pb-3 mb-4">Platform</p>
         <div className="space-y-3 text-sm text-zinc-400">
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
             <span>Commission Rate</span>
             <span className="font-bold text-white">12%</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
             <span>Ride assignment</span>
             <span className="font-bold text-white">Auto-dispatch</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
             <span>Payment model</span>
             <span className="font-bold text-white">Per-ride commission</span>
           </div>
@@ -95,7 +95,7 @@ const SettingsPage = () => {
       </div>
 
       {/* Danger zone */}
-      <div className="rounded-2xl bg-zinc-900 border border-red-900/40 p-6">
+      <div className="rounded-2xl bg-zinc-900 border border-red-900/40 p-4 sm:p-6">
         <div className="flex items-center gap-2 border-b border-red-900/30 pb-3 mb-4">
           <AlertTriangle size={15} className="text-red-400" />
           <p className="text-xs font-bold uppercase tracking-widest text-red-400">Session</p>
@@ -107,7 +107,7 @@ const SettingsPage = () => {
           </div>
           <button
             onClick={handleLogout}
-            className="inline-flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-5 py-2.5 text-sm font-bold text-red-400 hover:bg-red-500/20 transition-colors"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-5 py-2.5 text-sm font-bold text-red-400 hover:bg-red-500/20 transition-colors sm:w-auto"
           >
             <LogOut size={15} />
             Sign Out

@@ -26,14 +26,14 @@ import RegisterPage from "./pages/auth/RegisterPage";
 
 const LoadingSplash = () => (
   <div className="flex min-h-screen items-center justify-center px-4">
-    <div className="drive-panel w-full max-w-md rounded-[32px] px-8 py-12 text-center fade-in border border-slate-200">
+    <div className="drive-panel w-full max-w-md rounded-3xl px-5 py-10 text-center fade-in border border-slate-200 sm:rounded-[32px] sm:px-8 sm:py-12">
       <ZahiLogo
         className="justify-center"
         label="Zahi Drive"
         markClassName="h-16 w-16 rounded-2xl shadow-sm"
         labelClassName="text-sm font-extrabold uppercase tracking-[0.24em] text-amber-600"
       />
-      <h1 className="font-display mt-4 text-3xl font-bold tracking-tight text-zinc-900">Initializing Command Center</h1>
+      <h1 className="font-display mt-4 text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">Initializing Command Center</h1>
       <div className="mx-auto mt-8 h-1.5 w-48 overflow-hidden rounded-full bg-slate-100">
         <div className="h-full w-1/2 animate-pulse rounded-full bg-zinc-800" />
       </div>
@@ -76,7 +76,7 @@ const Header = () => {
             label="Zahi Drive"
             tagline="Operations"
             markClassName="h-10 w-10 rounded-xl shadow-sm transition-transform group-hover:scale-105"
-            labelClassName="font-display text-xl font-bold tracking-tight text-zinc-900"
+            labelClassName="font-display text-lg font-bold tracking-tight text-zinc-900 sm:text-xl"
             taglineClassName="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-400"
           />
         </Link>
@@ -203,10 +203,10 @@ const Header = () => {
 };
 
 const Footer = () => (
-  <footer className="mt-20 border-t border-slate-200 bg-white">
-    <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 text-sm text-slate-500 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr] lg:px-8">
+  <footer className="mt-12 border-t border-slate-200 bg-white sm:mt-20">
+    <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 text-sm text-slate-500 sm:px-6 sm:py-16 lg:grid-cols-[1.4fr_1fr_1fr] lg:px-8">
       <div>
-        <p className="font-display text-4xl font-bold tracking-tight text-zinc-900">Drive when you want.</p>
+        <p className="font-display text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">Drive when you want.</p>
         <p className="mt-4 max-w-xl leading-7">
           Zahi Drive puts the wheel back in your hands. High-end tools to manage your cab documents, track rider receipts, and operate independently.
         </p>
@@ -232,7 +232,7 @@ const Footer = () => (
 const AppShell = () => (
   <div className="min-h-screen">
     <Header />
-    <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <Outlet />
     </main>
     <Footer />
@@ -240,9 +240,9 @@ const AppShell = () => (
 );
 
 const NotFoundPage = () => (
-  <div className="drive-panel mx-auto max-w-xl rounded-[32px] px-8 py-16 text-center shadow-lg mt-12 bg-white">
+  <div className="drive-panel mx-auto max-w-xl rounded-3xl px-5 py-12 text-center shadow-lg mt-8 bg-white sm:mt-12 sm:rounded-[32px] sm:px-8 sm:py-16">
     <div className="mx-auto w-16 h-16 bg-slate-100 text-slate-600 flex items-center justify-center rounded-full mb-6">!</div>
-    <h1 className="font-display mt-4 text-4xl font-bold tracking-tight text-zinc-900">Route Terminated.</h1>
+    <h1 className="font-display mt-4 text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">Route Terminated.</h1>
     <p className="mt-4 text-slate-500">
       Head back to the Zahi command center to continue your session.
     </p>

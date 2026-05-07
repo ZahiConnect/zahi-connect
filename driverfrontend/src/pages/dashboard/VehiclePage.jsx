@@ -150,16 +150,16 @@ const VehiclePage = () => {
     <div className="space-y-8 fade-up">
       <div>
         <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? "text-zinc-500" : "text-slate-400"}`}>Vehicle</p>
-        <h1 className={`mt-1 font-display text-3xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>My Vehicle</h1>
+        <h1 className={`mt-1 font-display text-2xl font-bold sm:text-3xl ${isDark ? "text-white" : "text-slate-900"}`}>My Vehicle</h1>
         <p className={`mt-1 text-sm ${isDark ? "text-zinc-500" : "text-slate-500"}`}>Update your cab details and vehicle documents.</p>
       </div>
 
       {driver?.vehicle ? (
-        <div className={`flex items-center gap-4 rounded-2xl border p-5 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
+        <div className={`flex items-center gap-4 rounded-2xl border p-4 sm:p-5 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
           <div className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl ${isDark ? "bg-[#facc15]/10 text-[#facc15]" : "bg-amber-50 text-amber-600"}`}>
             <CarFront size={26} />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className={`text-base font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{driver.vehicle.vehicle_name}</p>
             <p className={`text-xs ${isDark ? "text-zinc-500" : "text-slate-500"}`}>
               {driver.vehicle.plate_number} - {driver.vehicle.brand} {driver.vehicle.model}
@@ -168,7 +168,7 @@ const VehiclePage = () => {
         </div>
       ) : null}
 
-      <div className={`space-y-5 rounded-2xl border p-6 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
+      <div className={`space-y-5 rounded-2xl border p-4 sm:p-6 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
         <p className={`border-b pb-3 text-xs font-bold uppercase tracking-widest ${isDark ? "text-zinc-500 border-zinc-800" : "text-slate-400 border-slate-100"}`}>Vehicle Info</p>
         <div className="grid gap-5 sm:grid-cols-2">
           <label className="block">
@@ -227,7 +227,7 @@ const VehiclePage = () => {
         </label>
       </div>
 
-      <div className={`space-y-5 rounded-2xl border p-6 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
+      <div className={`space-y-5 rounded-2xl border p-4 sm:p-6 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
         <div className={`border-b pb-3 ${isDark ? "border-zinc-800" : "border-slate-100"}`}>
           <p className={`text-xs font-bold uppercase tracking-widest ${isDark ? "text-zinc-500" : "text-slate-400"}`}>Vehicle Documents</p>
           <p className={`mt-1 text-sm ${isDark ? "text-zinc-500" : "text-slate-500"}`}>Vehicle photos and documents upload to Cloudinary when you save.</p>
@@ -267,7 +267,7 @@ const VehiclePage = () => {
         type="button"
         onClick={saveVehicle}
         disabled={savingVehicle}
-        className="inline-flex items-center gap-2 rounded-2xl bg-[#facc15] px-6 py-3.5 text-sm font-bold text-zinc-900 transition-colors hover:bg-[#eab308] disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#facc15] px-6 py-3.5 text-sm font-bold text-zinc-900 transition-colors hover:bg-[#eab308] disabled:opacity-60 sm:w-auto"
       >
         <Save size={16} />
         {savingVehicle ? "Saving..." : "Save Vehicle"}

@@ -230,13 +230,13 @@ const RegisterPage = () => {
         <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-900 mb-4">
           <div className="w-1.5 h-1.5 rounded-full bg-[#facc15]" /> Operator Onboarding
         </span>
-        <h2 className="font-display mt-2 text-4xl font-bold tracking-tight text-zinc-900">Create your Zahi Drive profile</h2>
+        <h2 className="font-display mt-2 text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">Create your Zahi Drive profile</h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-500 font-medium">
           No monthly product fee. Your cab profile is used for customer-paid request matching.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-12 space-y-12 fade-up">
+      <form onSubmit={handleSubmit} className="mt-8 space-y-8 fade-up sm:mt-12 sm:space-y-12">
         <section className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="field-section-icon">
@@ -244,7 +244,7 @@ const RegisterPage = () => {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Driver details</p>
-              <h3 className="font-display text-2xl font-bold text-zinc-900">Personal and compliance</h3>
+              <h3 className="font-display text-xl font-bold text-zinc-900 sm:text-2xl">Personal and compliance</h3>
             </div>
           </div>
 
@@ -370,7 +370,7 @@ const RegisterPage = () => {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Cab details</p>
-              <h3 className="font-display text-2xl font-bold text-zinc-900">Vehicle setup</h3>
+              <h3 className="font-display text-xl font-bold text-zinc-900 sm:text-2xl">Vehicle setup</h3>
             </div>
           </div>
 
@@ -479,7 +479,7 @@ const RegisterPage = () => {
             />
           </label>
 
-          <label className="inline-flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold uppercase tracking-widest text-slate-500">
+          <label className="inline-flex max-w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold uppercase tracking-widest text-slate-500">
             <input
               type="checkbox"
               checked={form.air_conditioned}
@@ -557,11 +557,11 @@ const RegisterPage = () => {
             </label>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             {form.current_area_label ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-900">
+              <span className="inline-flex max-w-full items-center gap-2 rounded-2xl bg-slate-100 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-900 sm:rounded-full sm:text-xs sm:tracking-[0.18em]">
                 <MapPin className="h-3.5 w-3.5" />
-                Selected area {form.current_area_label}
+                <span className="min-w-0 break-words">Selected area {form.current_area_label}</span>
               </span>
             ) : null}
 
@@ -569,13 +569,13 @@ const RegisterPage = () => {
               type="button"
               onClick={handleUseCurrentLocation}
               disabled={status === "loading"}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-600 disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs sm:tracking-[0.18em]"
             >
               <MapPin className="h-3.5 w-3.5" />
               {status === "loading" ? "Updating precise location" : "Use precise current location"}
             </button>
 
-            <span className="rounded-full bg-amber-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">
+            <span className="rounded-full bg-amber-50 px-4 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-600 sm:text-xs sm:tracking-[0.18em]">
               {fileCount} document{fileCount === 1 ? "" : "s"} selected
             </span>
           </div>

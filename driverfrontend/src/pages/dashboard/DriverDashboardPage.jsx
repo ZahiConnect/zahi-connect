@@ -368,11 +368,11 @@ const DriverDashboardPage = () => {
 
   return (
     <div className="space-y-8">
-      <section className="drive-panel rounded-3xl px-6 py-8 sm:px-8">
+      <section className="drive-panel rounded-3xl px-4 py-6 sm:px-8 sm:py-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-amber-600">Driver dashboard</p>
-            <h1 className="font-display mt-3 text-6xl leading-none text-zinc-900">
+            <h1 className="font-display mt-3 break-words text-4xl leading-none text-zinc-900 sm:text-6xl">
               {driver?.full_name || "Driver"}
             </h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-500">
@@ -386,7 +386,7 @@ const DriverDashboardPage = () => {
               type="button"
               onClick={handleToggleOnline}
               disabled={switchingOnline}
-              className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70 ${
+              className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto ${
                 driver?.is_online ? "bg-[#ef4444]" : "bg-zinc-900"
               }`}
             >
@@ -400,7 +400,7 @@ const DriverDashboardPage = () => {
             <button
               type="button"
               onClick={requestLocation}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-zinc-900"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-zinc-900 sm:w-auto"
             >
               <MapPin className="h-4 w-4" />
               Refresh location
@@ -417,7 +417,7 @@ const DriverDashboardPage = () => {
                   setLoading(false);
                 }
               }}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-zinc-900"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-zinc-900 sm:w-auto"
             >
               <RefreshCcw className="h-4 w-4" />
               Refresh data
@@ -476,7 +476,7 @@ const DriverDashboardPage = () => {
                 <Icon className="h-5 w-5" />
               </div>
               <p className="mt-4 text-xs uppercase tracking-[0.18em] text-[#7a8a82]">{item.label}</p>
-              <p className="font-display mt-3 text-5xl leading-none text-zinc-900">{item.value}</p>
+              <p className="font-display mt-3 break-words text-4xl leading-none text-zinc-900 sm:text-5xl">{item.value}</p>
               <p className="mt-3 text-sm leading-7 text-slate-500">{item.caption}</p>
             </div>
           );
@@ -484,14 +484,14 @@ const DriverDashboardPage = () => {
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <form onSubmit={handleProfileSave} className="drive-card rounded-3xl p-6">
+        <form onSubmit={handleProfileSave} className="drive-card rounded-3xl p-4 sm:p-6">
           <div className="flex items-center gap-3">
             <div className="field-section-icon">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-amber-600">Driver details</p>
-              <h2 className="font-display text-4xl leading-none text-zinc-900">Profile and compliance</h2>
+              <h2 className="font-display text-2xl leading-none text-zinc-900 sm:text-4xl">Profile and compliance</h2>
             </div>
           </div>
 
@@ -641,14 +641,14 @@ const DriverDashboardPage = () => {
           </div>
         </form>
 
-        <form onSubmit={handleVehicleSave} className="drive-card rounded-3xl p-6">
+        <form onSubmit={handleVehicleSave} className="drive-card rounded-3xl p-4 sm:p-6">
           <div className="flex items-center gap-3">
             <div className="field-section-icon yellow">
               <CarFront className="h-5 w-5" />
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-amber-600">Cab details</p>
-              <h2 className="font-display text-4xl leading-none text-zinc-900">Vehicle setup</h2>
+              <h2 className="font-display text-2xl leading-none text-zinc-900 sm:text-4xl">Vehicle setup</h2>
             </div>
           </div>
 
@@ -862,14 +862,14 @@ const DriverDashboardPage = () => {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <section className="drive-card rounded-3xl p-6">
+        <section className="drive-card rounded-3xl p-4 sm:p-6">
           <div className="flex items-center gap-3">
             <div className="field-section-icon">
               <Users className="h-5 w-5" />
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-amber-600">Latest paid customers</p>
-              <h2 className="font-display text-4xl leading-none text-zinc-900">Recent payouts view</h2>
+              <h2 className="font-display text-2xl leading-none text-zinc-900 sm:text-4xl">Recent payouts view</h2>
             </div>
           </div>
 
@@ -918,14 +918,14 @@ const DriverDashboardPage = () => {
           </div>
         </section>
 
-        <section className="drive-card rounded-3xl p-6">
+        <section className="drive-card rounded-3xl p-4 sm:p-6">
           <div className="flex items-center gap-3">
             <div className="field-section-icon yellow">
               <Wallet className="h-5 w-5" />
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-amber-600">Activity feed</p>
-              <h2 className="font-display text-4xl leading-none text-zinc-900">Assigned ride requests</h2>
+              <h2 className="font-display text-2xl leading-none text-zinc-900 sm:text-4xl">Assigned ride requests</h2>
             </div>
           </div>
 

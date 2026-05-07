@@ -3,11 +3,11 @@ import { useDashboard } from "../../context/DashboardContext";
 import { formatCurrency, formatDateTime } from "../../lib/format";
 
 const StatCard = ({ label, value, sub, icon: Icon, accent, isDark }) => (
-  <div className={`rounded-2xl border p-5 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
+  <div className={`rounded-2xl border p-4 sm:p-5 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
     <div className="flex items-start justify-between">
-      <div>
+      <div className="min-w-0">
         <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? "text-zinc-500" : "text-slate-400"}`}>{label}</p>
-        <p className={`mt-2 text-3xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{value}</p>
+        <p className={`mt-2 break-words text-2xl font-bold sm:text-3xl ${isDark ? "text-white" : "text-slate-900"}`}>{value}</p>
         {sub && <p className={`mt-1 text-xs ${isDark ? "text-zinc-400" : "text-slate-500"}`}>{sub}</p>}
       </div>
       <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${accent}`}>
@@ -41,7 +41,7 @@ const OverviewPage = () => {
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? "text-zinc-500" : "text-slate-400"}`}>Dashboard</p>
-          <h1 className={`mt-1 font-display text-3xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+          <h1 className={`mt-1 font-display text-2xl font-bold sm:text-3xl ${isDark ? "text-white" : "text-slate-900"}`}>
             Welcome back, {driver?.full_name?.split(" ")[0] || "Driver"}
           </h1>
           <p className={`mt-1 text-sm ${isDark ? "text-zinc-500" : "text-slate-500"}`}>
@@ -51,7 +51,7 @@ const OverviewPage = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           isDark={isDark}
           label="Total Rides"
@@ -122,7 +122,7 @@ const OverviewPage = () => {
         ) : (
           <div className="space-y-3">
             {recent.map((ride) => (
-              <div key={ride.id} className={`flex items-center gap-4 rounded-2xl border p-4 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
+              <div key={ride.id} className={`flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:gap-4 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl flex-shrink-0 ${isDark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-600"}`}>
                   <Users size={16} />
                 </div>
@@ -133,7 +133,7 @@ const OverviewPage = () => {
                     <p className={`text-xs truncate ${isDark ? "text-zinc-500" : "text-slate-500"}`}>{ride.pickup_label} -&gt; {ride.drop_label}</p>
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0">
+                <div className="w-full flex-shrink-0 text-left sm:w-auto sm:text-right">
                   <p className={`text-sm font-bold ${isDark ? "text-[#facc15]" : "text-amber-600"}`}>{formatCurrency(ride.estimated_fare)}</p>
                   <p className={`text-[10px] mt-0.5 ${isDark ? "text-zinc-600" : "text-slate-400"}`}>{formatDateTime(ride.created_at)}</p>
                 </div>

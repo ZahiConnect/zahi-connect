@@ -58,13 +58,13 @@ const LoginPage = () => {
         <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-900 mb-4">
           <div className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Secure Protocol
         </span>
-        <h2 className="font-display mt-2 text-4xl font-bold tracking-tight text-zinc-900">System Access</h2>
+        <h2 className="font-display mt-2 text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">System Access</h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-500 font-medium">
           Authenticate using your dispatch communications ID or secure email vector.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-10 space-y-5 fade-up">
+      <form onSubmit={handleSubmit} className="mt-8 space-y-5 fade-up sm:mt-10">
         <label className="block">
           <span className="field-label">Dispatch Identifier</span>
           <div className="relative group">

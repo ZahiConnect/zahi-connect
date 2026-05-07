@@ -93,12 +93,12 @@ const LocationPage = () => {
     <div className="space-y-8 fade-up">
       <div>
         <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? "text-zinc-500" : "text-slate-400"}`}>Location</p>
-        <h1 className={`mt-1 font-display text-3xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Service Location</h1>
+        <h1 className={`mt-1 font-display text-2xl font-bold sm:text-3xl ${isDark ? "text-white" : "text-slate-900"}`}>Service Location</h1>
         <p className={`mt-1 text-sm ${isDark ? "text-zinc-500" : "text-slate-500"}`}>Paid cab requests are matched within 30 km only after this location is saved.</p>
       </div>
 
       {locationLocked ? (
-        <div className={`rounded-2xl border p-5 ${isDark ? "border-amber-400/25 bg-amber-400/10" : "border-amber-200 bg-amber-50"}`}>
+        <div className={`rounded-2xl border p-4 sm:p-5 ${isDark ? "border-amber-400/25 bg-amber-400/10" : "border-amber-200 bg-amber-50"}`}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 gap-3">
               <AlertCircle className={`mt-0.5 h-5 w-5 shrink-0 ${isDark ? "text-amber-300" : "text-amber-700"}`} />
@@ -125,7 +125,7 @@ const LocationPage = () => {
         </div>
       ) : null}
 
-      <div className={`rounded-2xl border p-5 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
+      <div className={`rounded-2xl border p-4 sm:p-5 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-4">
             <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${isDark ? "bg-[#facc15]/10 text-[#facc15]" : "bg-amber-50 text-amber-600"}`}>
@@ -150,7 +150,7 @@ const LocationPage = () => {
         </div>
       </div>
 
-      <div className={`space-y-5 rounded-2xl border p-6 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
+      <div className={`space-y-5 rounded-2xl border p-4 sm:p-6 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
         <p className={`border-b pb-3 text-xs font-bold uppercase tracking-widest ${isDark ? "text-zinc-500 border-zinc-800" : "text-slate-400 border-slate-100"}`}>Update Area</p>
 
         <label className="block">
@@ -180,7 +180,7 @@ const LocationPage = () => {
             type="button"
             onClick={handleUseCurrentLocation}
             disabled={locationLocked || detecting || updatingLocation}
-            className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-5 py-3 text-sm font-bold transition-colors disabled:opacity-60 ${
+            className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-5 py-3 text-sm font-bold transition-colors disabled:opacity-60 sm:w-auto ${
               isDark ? "border-zinc-700 bg-zinc-800 text-zinc-100 hover:bg-zinc-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             }`}
           >
@@ -192,7 +192,7 @@ const LocationPage = () => {
             type="button"
             onClick={handleSaveLocation}
             disabled={locationLocked || !selectedPlace || updatingLocation}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#facc15] px-6 py-3 text-sm font-bold text-zinc-900 transition-colors hover:bg-[#eab308] disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#facc15] px-6 py-3 text-sm font-bold text-zinc-900 transition-colors hover:bg-[#eab308] disabled:opacity-60 sm:w-auto"
           >
             {updatingLocation ? <RefreshCcw size={16} className="animate-spin" /> : <Save size={16} />}
             {updatingLocation ? "Updating..." : "Update Location"}

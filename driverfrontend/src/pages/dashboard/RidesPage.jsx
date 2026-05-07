@@ -26,7 +26,7 @@ const RideCard = ({ ride, isDark, acceptingRideId, onAccept }) => {
   const accepting = acceptingRideId === ride.id;
 
   return (
-    <article className={`rounded-2xl border p-5 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
+    <article className={`rounded-2xl border p-4 sm:p-5 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -157,7 +157,7 @@ const RidesPage = () => {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? "text-zinc-500" : "text-slate-400"}`}>Requests</p>
-          <h1 className={`mt-1 font-display text-3xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Ride Requests</h1>
+          <h1 className={`mt-1 font-display text-2xl font-bold sm:text-3xl ${isDark ? "text-white" : "text-slate-900"}`}>Ride Requests</h1>
           <p className={`mt-1 text-sm ${isDark ? "text-zinc-500" : "text-slate-500"}`}>
             Only requests near your saved service location will come here.
           </p>
@@ -168,7 +168,7 @@ const RidesPage = () => {
       </div>
 
       {requestsLocked ? (
-        <div className={`rounded-2xl border p-5 ${isDark ? "border-amber-400/25 bg-amber-400/10" : "border-amber-200 bg-amber-50"}`}>
+        <div className={`rounded-2xl border p-4 sm:p-5 ${isDark ? "border-amber-400/25 bg-amber-400/10" : "border-amber-200 bg-amber-50"}`}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 gap-3">
               <AlertCircle className={`mt-0.5 h-5 w-5 shrink-0 ${isDark ? "text-amber-300" : "text-amber-700"}`} />
@@ -181,7 +181,7 @@ const RidesPage = () => {
                 </p>
               </div>
             </div>
-            <Link to={gateTarget} className={`w-fit rounded-xl px-4 py-2 text-sm font-bold ${isDark ? "bg-zinc-950 text-amber-200" : "bg-white text-amber-800 shadow-sm"}`}>
+            <Link to={gateTarget} className={`w-full rounded-xl px-4 py-2 text-center text-sm font-bold sm:w-fit ${isDark ? "bg-zinc-950 text-amber-200" : "bg-white text-amber-800 shadow-sm"}`}>
               {setupStatus.canSetLocation ? "Set Location" : "Complete Setup"}
             </Link>
           </div>
@@ -194,7 +194,7 @@ const RidesPage = () => {
           Loading ride requests...
         </div>
       ) : rideRequests.length === 0 ? (
-        <div className={`rounded-2xl border p-16 text-center ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
+        <div className={`rounded-2xl border p-8 text-center sm:p-16 ${isDark ? "bg-zinc-900 border-zinc-800/60" : "bg-white border-slate-200 shadow-sm"}`}>
           <Zap size={32} className={`mx-auto mb-4 ${isDark ? "text-zinc-600" : "text-slate-300"}`} />
           <p className={`text-base font-semibold ${isDark ? "text-zinc-400" : "text-slate-600"}`}>
             {requestsLocked ? "Requests unlock after setup" : "No ride requests right now"}
