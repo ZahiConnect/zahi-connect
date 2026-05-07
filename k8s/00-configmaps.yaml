@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shared-env
+data:
+  ALGORITHM: "HS256"
+  DB_HOST: "db"
+  DB_PORT: "5432"
+  DB_NAME: "zahi_connect_db"
+  DB_USER: "postgres"
+  REDIS_URL: "redis://redis:6379/0"
+  DEBUG: "False"
+  CLOUDINARY_CLOUD_NAME: "replace-with-cloudinary-cloud-name"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: accounts-env
+data:
+  ACCESS_TOKEN_EXPIRE_MINUTES: "1000"
+  REFRESH_TOKEN_EXPIRE_DAYS: "7"
+  EMAIL_HOST: "smtp.gmail.com"
+  EMAIL_PORT: "587"
+  FRONTEND_APP_URL: "https://zahi-connect.vercel.app"
+  AUTH_COOKIE_SECURE: "True"
+  AUTH_COOKIE_SAMESITE: "None"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-service-env
+data:
+  AWS_REGION: "ap-south-1"
+  CHROMA_HOST: "chromadb"
+  CHROMA_PORT: "8000"
+  RESTAURANT_SERVICE_URL: "http://restaurant:8003"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: shared-secrets
+type: Opaque
+stringData:
+  SECRET_KEY: "replace-with-production-secret-key"
+  DB_PASSWORD: "replace-with-postgres-password"
+  CLOUDINARY_API_KEY: "replace-with-cloudinary-api-key"
+  CLOUDINARY_API_SECRET: "replace-with-cloudinary-api-secret"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: accounts-secrets
+type: Opaque
+stringData:
+  EMAIL_HOST_USER: "replace-with-email-user"
+  EMAIL_HOST_PASSWORD: "replace-with-email-password"
+  RAZORPAY_KEY_ID: "replace-with-razorpay-key-id"
+  RAZORPAY_KEY_SECRET: "replace-with-razorpay-key-secret"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: booking-secrets
+type: Opaque
+stringData:
+  RAZORPAY_KEY_ID: "replace-with-razorpay-key-id"
+  RAZORPAY_KEY_SECRET: "replace-with-razorpay-key-secret"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ai-service-secrets
+type: Opaque
+stringData:
+  GROQ_API_KEY: "replace-with-groq-api-key"
+  GEMINI_API_KEY: "replace-with-gemini-api-key"
+  BACKUP_GEMINI_KEY: "replace-with-backup-gemini-key"
+  BACKUP_GEMINI_KEYS2: "replace-with-comma-separated-backup-gemini-keys"
+  AWS_ACCESS_KEY_ID: "replace-with-aws-access-key-id"
+  AWS_SECRET_ACCESS_KEY: "replace-with-aws-secret-access-key"

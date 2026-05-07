@@ -101,7 +101,7 @@ class WhatsAppRestaurantAgent:
                 return f"No food found matching '{query}'."
             
             # Format the output nicely so the LLM can give the link
-            return f"Found items: {result}. When you reply to the user, give them the link format: http://127.0.0.1:5274/restaurants/<slug>?focus=<id>&add=1"
+            return f"Found items: {result}. When you reply to the user, give them the link format: https://zahi-connect.vercel.app/restaurants/<slug>?focus=<id>&add=1"
         except Exception as e:
             print(f"[SQL ERROR]: {e}")
             return "Error searching for food."
@@ -137,7 +137,7 @@ class WhatsAppRestaurantAgent:
             if not result or result == "[]" or result == "[(None,)]":
                 return f"No hotels found matching '{query}' in that location."
             
-            return f"Found hotels: {result}. When you reply to the user, give them the link format: http://127.0.0.1:5274/hotels/<slug>"
+            return f"Found hotels: {result}. When you reply to the user, give them the link format: https://zahi-connect.vercel.app/hotels/<slug>"
         except Exception as e:
             print(f"[SQL ERROR]: {e}")
             return "Error searching for hotels."
@@ -168,7 +168,7 @@ class WhatsAppRestaurantAgent:
             if not result or result == "[]" or result == "[(None,)]":
                 return f"No cabs found currently available in that location."
             
-            return f"Found cabs: {result}. When you reply, give them the link format: http://127.0.0.1:5274/cabs"
+            return f"Found cabs: {result}. When you reply, give them the link format: https://zahi-connect.vercel.app/cabs"
         except Exception as e:
             print(f"[SQL ERROR]: {e}")
             return "Error searching for cabs."
@@ -200,7 +200,7 @@ class WhatsAppRestaurantAgent:
             if not result or result == "[]" or result == "[(None,)]":
                 return f"No flights found matching that route."
             
-            return f"Found flights: {result}. When you reply, give them the link format: http://127.0.0.1:5274/flights"
+            return f"Found flights: {result}. When you reply, give them the link format: https://zahi-connect.vercel.app/flights"
         except Exception as e:
             print(f"[SQL ERROR]: {e}")
             return "Error searching for flights."
@@ -251,10 +251,10 @@ class WhatsAppRestaurantAgent:
               2. For Food/Hotels: Do you know their city/area OR their GPS coordinates? If NO, ask them.
               3. For Flights: Do you know the destination? If NO, ask them.
               4. ONLY when you have the required location/destination, use the appropriate tool (`search_food`, `search_hotels`, `search_cabs`, `search_flights`), passing their query and location/GPS.
-            - When you find food, give the link: http://127.0.0.1:5274/restaurants/<slug>?focus=<id>&add=1
-            - When you find a hotel, give the link: http://127.0.0.1:5274/hotels/<slug>
-            - When you find a cab, give the link: http://127.0.0.1:5274/cabs
-            - When you find a flight, give the link: http://127.0.0.1:5274/flights
+            - When you find food, give the link: https://zahi-connect.vercel.app/restaurants/<slug>?focus=<id>&add=1
+            - When you find a hotel, give the link: https://zahi-connect.vercel.app/hotels/<slug>
+            - When you find a cab, give the link: https://zahi-connect.vercel.app/cabs
+            - When you find a flight, give the link: https://zahi-connect.vercel.app/flights
             - If the search results indicate 'available_rooms', explicitly tell the user how many rooms are currently available!
             - If the search results indicate 'distance_km', explicitly tell the user how many km away it is.
             - Keep your tone friendly, human-like, and use emojis!

@@ -17,15 +17,15 @@ spec:
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-accounts:latest
         ports:
         - containerPort: 8001
-        env:
-        - name: DB_PORT
-          value: "5432"
-        - name: AUTH_COOKIE_SECURE
-          value: "True"
-        - name: AUTH_COOKIE_SAMESITE
-          value: "None"
-        - name: FRONTEND_APP_URL
-          value: "https://zahi-connect.vercel.app"
+        envFrom:
+        - configMapRef:
+            name: shared-env
+        - secretRef:
+            name: shared-secrets
+        - configMapRef:
+            name: accounts-env
+        - secretRef:
+            name: accounts-secrets
 ---
 apiVersion: v1
 kind: Service
@@ -58,9 +58,11 @@ spec:
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-hotel:latest
         ports:
         - containerPort: 8002
-        env:
-        - name: DB_PORT
-          value: "5432"
+        envFrom:
+        - configMapRef:
+            name: shared-env
+        - secretRef:
+            name: shared-secrets
 ---
 apiVersion: v1
 kind: Service
@@ -93,9 +95,11 @@ spec:
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-restaurant:latest
         ports:
         - containerPort: 8003
-        env:
-        - name: DB_PORT
-          value: "5432"
+        envFrom:
+        - configMapRef:
+            name: shared-env
+        - secretRef:
+            name: shared-secrets
 ---
 apiVersion: v1
 kind: Service
@@ -128,9 +132,11 @@ spec:
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-mobility:latest
         ports:
         - containerPort: 8004
-        env:
-        - name: DB_PORT
-          value: "5432"
+        envFrom:
+        - configMapRef:
+            name: shared-env
+        - secretRef:
+            name: shared-secrets
 ---
 apiVersion: v1
 kind: Service
@@ -163,9 +169,11 @@ spec:
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-flight:latest
         ports:
         - containerPort: 8002
-        env:
-        - name: DB_PORT
-          value: "5432"
+        envFrom:
+        - configMapRef:
+            name: shared-env
+        - secretRef:
+            name: shared-secrets
 ---
 apiVersion: v1
 kind: Service
@@ -198,15 +206,20 @@ spec:
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-ai-service:latest
         ports:
         - containerPort: 8006
-        env:
-        - name: DB_PORT
-          value: "5432"
+        envFrom:
+        - configMapRef:
+            name: shared-env
+        - secretRef:
+            name: shared-secrets
+        - configMapRef:
+            name: ai-service-env
+        - secretRef:
+            name: ai-service-secrets
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: ai-service
-  # Using ai-service to match K8s requirements
 spec:
   selector:
     app: ai-service
@@ -234,9 +247,16 @@ spec:
         image: 679513307492.dkr.ecr.ap-south-1.amazonaws.com/zahi-booking:latest
         ports:
         - containerPort: 8008
-        env:
-        - name: DB_PORT
-          value: "5432"
+        envFrom:
+        - configMapRef:
+            name: shared-env
+        - secretRef:
+            name: shared-secrets
+        - configMapRef:
+            name: booking-env
+            optional: true
+        - secretRef:
+            name: booking-secrets
 ---
 apiVersion: v1
 kind: Service
