@@ -11,6 +11,7 @@ import {
 } from "react-router-dom";
 import { CarFront, LogOut, Menu, X } from "lucide-react";
 
+import ZahiLogo from "./components/ZahiLogo";
 import { useAuth } from "./context/AuthContext";
 import DashboardShell from "./pages/dashboard/DashboardShell";
 import OverviewPage from "./pages/dashboard/OverviewPage";
@@ -26,7 +27,12 @@ import RegisterPage from "./pages/auth/RegisterPage";
 const LoadingSplash = () => (
   <div className="flex min-h-screen items-center justify-center px-4">
     <div className="drive-panel w-full max-w-md rounded-[32px] px-8 py-12 text-center fade-in border border-slate-200">
-      <div className="mx-auto w-16 h-16 bg-[#facc15] text-[#422006] flex items-center justify-center rounded-2xl mb-6 shadow-sm"><CarFront size={32}/></div>
+      <ZahiLogo
+        className="justify-center"
+        label="Zahi Drive"
+        markClassName="h-16 w-16 rounded-2xl shadow-sm"
+        labelClassName="text-sm font-extrabold uppercase tracking-[0.24em] text-amber-600"
+      />
       <h1 className="font-display mt-4 text-3xl font-bold tracking-tight text-zinc-900">Initializing Command Center</h1>
       <div className="mx-auto mt-8 h-1.5 w-48 overflow-hidden rounded-full bg-slate-100">
         <div className="h-full w-1/2 animate-pulse rounded-full bg-zinc-800" />
@@ -66,15 +72,13 @@ const Header = () => {
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200 shadow-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <Link to="/" className="flex items-center gap-3 group">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#facc15] text-[#422006] transition-transform group-hover:scale-105 shadow-sm">
-            <CarFront size={20} strokeWidth={2.5}/>
-          </div>
-          <div>
-            <p className="font-display font-bold text-xl leading-none tracking-tight text-zinc-900">Zahi Drive</p>
-            <p className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-400">
-              Operations
-            </p>
-          </div>
+          <ZahiLogo
+            label="Zahi Drive"
+            tagline="Operations"
+            markClassName="h-10 w-10 rounded-xl shadow-sm transition-transform group-hover:scale-105"
+            labelClassName="font-display text-xl font-bold tracking-tight text-zinc-900"
+            taglineClassName="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-400"
+          />
         </Link>
 
         <nav className="hidden items-center gap-2 lg:flex">

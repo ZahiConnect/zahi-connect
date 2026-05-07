@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import { buildSessionUser } from "../../lib/authSession";
 import { clearPurchaseIntent, getPurchaseIntent } from "../../lib/purchaseIntent";
 import { getHomeRouteForUser } from "../../lib/workspace";
+import ZahiLogo from "../../components/ZahiLogo";
 
 const verificationHighlights = [
   { label: "Secure sign in", value: "Your workspace opens after email verification." },
@@ -165,17 +166,17 @@ const VerifyOtp = () => {
       >
         <motion.div variants={fadeUp} custom={0.02} className="relative z-10 flex items-center gap-3">
           <motion.div
-            className="w-10 h-10 rounded-lg bg-[#1A1A1A] flex items-center justify-center shadow-sm"
+            className="inline-flex"
             initial={{ rotate: -8, scale: 0.9, opacity: 0 }}
             animate={{ rotate: 0, scale: 1, opacity: 1 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             whileHover={{ y: -2, rotate: -4 }}
           >
-            <span className="text-xl font-bold text-white font-serif">Z</span>
+            <ZahiLogo
+              markClassName="h-10 w-10 rounded-lg shadow-sm"
+              labelClassName="text-2xl font-serif font-bold tracking-tight text-[#1A1A1A]"
+            />
           </motion.div>
-          <h1 className="text-2xl font-serif font-bold tracking-tight text-[#1A1A1A]">
-            Zahi Connect
-          </h1>
         </motion.div>
 
         <div className="relative z-10 max-w-lg mb-16">
@@ -228,16 +229,16 @@ const VerifyOtp = () => {
             className="flex lg:hidden items-center justify-center gap-3 mb-8"
           >
             <motion.div
-              className="w-10 h-10 rounded-lg bg-[#1A1A1A] flex items-center justify-center shadow-sm"
+              className="inline-flex"
               initial={{ rotate: -8, scale: 0.9, opacity: 0 }}
               animate={{ rotate: 0, scale: 1, opacity: 1 }}
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             >
-              <span className="text-xl font-bold font-serif text-white">Z</span>
+              <ZahiLogo
+                markClassName="h-10 w-10 rounded-lg shadow-sm"
+                labelClassName="text-2xl font-serif font-bold tracking-tight text-[#1A1A1A]"
+              />
             </motion.div>
-            <h1 className="text-2xl font-serif font-bold tracking-tight text-[#1A1A1A]">
-              Zahi Connect
-            </h1>
           </motion.div>
 
           <motion.div variants={fadeUp} custom={0.14} className="text-center lg:text-left">

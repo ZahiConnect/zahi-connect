@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FiArrowLeft } from "react-icons/fi";
+import ZahiLogo from "../../components/ZahiLogo";
 
 const stagger = {
   hidden: {},
@@ -29,10 +30,10 @@ const AuthShell = ({ children, footer }) => (
       {/* Logo & back */}
       <motion.div variants={fadeUp} className="flex items-center justify-between mb-10">
         <Link to="/" className="inline-flex items-center gap-3 group">
-          <div className="w-11 h-11 bg-gray-900 text-white rounded-2xl flex items-center justify-center font-extrabold text-lg shadow-lg shadow-gray-900/10 group-hover:scale-105 transition-transform">
-            Z
-          </div>
-          <span className="text-xl font-extrabold tracking-tight text-gray-900">Zahi</span>
+          <ZahiLogo
+            label="Zahi"
+            markClassName="h-11 w-11 rounded-2xl shadow-lg shadow-gray-900/10 transition-transform group-hover:scale-105"
+          />
         </Link>
         <Link
           to="/login"

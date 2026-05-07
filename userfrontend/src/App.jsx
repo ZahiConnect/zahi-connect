@@ -6,6 +6,7 @@ import { MdOutlineHotel, MdOutlineRestaurant, MdOutlineLocalTaxi, MdOutlineFligh
 
 import { DesktopAccountMenu, MobileAccountPanel, ThemeToggleButton } from "./components/AccountMenu";
 import LocationPicker from "./components/LocationPicker";
+import ZahiLogo from "./components/ZahiLogo";
 import { useAuth } from "./context/AuthContext";
 import ActivityPage from "./pages/ActivityPage";
 import CabDriverSelectionPage from "./pages/CabDriverSelectionPage";
@@ -33,7 +34,12 @@ const navItems = [
 const LoadingSplash = () => (
   <div className="flex min-h-screen items-center justify-center px-4">
     <div className="glass-panel w-full max-w-md rounded-[36px] px-8 py-12 text-center fade-in">
-      <p className="text-xs uppercase tracking-[0.32em] text-orange-600">Zahi Trips</p>
+      <ZahiLogo
+        className="justify-center"
+        label="Zahi Trips"
+        markClassName="h-14 w-14 rounded-2xl shadow-lg"
+        labelClassName="text-xs font-extrabold uppercase tracking-[0.32em] text-orange-600"
+      />
       <h1 className="font-display mt-4 text-5xl text-gray-900">Getting everything ready for you&hellip;</h1>
       <div className="mx-auto mt-8 h-2 w-44 overflow-hidden rounded-full bg-[#f1dcc4]">
         <div className="h-full w-1/2 animate-pulse rounded-full bg-[#d66a2f]" />
@@ -92,10 +98,11 @@ const Header = () => {
           {/* Logo & Location */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-gray-900 text-white rounded-xl flex items-center justify-center font-bold text-xl shadow-md group-hover:scale-105 transition-transform">
-                Z
-              </div>
-              <span className="font-extrabold text-2xl tracking-tight text-gray-900">Zahi</span>
+              <ZahiLogo
+                label="Zahi"
+                markClassName="h-10 w-10 rounded-xl shadow-md transition-transform group-hover:scale-105"
+                labelClassName="text-2xl font-extrabold tracking-tight text-gray-900"
+              />
             </Link>
             <div className="hidden sm:block w-px h-6 bg-gray-200"></div>
             <div className="hidden sm:block"><LocationBadge /></div>

@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import toast from "react-hot-toast";
+import ZahiLogo from "../../components/ZahiLogo";
 import { useAuth } from "../../context/AuthContext";
 import { DashboardProvider, useDashboard } from "../../context/DashboardContext";
 import mobilityService from "../../services/mobilityService";
@@ -37,13 +38,14 @@ const Sidebar = ({ onClose }) => {
     <div className={`flex h-full w-64 flex-col ${isDark ? "bg-zinc-950 border-r border-zinc-800" : "bg-white border-r border-slate-200"}`}>
       {/* Logo area */}
       <div className={`flex items-center gap-3 px-5 py-5 border-b ${isDark ? "border-zinc-800/60" : "border-slate-100"}`}>
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#facc15] text-[#422006] flex-shrink-0">
-          <CarFront size={20} strokeWidth={2.5} />
-        </div>
-        <div className="min-w-0">
-          <p className={`text-base font-bold leading-none ${isDark ? "text-white" : "text-slate-900"}`}>Zahi Drive</p>
-          <p className={`mt-0.5 text-[10px] font-bold uppercase tracking-widest ${isDark ? "text-amber-400" : "text-amber-600"}`}>Driver Portal</p>
-        </div>
+        <ZahiLogo
+          label="Zahi Drive"
+          tagline="Driver Portal"
+          markVariant={isDark ? "light" : "dark"}
+          markClassName="h-10 w-10 rounded-xl"
+          labelClassName={`text-base font-bold ${isDark ? "text-white" : "text-slate-900"}`}
+          taglineClassName={`mt-0.5 text-[10px] font-bold uppercase tracking-widest ${isDark ? "text-amber-400" : "text-amber-600"}`}
+        />
         {onClose && (
           <button onClick={onClose} className={`ml-auto ${isDark ? "text-zinc-500 hover:text-white" : "text-slate-400 hover:text-slate-900"} lg:hidden`}>
             <X size={18} />
@@ -153,10 +155,12 @@ const DashboardShellInner = () => {
               <Menu size={18} />
             </button>
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-xl bg-[#facc15] flex items-center justify-center shadow-lg shadow-amber-500/20">
-                <CarFront size={16} className="text-[#422006]" strokeWidth={2.5} />
-              </div>
-              <p className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Zahi Drive</p>
+              <ZahiLogo
+                label="Zahi Drive"
+                markVariant={isDark ? "light" : "dark"}
+                markClassName="h-8 w-8 rounded-xl shadow-lg shadow-amber-500/20"
+                labelClassName={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}
+              />
             </div>
           </div>
 

@@ -24,6 +24,7 @@ import {
 } from "react-icons/md";
 
 import api from "../../lib/axios";
+import ZahiLogo from "../../components/ZahiLogo";
 import { useAuth } from "../../context/AuthContext";
 
 const page = {
@@ -130,10 +131,12 @@ const LoginPage = () => {
           <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(249,115,22,0.20),transparent_34%,rgba(14,165,233,0.16)_72%,rgba(16,185,129,0.14))]" />
           <div className="relative flex items-center justify-between">
             <Link to="/" className="inline-flex items-center gap-3">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-lg font-extrabold text-gray-950 shadow-xl">
-                Z
-              </span>
-              <span className="text-2xl font-extrabold tracking-tight">Zahi</span>
+              <ZahiLogo
+                label="Zahi"
+                markVariant="light"
+                markClassName="h-12 w-12 rounded-2xl shadow-xl"
+                labelClassName="text-2xl font-extrabold tracking-tight text-white"
+              />
             </Link>
             <Link
               to="/hotels"
@@ -202,10 +205,11 @@ const LoginPage = () => {
         <motion.section variants={fadeUp} className="mx-auto w-full max-w-[500px]">
           <div className="mb-8 flex items-center justify-between lg:hidden">
             <Link to="/" className="inline-flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-950 text-lg font-extrabold text-white shadow-lg">
-                Z
-              </span>
-              <span className="text-xl font-extrabold text-gray-950">Zahi</span>
+              <ZahiLogo
+                label="Zahi"
+                markClassName="h-11 w-11 rounded-2xl shadow-lg"
+                labelClassName="text-xl font-extrabold text-gray-950"
+              />
             </Link>
             <Link to="/hotels" className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-500">
               Browse

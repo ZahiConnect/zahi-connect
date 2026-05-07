@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { CarFront } from "lucide-react";
+import ZahiLogo from "../../components/ZahiLogo";
 
 const AuthShell = ({ eyebrow, title, description, footer, children }) => (
   <div className="flex h-screen overflow-hidden bg-white">
@@ -11,15 +11,14 @@ const AuthShell = ({ eyebrow, title, description, footer, children }) => (
       {/* Absolute Logo Top Left */}
       <div className="absolute top-12 left-12 lg:top-16 lg:left-16 z-20">
         <Link to="/" className="inline-flex items-center gap-3 group">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#facc15] text-[#422006] shadow-lg group-hover:scale-105 transition-transform">
-            <CarFront strokeWidth={2.5} size={24} />
-          </div>
-          <div>
-            <p className="font-display text-2xl font-bold tracking-tight leading-none text-white">Zahi Drive</p>
-            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-[#facc15]">
-              Authorised Access
-            </p>
-          </div>
+          <ZahiLogo
+            label="Zahi Drive"
+            tagline="Authorised Access"
+            markVariant="light"
+            markClassName="h-12 w-12 rounded-xl shadow-lg transition-transform group-hover:scale-105"
+            labelClassName="font-display text-2xl font-bold tracking-tight text-white"
+            taglineClassName="mt-1 text-[10px] font-bold uppercase tracking-widest text-[#facc15]"
+          />
         </Link>
       </div>
 
@@ -41,7 +40,7 @@ const AuthShell = ({ eyebrow, title, description, footer, children }) => (
     <div className="relative flex flex-1 flex-col justify-start px-4 py-16 sm:px-6 lg:flex-none lg:w-1/2 lg:px-20 xl:px-24 overflow-y-auto">
       <div className="absolute top-4 left-4 lg:hidden">
         <Link to="/" className="inline-flex items-center justify-center p-3 rounded-full bg-slate-50 text-slate-800 hover:bg-slate-100">
-           <CarFront size={20} />
+           <img src={`${import.meta.env.BASE_URL}black_logo.png`} alt="Zahi Drive" className="h-5 w-5 rounded-md object-cover" />
         </Link>
       </div>
       <div className="mx-auto w-full max-w-md">

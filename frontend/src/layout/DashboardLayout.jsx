@@ -6,6 +6,7 @@ import api from "../lib/axios";
 import { clearPurchaseIntent } from "../lib/purchaseIntent";
 import { getWorkspaceLabel } from "../lib/workspace";
 import RestaurantAssistantDrawer from "../components/assistant/RestaurantAssistantDrawer";
+import ZahiLogo from "../components/ZahiLogo";
 
 import {
   HiOutlineArrowUp,
@@ -149,12 +150,10 @@ const DashboardLayout = () => {
         }`}
       >
         <div className="p-6 shrink-0 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 flex items-center justify-center font-serif text-2xl text-[#1A1A1A]">
-              z
-            </div>
-            <h1 className="text-xl font-serif text-[#1A1A1A] tracking-tight">Zahi Connect</h1>
-          </div>
+          <ZahiLogo
+            markClassName="h-8 w-8 rounded-lg"
+            labelClassName="text-xl font-serif text-[#1A1A1A] tracking-tight"
+          />
           <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden text-[#666666] hover:text-[#1A1A1A]"

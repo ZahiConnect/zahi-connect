@@ -11,6 +11,7 @@ import toast from "react-hot-toast";
 import { buildSessionUser } from "../../lib/authSession";
 import { clearPurchaseIntent, getPurchaseIntent } from "../../lib/purchaseIntent";
 import { getHomeRouteForUser } from "../../lib/workspace";
+import ZahiLogo from "../../components/ZahiLogo";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -118,12 +119,10 @@ const Login = () => {
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative overflow-hidden bg-[#F2F0ED] border-r border-[#E5E5E5]">
         
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[#1A1A1A] flex items-center justify-center shadow-sm">
-            <span className="text-xl font-bold text-white font-serif">Z</span>
-          </div>
-          <h1 className="text-2xl font-serif font-bold tracking-tight text-[#1A1A1A]">
-            Zahi Connect
-          </h1>
+          <ZahiLogo
+            markClassName="h-10 w-10 rounded-lg shadow-sm"
+            labelClassName="text-2xl font-serif font-bold tracking-tight text-[#1A1A1A]"
+          />
         </div>
 
         <div className="relative z-10 max-w-lg mb-16">
@@ -157,12 +156,10 @@ const Login = () => {
           
           {/* Mobile Logo */}
           <div className="flex lg:hidden items-center justify-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-lg bg-[#1A1A1A] flex items-center justify-center shadow-sm">
-              <span className="text-xl font-bold font-serif text-white">Z</span>
-            </div>
-            <h1 className="text-2xl font-serif font-bold tracking-tight text-[#1A1A1A]">
-              Zahi Connect
-            </h1>
+            <ZahiLogo
+              markClassName="h-10 w-10 rounded-lg shadow-sm"
+              labelClassName="text-2xl font-serif font-bold tracking-tight text-[#1A1A1A]"
+            />
           </div>
 
           <div className="text-center lg:text-left">

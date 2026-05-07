@@ -10,6 +10,7 @@ import {
 } from "react-icons/fi";
 import toast from "react-hot-toast";
 import SubscriptionDialog from "../../components/SubscriptionDialog";
+import ZahiLogo from "../../components/ZahiLogo";
 import { clearPurchaseIntent, getPurchaseIntent, rememberPurchaseIntent } from "../../lib/purchaseIntent";
 import { getHomeRouteForUser, hasMultipleWorkspaces, hasWorkspaceAccess } from "../../lib/workspace";
 import subscriptionService from "../../services/subscriptionService";
@@ -226,15 +227,17 @@ const LandingPage = () => {
       >
         <div className="max-w-7xl mx-auto px-5 sm:px-8 h-[68px] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <motion.div
+            <motion.span
               whileHover={{ rotate: [0, -8, 8, 0], scale: 1.05 }}
               transition={{ duration: 0.4 }}
-              className="w-9 h-9 rounded-xl bg-gray-900 flex items-center justify-center text-white font-bold text-lg cursor-pointer"
-            >Z</motion.div>
-            <div>
-              <p className="font-extrabold text-[15px] leading-none tracking-tight text-gray-900">Zahi Connect</p>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-gray-400 mt-0.5">Business Portal</p>
-            </div>
+              className="cursor-pointer"
+            >
+              <ZahiLogo
+                tagline="Business Portal"
+                markClassName="h-9 w-9 rounded-xl"
+                labelClassName="text-[15px] font-extrabold tracking-tight text-gray-900"
+              />
+            </motion.span>
           </div>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -758,8 +761,10 @@ const LandingPage = () => {
       >
         <div className="max-w-7xl mx-auto px-5 sm:px-8 py-12 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center text-white font-bold text-sm">Z</div>
-            <p className="text-[14px] font-bold text-gray-900">Zahi Connect</p>
+            <ZahiLogo
+              markClassName="h-8 w-8 rounded-lg"
+              labelClassName="text-[14px] font-bold text-gray-900"
+            />
           </div>
           <p className="text-[13px] text-gray-400 font-medium">© {new Date().getFullYear()} Zahi Connect. All rights reserved.</p>
           <div className="flex gap-6">
