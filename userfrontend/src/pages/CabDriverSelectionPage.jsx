@@ -12,7 +12,6 @@ import {
   FiUsers,
   FiX,
 } from "react-icons/fi";
-import { MdOutlineLocalTaxi } from "react-icons/md";
 import toast from "react-hot-toast";
 
 import { useAuth } from "../context/AuthContext";
@@ -42,6 +41,18 @@ const sortNearbyDrivers = (items = []) =>
 const vehiclePhotosFrom = (vehicle = {}) => {
   const photos = Array.isArray(vehicle.photo_urls) ? vehicle.photo_urls : [];
   return [...new Set([vehicle.photo_url, ...photos].filter(Boolean))];
+};
+
+const driverInitialsFrom = (driver = {}) => {
+  const source = driver.full_name || driver.email || "Zahi Driver";
+  const initials = source
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+  return initials || "ZD";
 };
 
 const VehiclePhotoPreview = ({ photos, title, onOpen }) => {
@@ -241,6 +252,7 @@ const CabDriverSelectionPage = () => {
             const vehicle = driver.vehicle || {};
             const photos = vehiclePhotosFrom(vehicle);
             const vehicleTitle = vehicle.vehicle_name || "Vehicle";
+            const driverName = driver.full_name || "Zahi Driver";
             const selecting = selectingDriverId === driver.id;
 
             return (
@@ -254,19 +266,21 @@ const CabDriverSelectionPage = () => {
                 <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
                   <div className="min-w-0">
                     <div className="flex min-w-0 gap-4">
-                      {photos[0] ? (
-                        <img src={photos[0]} alt={vehicleTitle} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
-                      ) : driver.profile_photo_url ? (
-                        <img src={driver.profile_photo_url} alt={driver.full_name || "Driver"} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
-                    ) : (
-                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
-                        <MdOutlineLocalTaxi className="text-3xl" />
-                      </div>
-                    )}
+                      {driver.profile_photo_url ? (
+                        <img
+                          src={driver.profile_photo_url}
+                          alt={`${driverName} profile`}
+                          className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-sm font-black uppercase tracking-widest text-orange-600">
+                          {driverInitialsFrom(driver)}
+                        </div>
+                      )}
 
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="text-xl font-black text-gray-900">{driver.full_name || "Zahi Driver"}</h2>
+                          <h2 className="text-xl font-black text-gray-900">{driverName}</h2>
                           {index === 0 ? (
                             <span className="rounded-full bg-green-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-green-700">Nearest</span>
                           ) : null}

@@ -70,6 +70,18 @@ const sortNearbyDrivers = (items = []) =>
     return ratingB - ratingA;
   });
 
+const driverInitialsFrom = (driver = {}) => {
+  const source = driver.full_name || driver.email || "Zahi Driver";
+  const initials = source
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+  return initials || "ZD";
+};
+
 const formatTripDistance = (value) => {
   const distance = Number(value);
   if (!Number.isFinite(distance)) return "Select route";
@@ -561,6 +573,7 @@ const CabsPage = () => {
                     {nearbyDrivers.slice(0, 5).map((item, index) => {
                       const driver = item.driver || {};
                       const vehicle = driver.vehicle || {};
+                      const driverName = driver.full_name || "Zahi Driver";
 
                       return (
                         <article
@@ -569,21 +582,21 @@ const CabsPage = () => {
                         >
                           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex min-w-0 gap-3">
-                              {vehicle.photo_url ? (
+                              {driver.profile_photo_url ? (
                                 <img
-                                  src={vehicle.photo_url}
-                                  alt={vehicle.vehicle_name || "Cab"}
+                                  src={driver.profile_photo_url}
+                                  alt={`${driverName} profile`}
                                   className="h-14 w-14 rounded-2xl object-cover"
                                 />
                               ) : (
-                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
-                                  <MdOutlineLocalTaxi className="text-2xl" />
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-xs font-black uppercase tracking-widest text-orange-600">
+                                  {driverInitialsFrom(driver)}
                                 </div>
                               )}
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="font-black text-gray-900">
-                                    {driver.full_name || "Zahi Driver"}
+                                    {driverName}
                                   </p>
                                   {index === 0 ? (
                                     <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-green-700">
